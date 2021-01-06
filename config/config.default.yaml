@@ -1,0 +1,21 @@
+mem:
+  normal_mem_per_core_gb: 9
+  big_mem_per_core_gb: 36
+tmp_dir: tmp
+raws: 
+  Contigs: ""
+  Alignment_metagenomics: ""
+sample: test
+outputdir: "test"
+db_path: "../db"
+binning:
+  binny:
+    pk: 10
+    nn: 4
+  vizbin:
+    dimension: 50
+    kmer: 5
+    size: 4
+    theta: 0.5
+    perp: 30
+    cutoff: 1000
