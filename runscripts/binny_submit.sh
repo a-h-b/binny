@@ -92,7 +92,7 @@ fi
 START_TIME=`date +%s`
 NAMEHASH=`echo $START_TIME| cksum | awk '{print $1}'`
 if [ -z "$JNAME" ]; then
-    JNAME="IMP3_${NAMEHASH}"
+    JNAME="binny_${NAMEHASH}"
 else
     JNAME="${JNAME}_${NAMEHASH}"
 fi

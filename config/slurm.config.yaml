@@ -1,0 +1,18 @@
+__default__: 
+  call: "sbatch"
+  nodes: ""
+  partition: "-p batch"
+  qos: "--qos normal"
+  mem_per_cpu: "--mem-per-cpu "  
+  runtime: "-t "
+  threads: "-n "
+
+vizbin:
+  partition: "-p bigmem"
+
+binny:
+  partition: "-p bigmem"
+
+call_contig_depth:
+  partition: "-p bighmem"
+

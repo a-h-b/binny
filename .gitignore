@@ -1,3 +1,7 @@
 conda/
 .*
+database/
+binny_*
+binny
+test*
 !.gitignore

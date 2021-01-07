@@ -10,7 +10,7 @@ from copy import deepcopy
 import subprocess
 import pandas as pd
 from pathlib import Path
-
+import urllib.request
 
 def open_output(filename):
     return(open(OUTPUTDIR+'/'+filename, 'w+'))
@@ -27,20 +27,34 @@ SRCDIR = srcdir("workflow/scripts")
 BINDIR = srcdir("workflow/bin")
 ENVDIR = srcdir("workflow/envs")
 
-# get parameters from the command line
+# get parameters from the config file
 # output
-OUTPUTDIR = config['outputdir']
+if os.path.isabs(os.path.expandvars(config['outputdir'])):
+    OUTPUTDIR = os.path.expandvars(config['outputdir'])
+else:
+    OUTPUTDIR = os.getcwd() + "/" + os.path.expandvars(config['outputdir'])
 
 # input
-CONTIGS = config['raws']['Contigs']
-MGaln = config['raws']['Alignment_metagenomics']
+if os.path.isabs(os.path.expandvars(config['raws']['Contigs'])):
+    CONTIGS = os.path.expandvars(config['raws']['Contigs'])
+else:
+    CONTIGS = os.getcwd() + "/" + os.path.expandvars(config['raws']['Contigs'])
+if os.path.isabs(os.path.expandvars(config['raws']['Alignment_metagenomics'])):
+    MGaln = os.path.expandvars(config['raws']['Alignment_metagenomics'])
+else:
+    MGaln = os.getcwd() + "/" + os.path.expandvars(config['raws']['Alignment_metagenomics'])
+
+
 SAMPLE = config['sample']
 if SAMPLE == "":
     SAMPLE = "_".join(OUTPUTDIR.split("/")[-2:])
 SAMPLE = re.sub("_+","_",re.sub("[;|.-]","_",SAMPLE))
 DBPATH = os.path.expandvars(config['db_path'])
+if not os.path.isabs(DBPATH):
+    DBPATH = os.getcwd() + "/" + DBPATH
 if not os.path.exists(DBPATH):
     os.makedirs(DBPATH)
+    urllib.request.urlretrieve("https://webdav-r3lab.uni.lu/public/R3lab/IMP/essential.hmm", DBPATH + "/essential.hmm")    
 
 # hardware parameters
 MEMCORE = str(config['mem']['normal_mem_per_core_gb']) + "G"
@@ -95,7 +109,7 @@ rule ALL:
 
 yaml.add_representer(OrderedDict, lambda dumper, data: dumper.represent_mapping('tag:yaml.org,2002:map', data.items()))
 yaml.add_representer(tuple, lambda dumper, data: dumper.represent_sequence('tag:yaml.org,2002:seq', data))
-##yaml.dump(config, open_output('binny.config.yaml'), allow_unicode=True,default_flow_style=False)
+yaml.dump(config, open_output('binny.config.yaml'), allow_unicode=True,default_flow_style=False)
 
 
 rule prepare_input_data:
@@ -106,10 +120,9 @@ rule prepare_input_data:
         "intermediary/assembly.fa",
         "reads.sorted.bam"
     threads: 1
-    params:
+    resources:
         runtime = "4:00:00",
-        mem = "--mem-per-cpu " + MEMCORE,
-        partition = "-p batch --qos qos-batch"
+        mem = MEMCORE,
     message: "Preparing input."
     run:
         prepare_input_files(input, output)
@@ -120,10 +133,9 @@ rule format_assembly:
     output:
         "assembly.fa"
     threads: 1
-    params:
+    resources:
         runtime = "4:00:00",
-        mem = "--mem-per-cpu " + MEMCORE,
-        partition = "-p batch --qos qos-batch"
+        mem = MEMCORE,
     message: "Preparing assembly."
     conda: ENVDIR + "/IMP_fasta.yaml"
     shell:
@@ -132,12 +144,13 @@ rule format_assembly:
 # contig depth
 rule call_contig_depth:
     input:
-        "reads.sorted.bam"
+        "reads.sorted.bam",
+        "assembly.fa"
     output:
         "intermediary/assembly.contig_depth.txt"
-    params:
+    resources:
         runtime = "12:00:00",
-        mem = MEMCORE
+        mem = BIGMEMCORE
     threads: 1
     conda: ENVDIR + "/IMP_mapping.yaml"
     log: "logs/analysis_call_contig_depth.log"
@@ -146,11 +159,11 @@ rule call_contig_depth:
         """
         echo "Running BEDTools for average depth in each position" >> {log}
         TMP_DEPTH=$(mktemp --tmpdir={TMPDIR} -t "depth_file_XXXXXX.txt")
-        genomeCoverageBed -ibam {input} | grep -v "genome" > $TMP_DEPTH
+        genomeCoverageBed -ibam {input[0]} | grep -v "genome" > $TMP_DEPTH
         echo "Depth calculation done" >> {log}
 
         ## This method of depth calculation was adapted and modified from the CONCOCT code
-        perl {SRCDIR}/calcAvgCoverage.pl $TMP_DEPTH {input} >{output}	
+        perl {SRCDIR}/calcAvgCoverage.pl $TMP_DEPTH {input[1]} > {output}	
         echo "Remove the temporary file" >> {log}
         rm $TMP_DEPTH
         """
@@ -158,8 +171,7 @@ rule call_contig_depth:
 #gene calling
 rule annotate:
     input:
-        'assembly.fa',
-        expand("{path}/hmm/essential", path=DBPATH)
+        'assembly.fa'
     output:
         "intermediary/annotation.filt.gff",
         "intermediary/prokka.faa",
@@ -167,7 +179,7 @@ rule annotate:
         "intermediary/prokka.ffn",
         "intermediary/prokka.fsa",
     threads: 8
-    params:
+    resources:
         runtime = "8:00:00",
         mem = MEMCORE
     log: "logs/analysis_annotate.log"
@@ -198,7 +210,7 @@ rule cut_rRNA:
     output:
         "intermediary/assembly.cut.fa"
     log: "logs/binning_cut_rRNA.log"
-    params:
+    resources:
         runtime = "12:00:00",
         mem = MEMCORE
     threads: 1
@@ -210,14 +222,16 @@ rule cut_rRNA:
         {SRCDIR}/fastaExtractCutRibosomal1000.pl -f {input[0]} -g {input[1]} -l {log} -o {output} -c {config[binning][vizbin][cutoff]}
         """
 
+
 # essential genes
 rule hmmer_essential:
     input:
-        "intermediary/prokka.faa"
+        "intermediary/prokka.faa",
     output:
         "intermediary/prokka.faa.essential.hmmscan"
     params: 
-        dbs = DBPATH + "/hmm/essential",
+        dbs = DBPATH 
+    resources:
         runtime = "48:00:00",
         mem = MEMCORE
     conda: ENVDIR + "/IMP_annotation.yaml"
@@ -226,8 +240,11 @@ rule hmmer_essential:
     message: "hmmer: Running HMMER for essential."
     shell:
         """
-         hmmsearch --cpu {threads} --cut_tc --noali --notextw \
-          --tblout {output} {params.dbs}/*.hmm {input} >/dev/null 2> {log}
+        if [ ! -f {DBPATH}/essential.hmm.h3i ]; then
+          hmmpress {DBPATH}/essential.hmm 2>> {log}
+        fi
+        hmmsearch --cpu {threads} --cut_tc --noali --notextw \
+          --tblout {output} {params.dbs}/*.hmm {input} >/dev/null 2>> {log}
         """
 
 rule makegff:
@@ -237,7 +254,7 @@ rule makegff:
         "intermediary/prokka.faa"
     output:
         "intermediary/annotation.CDS.RNA.essential.gff"
-    params:
+    resources:
         runtime = "4:00:00",
         mem = MEMCORE
     threads: 1
@@ -257,7 +274,7 @@ rule mergegff:
         "intermediary/annotation.CDS.RNA.essential.gff"
     output:
         "intermediary/annotation_CDS_RNA_hmms.gff"
-    params:
+    resources:
         runtime = "8:00:00",
         mem = MEMCORE
     conda: ENVDIR + "/IMP_annotation.yaml"
@@ -276,10 +293,11 @@ rule vizbin:
         "intermediary/assembly.cut.fa"
     output:
         "vizbin.with-contig-names.points"
-    params:
+    resources:
         runtime = "24:00:00",
         mem = BIGMEMCORE
     threads: 1
+    conda: ENVDIR + "/IMP_annotation.yaml"
     log: "logs/binning_vizbin.log"
     message: "vizbin: Running VizBin."
     shell:
@@ -330,7 +348,8 @@ rule binny:
         intermediary/clusteringWS.{pk}.{nn}.Rdata".split(),pk=config["binning"]["binny"]["pk"],nn=config["binning"]["binny"]["nn"])
     params:
         plot_functions = SRCDIR + "/IMP_plot_binny_functions.R",
-        binnydir="intermediary/",
+        binnydir="intermediary/"
+    resources:
         runtime = "24:00:00",
         mem = BIGMEMCORE
     threads: 1
@@ -349,9 +368,10 @@ rule tar_binny_files:
         "contigs2bin.tsv",
         "finalClusterMap.png"
     threads: 1
-    params:
+    resources:
         runtime = "8:00:00",
-        mem = MEMCORE,
+        mem = MEMCORE
+    params:
         intermediary = "intermediary/"
     log: "logs/binning_tar_binny_files.log"
     message: "tar_binny_files: Compressing intermediary files from binny."

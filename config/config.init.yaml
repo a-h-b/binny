@@ -6,7 +6,7 @@ raws:
   Contigs: "test/assembly.fasta"
   Alignment_metagenomics: "test/mg.reads.sorted.bam"
 sample: test
-outputdir: "test_output4"
+outputdir: "binny_initialized"
 db_path: "database"
 binning:
   binny:

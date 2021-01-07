@@ -13,7 +13,10 @@ libs <- paste0(Sys.getenv("CONDA_PREFIX"),"/lib/R/library")
 .libPaths(libs)
 #.libPaths()
 print("Loading required R libraries")
-library(genomeIntervals)
+if(!require(genomeIntervals)){
+  BiocManager::install("GenomeInfoDbData",update=F,ask=F)
+  require(genomeIntervals)
+}
 library(ggplot2)
 library(gtools)
 library(gtable)

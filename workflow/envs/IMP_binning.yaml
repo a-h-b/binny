@@ -2,7 +2,10 @@ name: IMP_binning
 channels:
   - bioconda
   - conda-forge
+  - conda-forge/label/cf201901
+  - bioconda/label/cf201901
   - defaults
+  - r
 dependencies:
   - _libgcc_mutex=0.1=main
   - _r-mutex=1.0.1=anacondar_1
@@ -23,9 +26,9 @@ dependencies:
   - bowtie2=2.3.5=py37he860b03_0
   - bwidget=1.9.13=0
   - bzip2=1.0.8=h516909a_1
-  - ca-certificates=2020.1.1=0
+  - ca-certificates=2020.12.5=ha878542_0
   - cairo=1.16.0=h18b612c_1001
-  - certifi=2019.11.28=py37_1
+  - certifi=2020.12.5=py37h89c1867_1
   - curl=7.65.3=hf8cf82a_0
   - das_tool=1.1.1=r351_2
   - diamond=0.9.14=hd28b015_2
@@ -80,7 +83,7 @@ dependencies:
   - ncurses=6.1=hf484d3e_1002
   - nettle=3.4.1=h1bed415_1002
   - numpy=1.17.2=py37h95a1406_0
-  - openssl=1.1.1e=h7b6447c_0
+  - openssl=1.1.1i=h27cfd23_0
   - pango=1.40.14=he7ab937_1005
   - pcre=8.43=he1b5a44_0
   - perl=5.26.2=h516909a_1006
@@ -112,10 +115,12 @@ dependencies:
   - pthread-stubs=0.4=h14c3975_1001
   - pullseq=1.0.2=h84994c4_4
   - python=3.7.3=h33d41f4_1
+  - python_abi=3.7=1_cp37m
   - r-assertthat=0.2.1=r35h6115d3f_1
   - r-backports=1.1.5=r35hcdcec82_0
   - r-base=3.5.1=h08e1455_1008
   - r-beanplot=1.2=r35_1002
+  - r-biocmanager=1.30.10=r35h6115d3f_0
   - r-bitops=1.0_6=r35hcdcec82_1003
   - r-catools=1.17.1.1=r351h29659fb_0
   - r-class=7.3_15=r35hcdcec82_1001
@@ -210,4 +215,3 @@ dependencies:
   - yaml=0.1.7=h14c3975_1001
   - zlib=1.2.11=h516909a_1006
   - zstd=1.4.3=h3b9ef0a_0
-

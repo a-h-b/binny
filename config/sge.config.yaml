@@ -1,0 +1,17 @@
+__default__: 
+  call: "qsub -cwd"
+  nodes: ""
+  mem_per_cpu: "-l h_vmem="
+  partition: ""
+  runtime: "-l h_rt="
+  threads: "-pe smp "
+  qos: ""
+
+vizbin:
+  partition: "-l highmem"
+
+binny:
+  partition: "-l highmem"
+
+call_contig_depth:
+  partition: "-l highmem"
