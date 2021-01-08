@@ -134,7 +134,7 @@ rule format_assembly:
         "assembly.fa"
     threads: 1
     resources:
-        runtime = "4:00:00",
+        runtime = "2:00:00",
         mem = MEMCORE,
     message: "Preparing assembly."
     conda: ENVDIR + "/IMP_fasta.yaml"
@@ -149,7 +149,7 @@ rule call_contig_depth:
     output:
         "intermediary/assembly.contig_depth.txt"
     resources:
-        runtime = "12:00:00",
+        runtime = "4:00:00",
         mem = BIGMEMCORE
     threads: 1
     conda: ENVDIR + "/IMP_mapping.yaml"
@@ -211,7 +211,7 @@ rule cut_rRNA:
         "intermediary/assembly.cut.fa"
     log: "logs/binning_cut_rRNA.log"
     resources:
-        runtime = "12:00:00",
+        runtime = "2:00:00",
         mem = MEMCORE
     threads: 1
     conda: ENVDIR + "/IMP_annotation.yaml" 
@@ -232,7 +232,7 @@ rule hmmer_essential:
     params: 
         dbs = DBPATH 
     resources:
-        runtime = "48:00:00",
+        runtime = "8:00:00",
         mem = MEMCORE
     conda: ENVDIR + "/IMP_annotation.yaml"
     threads: 12
@@ -275,7 +275,7 @@ rule mergegff:
     output:
         "intermediary/annotation_CDS_RNA_hmms.gff"
     resources:
-        runtime = "8:00:00",
+        runtime = "2:00:00",
         mem = MEMCORE
     conda: ENVDIR + "/IMP_annotation.yaml"
     threads: 1
@@ -294,7 +294,7 @@ rule vizbin:
     output:
         "vizbin.with-contig-names.points"
     resources:
-        runtime = "24:00:00",
+        runtime = "12:00:00",
         mem = BIGMEMCORE
     threads: 1
     conda: ENVDIR + "/IMP_annotation.yaml"
@@ -350,7 +350,7 @@ rule binny:
         plot_functions = SRCDIR + "/IMP_plot_binny_functions.R",
         binnydir="intermediary/"
     resources:
-        runtime = "24:00:00",
+        runtime = "12:00:00",
         mem = BIGMEMCORE
     threads: 1
     conda: ENVDIR + "/IMP_binning.yaml" 
