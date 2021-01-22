@@ -46,6 +46,7 @@ if config['raws']['Contig_depth']:
     else:
         CONTIG_DEPTH = os.getcwd() + "/" + os.path.expandvars(config['raws']['Contig_depth'])
 else:
+    CONTIG_DEPTH = None
     if os.path.isabs(os.path.expandvars(config['raws']['Alignment_metagenomics'])):
         MGaln = os.path.expandvars(config['raws']['Alignment_metagenomics'])
     else:
