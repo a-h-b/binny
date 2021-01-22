@@ -17,7 +17,7 @@ def open_output(filename):
 
 # default executable for snakmake
 shell.executable("bash")
-   
+
 # default configuration file
 configfile:
     srcdir("config/config.default.yaml")
@@ -39,10 +39,17 @@ if os.path.isabs(os.path.expandvars(config['raws']['Contigs'])):
     CONTIGS = os.path.expandvars(config['raws']['Contigs'])
 else:
     CONTIGS = os.getcwd() + "/" + os.path.expandvars(config['raws']['Contigs'])
-if os.path.isabs(os.path.expandvars(config['raws']['Alignment_metagenomics'])):
-    MGaln = os.path.expandvars(config['raws']['Alignment_metagenomics'])
+# Added depth file par to us instead of alignment
+if config['raws']['Contig_depth']:
+    if os.path.isabs(os.path.expandvars(config['raws']['Contig_depth'])):
+        CONTIG_DEPTH = os.path.expandvars(config['raws']['Contig_depth'])
+    else:
+        CONTIG_DEPTH = os.getcwd() + "/" + os.path.expandvars(config['raws']['Contig_depth'])
 else:
-    MGaln = os.getcwd() + "/" + os.path.expandvars(config['raws']['Alignment_metagenomics'])
+    if os.path.isabs(os.path.expandvars(config['raws']['Alignment_metagenomics'])):
+        MGaln = os.path.expandvars(config['raws']['Alignment_metagenomics'])
+    else:
+        MGaln = os.getcwd() + "/" + os.path.expandvars(config['raws']['Alignment_metagenomics'])
 
 
 SAMPLE = config['sample']
@@ -54,7 +61,7 @@ if not os.path.isabs(DBPATH):
     DBPATH = os.getcwd() + "/" + DBPATH
 if not os.path.exists(DBPATH):
     os.makedirs(DBPATH)
-    urllib.request.urlretrieve("https://webdav-r3lab.uni.lu/public/R3lab/IMP/essential.hmm", DBPATH + "/essential.hmm")    
+    urllib.request.urlretrieve("https://webdav-r3lab.uni.lu/public/R3lab/IMP/essential.hmm", DBPATH + "/essential.hmm")
 
 # hardware parameters
 MEMCORE = str(config['mem']['normal_mem_per_core_gb']) + "G"
@@ -115,10 +122,10 @@ yaml.dump(config, open_output('binny.config.yaml'), allow_unicode=True,default_f
 rule prepare_input_data:
     input:
         CONTIGS,
-        MGaln
+        CONTIG_DEPTH if CONTIG_DEPTH else MGaln
     output:
         "intermediary/assembly.fa",
-        "reads.sorted.bam"
+        "intermediary/assembly.contig_depth.txt" if CONTIG_DEPTH else "reads.sorted.bam"
     threads: 1
     resources:
         runtime = "4:00:00",
@@ -139,35 +146,36 @@ rule format_assembly:
     message: "Preparing assembly."
     conda: ENVDIR + "/IMP_fasta.yaml"
     shell:
-       "fasta_formatter -i {input} -o {output} -w 80" 
+       "fasta_formatter -i {input} -o {output} -w 80"
 
 # contig depth
-rule call_contig_depth:
-    input:
-        "reads.sorted.bam",
-        "assembly.fa"
-    output:
-        "intermediary/assembly.contig_depth.txt"
-    resources:
-        runtime = "4:00:00",
-        mem = BIGMEMCORE
-    threads: 1
-    conda: ENVDIR + "/IMP_mapping.yaml"
-    log: "logs/analysis_call_contig_depth.log"
-    message: "call_contig_depth: Getting data on assembly coverage with mg reads."
-    shell:
-        """
-        echo "Running BEDTools for average depth in each position" >> {log}
-        TMP_DEPTH=$(mktemp --tmpdir={TMPDIR} -t "depth_file_XXXXXX.txt")
-        genomeCoverageBed -ibam {input[0]} | grep -v "genome" > $TMP_DEPTH
-        echo "Depth calculation done" >> {log}
+if not CONTIG_DEPTH:
+    rule call_contig_depth:
+        input:
+            "reads.sorted.bam",
+            "assembly.fa"
+        output:
+            "intermediary/assembly.contig_depth.txt"
+        resources:
+            runtime = "4:00:00",
+            mem = BIGMEMCORE
+        threads: 1
+        conda: ENVDIR + "/IMP_mapping.yaml"
+        log: "logs/analysis_call_contig_depth.log"
+        message: "call_contig_depth: Getting data on assembly coverage with mg reads."
+        shell:
+            """
+            echo "Running BEDTools for average depth in each position" >> {log}
+            TMP_DEPTH=$(mktemp --tmpdir={TMPDIR} -t "depth_file_XXXXXX.txt")
+            genomeCoverageBed -ibam {input[0]} | grep -v "genome" > $TMP_DEPTH
+            echo "Depth calculation done" >> {log}
 
-        ## This method of depth calculation was adapted and modified from the CONCOCT code
-        perl {SRCDIR}/calcAvgCoverage.pl $TMP_DEPTH {input[1]} > {output}	
-        echo "Remove the temporary file" >> {log}
-        rm $TMP_DEPTH
-        """
-        
+            ## This method of depth calculation was adapted and modified from the CONCOCT code
+            perl {SRCDIR}/calcAvgCoverage.pl $TMP_DEPTH {input[1]} > {output}
+            echo "Remove the temporary file" >> {log}
+            rm $TMP_DEPTH
+            """
+
 #gene calling
 rule annotate:
     input:
@@ -191,9 +199,9 @@ rule annotate:
         export LC_ALL=en_US.utf-8
         if [ ! -f $CONDA_PREFIX/db/hmm/HAMAP.hmm.h3m ]; then
           {BINDIR}/prokkaC --dbdir $CONDA_PREFIX/db --setupdb
-        fi 
+        fi
 	    {BINDIR}/prokkaC --dbdir $CONDA_PREFIX/db --force --outdir intermediary/ --prefix prokka --noanno --cpus {threads} --metagenome {input[0]} >> {log} 2>&1
-        
+
 	    # Prokka gives a gff file with a long header and with all the contigs at the bottom.  The command below removes the
         # And keeps only the gff table.
 
@@ -202,7 +210,7 @@ rule annotate:
         LN=$(($LN-$LN1))
         head -n $LN intermediary/prokka.gff | grep -v "^#" | sort | uniq | grep -v "^==" > {output[0]}
         """
-        
+
 rule cut_rRNA:
     input:
         "assembly.fa",
@@ -214,7 +222,7 @@ rule cut_rRNA:
         runtime = "2:00:00",
         mem = MEMCORE
     threads: 1
-    conda: ENVDIR + "/IMP_annotation.yaml" 
+    conda: ENVDIR + "/IMP_annotation.yaml"
     message: "cut_rRNA: Cutting contigs for vizbin."
     shell:
         """
@@ -229,8 +237,8 @@ rule hmmer_essential:
         "intermediary/prokka.faa",
     output:
         "intermediary/prokka.faa.essential.hmmscan"
-    params: 
-        dbs = DBPATH 
+    params:
+        dbs = DBPATH
     resources:
         runtime = "8:00:00",
         mem = MEMCORE
@@ -353,7 +361,7 @@ rule binny:
         runtime = "12:00:00",
         mem = BIGMEMCORE
     threads: 1
-    conda: ENVDIR + "/IMP_binning.yaml" 
+    conda: ENVDIR + "/IMP_binning.yaml"
     log: "logs/binning_binny.log"
     message: "binny: Running Binny."
     script:
