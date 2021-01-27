@@ -298,7 +298,7 @@ if(!"essential" %in% colnames(annot.1)){
       completeness <- round((uni/115)*100, digits = 0)
       purity <- round((uni/ess)*100, digits = 0)                      
       clusterRes$cluster[clusterRes$cluster == clus] <- gsub("C",
-                                                             paste('C', completeness, 'P', purity, sep = ''),
+                                                             paste('C', completeness, '_P', purity, '_', sep = ''),
                                                              clus)
       
       # if(uni>96&ess<115){
