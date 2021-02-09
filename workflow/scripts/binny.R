@@ -263,8 +263,8 @@ if(!"essential" %in% colnames(annot.1)){
     # save.image(paste0(binny_dir,"/binny_WS.Rdata"))
     
     #fourth iteration of clustering on clusters with more than 20% duplicated essential genes
-    ### - reachability estimates are based on nth nearest neighbour (independent of number of neighbouring points)
-    ### - neighbouring points are increased by 2 again
+    ### - reachability estimates are based on nth nearest neighbor (independent of number of neighbouring points)
+    ### - neighboring points are increased by 2 again
     pk6 <- pk + 6
     pdf(paste0(binny_dir,paste("/scatterPlots4",pk,nn,"pdf",sep=".")))
     clusterRes <- binny_iteration(pk4, cRes=clusterRes, cInfo=contigInfo, coco=coco, pk=pk, nn=nn, binny_dir=binny_dir, cluster_dir=cluster_dir)
@@ -275,31 +275,43 @@ if(!"essential" %in% colnames(annot.1)){
     ## Assignment of final names to clusters
     ###################################################################################################
     ### based on completeness, the C is replaced by:
-    #### "P": more than 96/107 essential genes, less than 115 essential genes in total (<8% duplicated genes, >90% complete)
-    #### "G": more than 70/107 essential genes (>66% complete), less than 20% in duplicate
-    #### "O": more than 53/107 essential genes (>50% complete), less than 20% in duplicate
-    #### "L": more than 35/107 essential genes (>33% complete), less than 20% in duplicate
+    #### T=Tier
+    #### "C90P92": more than 96/107 essential genes, less than 115 essential genes in total (<8% duplicated genes, >90% complete)
+    #### "C66P80": more than 70/107 essential genes (>66% complete), less than 20% in duplicate
+    #### "C50P80": more than 53/107 essential genes (>50% complete), less than 20% in duplicate
+    #### "C33P80": more than 35/107 essential genes (>33% complete), less than 20% in duplicate
+    #### "C15P80": more than 15/107 essential genes (>14% complete), less than 20% in duplicate
     ### which leaves: 
     #### "C": at least 1/107 essential genes (>= 1% complete), less than 20% in duplicate
     #### "E": no essential genes
     #### "B": at least 1/107 essential genes (>= 1% complete), at least 20% in duplicate
     #### "N": noise
-    for(clus in grep("C",unique(clusterRes$cluster),value=T)){ #iterate over all bins excep: overcomplete (B), void of essential genes (E), or noise (N)
+    for(clus in grep("C",unique(clusterRes$cluster),value=T)){ #iterate over all bins excep: overcomplete (B), 0void of essential genes (E), or noise (N)
       uni <- length(unique(unlist(sapply(contigInfo$essentialGene[contigInfo$essentialGene!="notEssential"&
                                                              clusterRes$cluster==clus],
                                   function(x) unlist(strsplit(x,split=";")))))) # number of different essential genes
       ess <- length(unlist(sapply(contigInfo$essentialGene[contigInfo$essentialGene!="notEssential"&
                                                                     clusterRes$cluster==clus],
                                          function(x) unlist(strsplit(x,split=";"))))) # number of all essential genes
-      if(uni>96&ess<115){
-        clusterRes$cluster[clusterRes$cluster == clus] <- gsub("C","P",clus)
-      } else if(uni>70){
-        clusterRes$cluster[clusterRes$cluster == clus] <- gsub("C","G",clus)
-      } else if(uni>53){
-        clusterRes$cluster[clusterRes$cluster == clus] <- gsub("C","O",clus)
-      } else if(uni>35){
-        clusterRes$cluster[clusterRes$cluster == clus] <- gsub("C","L",clus)
-      }
+      
+      # Name bins after completion and purity estimates
+      completeness <- round((uni/115)*100, digits = 0)
+      purity <- round((uni/ess)*100, digits = 0)                      
+      clusterRes$cluster[clusterRes$cluster == clus] <- gsub("C",
+                                                             paste('C', completeness, '_P', purity, '_', sep = ''),
+                                                             clus)
+      
+      # if(uni>96&ess<115){
+      #   clusterRes$cluster[clusterRes$cluster == clus] <- gsub("C","C90P92",clus)
+      # } else if(uni>70){
+      #   clusterRes$cluster[clusterRes$cluster == clus] <- gsub("C","C66P80",clus)
+      # } else if(uni>53){
+      #   clusterRes$cluster[clusterRes$cluster == clus] <- gsub("C","C50P80",clus)
+      # } else if(uni>35){
+      #   clusterRes$cluster[clusterRes$cluster == clus] <- gsub("C","C33P80",clus)
+      # } else if(uni>15){
+      #   clusterRes$cluster[clusterRes$cluster == clus] <- gsub("C","C15P80",clus)
+      # }
     }
     
     ###################################################################################################
