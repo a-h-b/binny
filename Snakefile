@@ -52,7 +52,6 @@ else:
     else:
         MGaln = os.getcwd() + "/" + os.path.expandvars(config['raws']['Alignment_metagenomics'])
 
-
 SAMPLE = config['sample']
 if SAMPLE == "":
     SAMPLE = "_".join(OUTPUTDIR.split("/")[-2:])
@@ -113,7 +112,9 @@ localrules: prepare_input_data, ALL, prepare_binny
 rule ALL:
     input:
         "intermediary.tar.gz",
-        "contigs2bin.tsv"
+        "contigs2bin.tsv",
+        directory("bins"),
+        "contigs2bin_filtered.tsv"
 
 yaml.add_representer(OrderedDict, lambda dumper, data: dumper.represent_mapping('tag:yaml.org,2002:map', data.items()))
 yaml.add_representer(tuple, lambda dumper, data: dumper.represent_sequence('tag:yaml.org,2002:seq', data))
@@ -389,4 +390,25 @@ rule tar_binny_files:
        cp {input[0]} {output[1]}
        cp {input[1]} {output[2]}
        tar cvzf {output[0]} {params.intermediary} >> {log} 2>&1 && rm -r {params.intermediary} >> {log} 2>&1
+       """
+
+rule filter_output:
+    input:
+        "assembly.fa",
+        "contigs2bin.tsv",
+        OUTPUTDIR,
+        config["binning"]["filtering"]["completeness"]),
+        config["binning"]["filtering"]["purity"])
+    output:
+        directory("bins"),
+        "contigs2bin_filtered.tsv"
+    threads: 1
+    resources:
+        runtime = "0:30:00",
+        mem = MEMCORE
+    log: "logs/filter_output.log"
+    message: "filtering output."
+    shell:
+       """
+       ./{SRCDIR}/filter_binny_output.py {input[0]} {input[1]} {input[2]} {input[3]} {input[4]}
        """

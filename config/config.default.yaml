@@ -20,3 +20,6 @@ binning:
     theta: 0.5
     perp: 30
     cutoff: 1000
+  filtering:
+    completeness: 25
+    purity: 90
