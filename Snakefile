@@ -63,9 +63,15 @@ if not os.path.exists(DBPATH):
     os.makedirs(DBPATH)
     urllib.request.urlretrieve("https://webdav-r3lab.uni.lu/public/R3lab/IMP/essential.hmm", DBPATH + "/essential.hmm")
 
+# Filer thresholds
+COMPLETENESS = str(config["binning"]["filtering"]["completeness"])
+PURITY = str(config["binning"]["filtering"]["purity"])
+
 # hardware parameters
 MEMCORE = str(config['mem']['normal_mem_per_core_gb']) + "G"
-BIGMEMCORE = str(config['mem']['big_mem_per_core_gb']) + "G"
+if config['mem']['big_mem_avail']:
+    BIGMEMCORE = str(config['mem']['big_mem_per_core_gb']) + "G"
+
 
 # temporary directory will be stored inside the OUTPUTDIR directory
 # unless a absolute path is set
@@ -113,7 +119,7 @@ rule ALL:
     input:
         "intermediary.tar.gz",
         "contigs2bin.tsv",
-        directory("bins"),
+        "bins/",
         "contigs2bin_filtered.tsv"
 
 yaml.add_representer(OrderedDict, lambda dumper, data: dumper.represent_mapping('tag:yaml.org,2002:map', data.items()))
@@ -131,7 +137,7 @@ rule prepare_input_data:
     threads: 1
     resources:
         runtime = "4:00:00",
-        mem = MEMCORE,
+        mem = MEMCORE
     message: "Preparing input."
     run:
         prepare_input_files(input, output)
@@ -144,7 +150,7 @@ rule format_assembly:
     threads: 1
     resources:
         runtime = "2:00:00",
-        mem = MEMCORE,
+        mem = MEMCORE
     message: "Preparing assembly."
     conda: ENVDIR + "/IMP_fasta.yaml"
     shell:
@@ -160,8 +166,8 @@ if not CONTIG_DEPTH:
             "intermediary/assembly.contig_depth.txt"
         resources:
             runtime = "4:00:00",
-            mem = BIGMEMCORE
-        threads: 1
+            mem = BIGMEMCORE if BIGMEMCORE else MEMCORE
+        threads: workflow.cores
         conda: ENVDIR + "/IMP_mapping.yaml"
         log: "logs/analysis_call_contig_depth.log"
         message: "call_contig_depth: Getting data on assembly coverage with mg reads."
@@ -188,7 +194,7 @@ rule annotate:
         "intermediary/prokka.fna",
         "intermediary/prokka.ffn",
         "intermediary/prokka.fsa",
-    threads: 8
+    threads: workflow.cores
     resources:
         runtime = "8:00:00",
         mem = MEMCORE
@@ -245,7 +251,7 @@ rule hmmer_essential:
         runtime = "8:00:00",
         mem = MEMCORE
     conda: ENVDIR + "/IMP_annotation.yaml"
-    threads: 12
+    threads: workflow.cores
     log: "logs/analysis_hmmer.essential.log"
     message: "hmmer: Running HMMER for essential."
     shell:
@@ -303,23 +309,26 @@ rule vizbin:
         "intermediary/assembly.cut.fa"
     output:
         "vizbin.with-contig-names.points"
+    params:
+        java_mem = int(BIGMEMCORE.strip('G')) * workflow.cores if BIGMEMCORE else int(MEMCORE.strip('G')) * workflow.cores
     resources:
         runtime = "12:00:00",
-        mem = BIGMEMCORE
-    threads: 1
+        mem = BIGMEMCORE if BIGMEMCORE else MEMCORE
+    threads: workflow.cores
     conda: ENVDIR + "/IMP_annotation.yaml"
     log: "logs/binning_vizbin.log"
     message: "vizbin: Running VizBin."
     shell:
         """
         TMP_VIZBIN=$(mktemp --tmpdir=intermediary -dt "VIZBIN_XXXXXX")
-        java -jar {BINDIR}/VizBin-dist.jar \
+        java -jar -Xmx{params[0]}G {BINDIR}/VizBin-dist.jar \
          -a {config[binning][vizbin][dimension]} \
          -c {config[binning][vizbin][cutoff]} \
          -i {input} \
          -o $TMP_VIZBIN/data.points \
          -k {config[binning][vizbin][kmer]} \
-         -p {config[binning][vizbin][perp]} > {log} 2>&1
+         -p {config[binning][vizbin][perp]} \
+         -t {threads} > {log} 2>&1
 
          if [ -f $TMP_VIZBIN/data.points ]
            then
@@ -361,8 +370,8 @@ rule binny:
         binnydir="intermediary/"
     resources:
         runtime = "12:00:00",
-        mem = BIGMEMCORE
-    threads: 1
+        mem = BIGMEMCORE if BIGMEMCORE else MEMCORE
+    threads: workflow.cores
     conda: ENVDIR + "/IMP_binning.yaml"
     log: "logs/binning_binny.log"
     message: "binny: Running Binny."
@@ -395,10 +404,7 @@ rule tar_binny_files:
 rule filter_output:
     input:
         "assembly.fa",
-        "contigs2bin.tsv",
-        OUTPUTDIR,
-        config["binning"]["filtering"]["completeness"]),
-        config["binning"]["filtering"]["purity"])
+        "contigs2bin.tsv"
     output:
         directory("bins"),
         "contigs2bin_filtered.tsv"
@@ -406,9 +412,12 @@ rule filter_output:
     resources:
         runtime = "0:30:00",
         mem = MEMCORE
+    params:
+        COMPLETENESS,
+        PURITY
     log: "logs/filter_output.log"
     message: "filtering output."
     shell:
        """
-       ./{SRCDIR}/filter_binny_output.py {input[0]} {input[1]} {input[2]} {input[3]} {input[4]}
+       /{SRCDIR}/filter_binny_output.py {input[0]} {input[1]} . {params[0]} {params[1]} >> {log} 2>&1
        """

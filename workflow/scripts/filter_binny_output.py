@@ -64,7 +64,7 @@ def filter_binny_out(assembly_dict, binny_out, binny_dir, min_c, min_p):
         Minimum estimated purity.
     Returns
     -------
-    Dict with headers as keys and sequences as list.
+    Filter binny output, selecting only bins that pass thresholds and wirte bin fastas as well as a filtered contig2bin file.
     """
     bin_data_dict = {}
     with open(binny_out) as f:
