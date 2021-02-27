@@ -28,6 +28,10 @@ BINDIR = srcdir("workflow/bin")
 ENVDIR = srcdir("workflow/envs")
 
 # get parameters from the config file
+
+#run_mode
+run_mode = config["binning"]["run_mode"]
+
 # output
 if os.path.isabs(os.path.expandvars(config['outputdir'])):
     OUTPUTDIR = os.path.expandvars(config['outputdir'])
@@ -71,6 +75,8 @@ PURITY = str(config["binning"]["filtering"]["purity"])
 MEMCORE = str(config['mem']['normal_mem_per_core_gb']) + "G"
 if config['mem']['big_mem_avail']:
     BIGMEMCORE = str(config['mem']['big_mem_per_core_gb']) + "G"
+else:
+    BIGMEMCORE = False
 
 
 # temporary directory will be stored inside the OUTPUTDIR directory
@@ -208,7 +214,7 @@ rule annotate:
         if [ ! -f $CONDA_PREFIX/db/hmm/HAMAP.hmm.h3m ]; then
           {BINDIR}/prokkaC --dbdir $CONDA_PREFIX/db --setupdb
         fi
-	    {BINDIR}/prokkaC --dbdir $CONDA_PREFIX/db --force --outdir intermediary/ --prefix prokka --noanno --cpus {threads} --metagenome {input[0]} >> {log} 2>&1
+	    {BINDIR}/prokkaC --mincontiglen {config[binning][vizbin][cutoff]} --dbdir $CONDA_PREFIX/db --force --outdir intermediary/ --prefix prokka --noanno --cpus {threads} --metagenome {input[0]} >> {log} 2>&1
 
 	    # Prokka gives a gff file with a long header and with all the contigs at the bottom.  The command below removes the
         # And keeps only the gff table.
@@ -350,74 +356,129 @@ rule prepare_binny:
        """
        mkdir -p {output} || echo "{output} exists"
        """
+if run_mode == 'r_binny':
+    rule binny:
+        input:
+           outdir="intermediary/clusterFiles",
+           mgdepth='intermediary/assembly.contig_depth.txt',
+           vizbin="vizbin.with-contig-names.points",
+           gff="intermediary/annotation_CDS_RNA_hmms.gff"
+        output:
+            expand("intermediary/reachabilityDistanceEstimates.{pk}.{nn}.tsv \
+            intermediary/clusterFirstScan.{pk}.{nn}.tsv \
+            intermediary/bimodalClusterCutoffs.{pk}.{nn}.tsv \
+            intermediary/contigs2clusters.{pk}.{nn}.tsv \
+            intermediary/contigs2clusters.{pk}.{nn}.RDS \
+            intermediary/finalClusterMap.{pk}.{nn}.png \
+            intermediary/clusteringWS.{pk}.{nn}.Rdata".split(),pk=config["binning"]["binny"]["pk"],nn=config["binning"]["binny"]["nn"])
+        params:
+            plot_functions = SRCDIR + "/IMP_plot_binny_functions.R",
+            binnydir="intermediary/"
+        resources:
+            runtime = "12:00:00",
+            mem = BIGMEMCORE if BIGMEMCORE else MEMCORE
+        threads: workflow.cores
+        conda: ENVDIR + "/IMP_binning.yaml"
+        log: "logs/binning_binny.log"
+        message: "binny: Running Binny."
+        script:
+            SRCDIR + "/binny.R"
 
-rule binny:
-    input:
-       outdir="intermediary/clusterFiles",
-       mgdepth='intermediary/assembly.contig_depth.txt',
-       vizbin="vizbin.with-contig-names.points",
-       gff="intermediary/annotation_CDS_RNA_hmms.gff"
-    output:
-        expand("intermediary/reachabilityDistanceEstimates.{pk}.{nn}.tsv \
-        intermediary/clusterFirstScan.{pk}.{nn}.tsv \
-        intermediary/bimodalClusterCutoffs.{pk}.{nn}.tsv \
-        intermediary/contigs2clusters.{pk}.{nn}.tsv \
-        intermediary/contigs2clusters.{pk}.{nn}.RDS \
-        intermediary/finalClusterMap.{pk}.{nn}.png \
-        intermediary/clusteringWS.{pk}.{nn}.Rdata".split(),pk=config["binning"]["binny"]["pk"],nn=config["binning"]["binny"]["nn"])
-    params:
-        plot_functions = SRCDIR + "/IMP_plot_binny_functions.R",
-        binnydir="intermediary/"
-    resources:
-        runtime = "12:00:00",
-        mem = BIGMEMCORE if BIGMEMCORE else MEMCORE
-    threads: workflow.cores
-    conda: ENVDIR + "/IMP_binning.yaml"
-    log: "logs/binning_binny.log"
-    message: "binny: Running Binny."
-    script:
-        SRCDIR + "/binny.R"
+    rule tar_binny_files:
+        input:
+            expand("intermediary/contigs2clusters.{pk}.{nn}.tsv \
+            intermediary/finalClusterMap.{pk}.{nn}.png".split(),pk=config["binning"]["binny"]["pk"],nn=config["binning"]["binny"]["nn"])
+        output:
+            "intermediary.tar.gz",
+            "contigs2bin.tsv",
+            "finalClusterMap.png"
+        threads: 1
+        resources:
+            runtime = "8:00:00",
+            mem = MEMCORE
+        params:
+            intermediary = "intermediary/"
+        log: "logs/binning_tar_binny_files.log"
+        message: "tar_binny_files: Compressing intermediary files from binny."
+        shell:
+           """
+           cp {input[0]} {output[1]}
+           cp {input[1]} {output[2]}
+           tar cvzf {output[0]} {params.intermediary} >> {log} 2>&1 && rm -r {params.intermediary} >> {log} 2>&1
+           """
 
-rule tar_binny_files:
-    input:
-        expand("intermediary/contigs2clusters.{pk}.{nn}.tsv \
-        intermediary/finalClusterMap.{pk}.{nn}.png".split(),pk=config["binning"]["binny"]["pk"],nn=config["binning"]["binny"]["nn"])
-    output:
-        "intermediary.tar.gz",
-        "contigs2bin.tsv",
-        "finalClusterMap.png"
-    threads: 1
-    resources:
-        runtime = "8:00:00",
-        mem = MEMCORE
-    params:
-        intermediary = "intermediary/"
-    log: "logs/binning_tar_binny_files.log"
-    message: "tar_binny_files: Compressing intermediary files from binny."
-    shell:
-       """
-       cp {input[0]} {output[1]}
-       cp {input[1]} {output[2]}
-       tar cvzf {output[0]} {params.intermediary} >> {log} 2>&1 && rm -r {params.intermediary} >> {log} 2>&1
-       """
+    rule filter_output:
+        input:
+            "assembly.fa",
+            "contigs2bin.tsv"
+        output:
+            directory("bins"),
+            "contigs2bin_filtered.tsv"
+        threads: 1
+        resources:
+            runtime = "0:30:00",
+            mem = MEMCORE
+        params:
+            COMPLETENESS,
+            PURITY
+        log: "logs/filter_output.log"
+        message: "filtering output."
+        shell:
+           """
+           /{SRCDIR}/filter_binny_output.py {input[0]} {input[1]} . {params[0]} {params[1]} >> {log} 2>&1
+           """
 
-rule filter_output:
-    input:
-        "assembly.fa",
-        "contigs2bin.tsv"
-    output:
-        directory("bins"),
-        "contigs2bin_filtered.tsv"
-    threads: 1
-    resources:
-        runtime = "0:30:00",
-        mem = MEMCORE
-    params:
-        COMPLETENESS,
-        PURITY
-    log: "logs/filter_output.log"
-    message: "filtering output."
-    shell:
-       """
-       /{SRCDIR}/filter_binny_output.py {input[0]} {input[1]} . {params[0]} {params[1]} >> {log} 2>&1
-       """
+elif run_mode == 'py_binny':
+    rule binny:
+        input:
+            outdir="intermediary/clusterFiles",
+            mgdepth='intermediary/assembly.contig_depth.txt',
+            vizbin="vizbin.with-contig-names.points",
+            gff="intermediary/annotation_CDS_RNA_hmms.gff",
+            assembly="assembly.fa",
+            completeness=COMPLETENESS,
+            purity=PURITY
+        output:
+            "contig_data.tsv",
+            expand(["dbscan_scatter_plot_pk{pk}.pdf",
+            "contigs2clusters_initial_pk{pk}.tsv",
+            "contigs2clusters_final_pk{pk}.tsv",
+            "final_scatter_plot_pk{pk}.pdf"], pk=config["binning"]["binny"]["pk"]),
+            directory("bins_no_filter"),
+            directory("bins")
+        params:
+            plot_functions = SRCDIR + "/binny_functions.py",
+            binnydir="intermediary/"
+        resources:
+            runtime = "12:00:00",
+            mem = BIGMEMCORE if BIGMEMCORE else MEMCORE
+        threads: workflow.cores
+        conda: ENVDIR + "/py_binny.yaml"
+        log: "logs/binning_binny.log"
+        message: "binny: Running Binny."
+        script:
+            SRCDIR + "/binny_main.py"
+
+    rule tar_binny_files:
+        input:
+            'bins_no_filter',
+            'assembly.fa',
+            'intermediary'
+        output:
+            "intermediary.zip",
+            "assembly.fa.zip",
+            "intermediary.zip"
+        threads: 1
+        resources:
+            runtime = "8:00:00",
+            mem = MEMCORE
+        params:
+            intermediary = "intermediary/"
+        log: "logs/binning_tar_binny_files.log"
+        message: "tar_binny_files: Compressing intermediary files from binny."
+        shell:
+           """
+           zip -rm {output[0]} {input[0]} >> {log} 2>&1
+           zip -m {output[1]} {input[1]} >> {log} 2>&1
+           zip -rm {output[2]} {input[2]} >> {log} 2>&1
+           """

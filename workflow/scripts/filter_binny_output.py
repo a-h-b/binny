@@ -81,7 +81,9 @@ def filter_binny_out(assembly_dict, binny_out, binny_dir, min_c, min_p):
                 completeness = int(binny_bin.split('_')[0].strip('C'))
                 purity = int(binny_bin.split('_')[1].strip('P'))
                 # Add contig/bin to dict, if it passes completeness and purity thresholds
-                if completeness >= min_c and purity >= min_p:
+                if completeness > 100 or purity > 100:
+                    print('Something is wrong with bin {0}. Completeness or purity over 100%'.format(binny_bin))
+                elif completeness >= min_c and purity >= min_p:
                     if not bin_data_dict.get(binny_bin):
                         bin_data_dict[binny_bin] = [contig]
                     else:

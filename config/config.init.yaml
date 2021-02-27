@@ -11,6 +11,7 @@ sample: test
 outputdir: "binny_initialized"
 db_path: "database"
 binning:
+  run_mode: 'py_binny' # r_binny or py_binny
   binny:
     pk: 10
     nn: 4
