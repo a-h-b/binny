@@ -68,7 +68,7 @@ def knn_vizbin_coords(contig_info_df, pk):
     # sort distance of neighbouring points
     skn = pd.Series(sorted([row[-1] for row in knn_c.kneighbors()[0]]))
     # calculate running standard deviation between 10 neighbouring points
-    sdkn = skn.rolling(10, center=True, min_periods=0).std() # defautl 10, Use pk here as well? ### ONE ADD VAL AT BEGINNING AND ONE LESS AT END COMPARED TO R CODE
+    sdkn = skn.rolling(10, center=True, min_periods=0).std()
     # find the first jump in distances at the higher end
     try:
         est = sorted([e for i, e in zip(sdkn, skn) if i > sdkn.quantile(.975) and e > skn.median()])[0]
@@ -212,7 +212,7 @@ def create_new_clusters(cluster, intervals, clust_dat):
     return new_clusters
 
 
-def get_sub_clusters(cluster, cluster_dict, pk, purity_threshold=0.8, alpha=0.001, threads=1):
+def get_sub_clusters(cluster, cluster_dict, threads_for_dbscan, purity_threshold=0.8, alpha=0.001):
     # Create dict with just cluster and sort again, to ensure order by depth is
     cluster_dict = sort_cluster_dict_data_by_depth({cluster: cluster_dict[cluster]})
     # All data needed stored in list with following order:
@@ -231,20 +231,21 @@ def get_sub_clusters(cluster, cluster_dict, pk, purity_threshold=0.8, alpha=0.00
                 return [new_clusters, cluster]
         print('Failed to find depth sub-bclusters for {0}. Trying with DBSCAN'.format(cluster))
         cluster_contig_df = contig_df_from_cluster_dict(cluster_dict)
-        while cluster_contig_df['contig'].size < pk and pk > 1:
-            pk -= 1
+        pk = cluster_contig_df['contig'].size - 1
+        # while cluster_contig_df['contig'].size < pk and pk > 1:
+        #     pk -= 1
         new_clusters_labels = [1]
         dbscan_tries = 0
         while len(set(new_clusters_labels)) == 1 and 1 <= pk < cluster_contig_df['contig'].size:
             dbscan_tries += 1
             cluster_est = knn_vizbin_coords(cluster_contig_df, pk)
             while not cluster_est and pk > 1:
-                pk -= 1
+                pk = int(pk * 0.75)
                 cluster_est = knn_vizbin_coords(cluster_contig_df, pk)
             if cluster_est and pk < cluster_contig_df['contig'].size:
                 df_vizbin_coords = cluster_contig_df.loc[:, ['x', 'y']].to_numpy(dtype=np.float64)
                 with parallel_backend('threading'):
-                    dbsc = DBSCAN(eps=cluster_est, min_samples=pk, n_jobs=threads).fit(df_vizbin_coords)
+                    dbsc = DBSCAN(eps=cluster_est, min_samples=pk, n_jobs=threads_for_dbscan).fit(df_vizbin_coords)
                 new_clusters_labels = dbsc.labels_
                 if len(set(new_clusters_labels)) > 1:
                     new_cluster_names = {item: cluster + '.' + str(index + 1) for index, item in
@@ -254,7 +255,7 @@ def get_sub_clusters(cluster, cluster_dict, pk, purity_threshold=0.8, alpha=0.00
                         len(set(new_clusters_labels)), set(new_clusters_labels), cluster, pk))
                     new_clusters = contig_df2cluster_dict(cluster_contig_df, new_clusters_labels)
                     return [new_clusters, cluster]
-                pk -= 1
+                pk = int(pk * 0.75)
             else:
                 print('Failed to find sub-bclusters for {0} with DBSCAN: Could not estimate reachability distance.'.format(cluster))
                 return
@@ -262,15 +263,20 @@ def get_sub_clusters(cluster, cluster_dict, pk, purity_threshold=0.8, alpha=0.00
         print('Cluster {0} meets purity threshold of {1} with {2}.'.format(cluster, purity_threshold, clust_dat[5]))
 
 
-def divide_clusters_by_depth(ds_clstr_dict, pk, threads):
+def divide_clusters_by_depth(ds_clstr_dict, threads):
     dict_cp = ds_clstr_dict.copy()
     n_tries = 0
     clusters_to_process = list(dict_cp.keys())
-    with Parallel(n_jobs=threads) as parallel:
+    # with Parallel(n_jobs=threads) as parallel:
+    inner_max_threads = int(threads/len(clusters_to_process))
+    if inner_max_threads < 1:
+        inner_max_threads = 1
+    with parallel_backend("loky", inner_max_num_threads=inner_max_threads):
         while n_tries < 100 and clusters_to_process:
             n_tries += 1
             print('Try: {0}'.format(n_tries))
-            sub_clstr_res = parallel(delayed(get_sub_clusters)(str(cluster), dict_cp, pk) for cluster in clusters_to_process)
+            sub_clstr_res = Parallel(n_jobs=len(clusters_to_process))(delayed(get_sub_clusters)(str(cluster), dict_cp, inner_max_threads)
+                                                                      for cluster in clusters_to_process)
             for output in sub_clstr_res:
                 if output:
                     print('Removing {0}.'.format(output[1]))
@@ -330,6 +336,25 @@ def load_fasta(fasta):
     return sequence_dict
 
 
+def shorten_cluster_names(cluster):
+    new_name = []
+    sub_clusters = cluster.split('.')
+    previous_sub_clstr = None
+    for index, sub_clstr in enumerate(sub_clusters):
+        if sub_clstr == previous_sub_clstr:
+            continue
+        previous_sub_clstr = sub_clstr
+        counter = 0
+        while index+counter+1 <= len(sub_clusters)-1 and sub_clstr == sub_clusters[index+counter+1]:
+            counter += 1
+        if counter > 0:
+            new_name.append(sub_clstr+'x'+str(counter+1))
+        else:
+            new_name.append(sub_clstr)
+    new_name = '.'.join(new_name)
+    return new_name
+
+
 def write_bins(cluster_dict, assembly, min_comp=25, min_pur=90, bin_dir='bins'):
     assembly_dict = load_fasta(assembly)
     # Create bin folder, if it doesnt exist.
@@ -346,8 +371,9 @@ def write_bins(cluster_dict, assembly, min_comp=25, min_pur=90, bin_dir='bins'):
             cluster_purity = 0
             cluster_completeness = 0
         if cluster_purity >= min_pur and cluster_completeness >= min_comp:
-            bin_name = '_'.join(['binny'] + ['C'+str(cluster_completeness)] + ['P'+str(cluster_purity)] + [cluster])
-            bin_file_name = 'binny_' + bin_name + '.fasta'
+            new_cluster_name = shorten_cluster_names(cluster)
+            bin_name = '_'.join(['binny'] + ['C'+str(cluster_completeness)] + ['P'+str(cluster_purity)] + [new_cluster_name])
+            bin_file_name = bin_name + '.fasta'
             bin_out_path = bin_dir / bin_file_name
             with open(bin_out_path, 'w') as out_file:
                 for contig in cluster_dict[cluster]['contigs']:

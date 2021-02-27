@@ -11,15 +11,15 @@ mg_depth_file = snakemake.input['mgdepth']
 assembly = snakemake.input['assembly']
 coords_file = snakemake.input['vizbin']
 annot_file = snakemake.input['gff']
-function_script = snakemake.params['plot_functions']
+functions = snakemake.params['plot_functions']
 pk = snakemake.config['binning']['binny']['pk']
 all_outputs = snakemake.output
-min_purity = snakemake.input['purity']
-min_completeness = snakemake.input['completeness']
+min_purity = snakemake.params['purity']
+min_completeness = snakemake.params['completeness']
 threads = snakemake.threads
 
 import sys
-sys.path.append(function_script)
+sys.path.append(functions)
 from binny_functions import *
 
 # Load data
@@ -42,7 +42,7 @@ first_clust_df.to_csv('contigs2clusters_initial_pk{0}.tsv'.format(pk), sep='\t',
 
 # Find sub-clusters
 print('Attempting to divide dbscan clusters by depth and/or sub-clusters by subsequent dbscan runs.')
-final_clust_dict = divide_clusters_by_depth(first_clust_dict, pk, threads)
+final_clust_dict = divide_clusters_by_depth(first_clust_dict, threads)
 final_clust_df = cluster_df_from_dict(final_clust_dict)
 final_clust_df.to_csv('contigs2clusters_final_pk{0}.tsv'.format(pk), sep='\t', index=False)
 

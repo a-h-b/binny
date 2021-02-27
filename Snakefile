@@ -121,12 +121,26 @@ def _process_file(fname, inp, outfilename):
 
 localrules: prepare_input_data, ALL, prepare_binny
 
-rule ALL:
-    input:
-        "intermediary.tar.gz",
-        "contigs2bin.tsv",
-        "bins/",
-        "contigs2bin_filtered.tsv"
+
+if run_mode == 'r_binny':
+    rule ALL:
+        input:
+            "intermediary.tar.gz",
+            "contigs2bin.tsv",
+            "bins/",
+            "contigs2bin_filtered.tsv"
+elif run_mode == 'py_binny':
+    rule ALL:
+        input:
+            "contig_data.tsv",
+            expand(["dbscan_scatter_plot_pk{pk}.pdf",
+            "contigs2clusters_initial_pk{pk}.tsv",
+            "contigs2clusters_final_pk{pk}.tsv",
+            "final_scatter_plot_pk{pk}.pdf"], pk=config["binning"]["binny"]["pk"]),
+            "bins/",
+            "bins_no_filter.zip",
+            "assembly.fa.zip",
+            "intermediary.zip"
 
 yaml.add_representer(OrderedDict, lambda dumper, data: dumper.represent_mapping('tag:yaml.org,2002:map', data.items()))
 yaml.add_representer(tuple, lambda dumper, data: dumper.represent_sequence('tag:yaml.org,2002:seq', data))
@@ -356,6 +370,7 @@ rule prepare_binny:
        """
        mkdir -p {output} || echo "{output} exists"
        """
+
 if run_mode == 'r_binny':
     rule binny:
         input:
@@ -380,7 +395,7 @@ if run_mode == 'r_binny':
         threads: workflow.cores
         conda: ENVDIR + "/IMP_binning.yaml"
         log: "logs/binning_binny.log"
-        message: "binny: Running Binny."
+        message: "binny: Running R Binny."
         script:
             SRCDIR + "/binny.R"
 
@@ -406,7 +421,6 @@ if run_mode == 'r_binny':
            cp {input[1]} {output[2]}
            tar cvzf {output[0]} {params.intermediary} >> {log} 2>&1 && rm -r {params.intermediary} >> {log} 2>&1
            """
-
     rule filter_output:
         input:
             "assembly.fa",
@@ -427,7 +441,6 @@ if run_mode == 'r_binny':
            """
            /{SRCDIR}/filter_binny_output.py {input[0]} {input[1]} . {params[0]} {params[1]} >> {log} 2>&1
            """
-
 elif run_mode == 'py_binny':
     rule binny:
         input:
@@ -436,8 +449,6 @@ elif run_mode == 'py_binny':
             vizbin="vizbin.with-contig-names.points",
             gff="intermediary/annotation_CDS_RNA_hmms.gff",
             assembly="assembly.fa",
-            completeness=COMPLETENESS,
-            purity=PURITY
         output:
             "contig_data.tsv",
             expand(["dbscan_scatter_plot_pk{pk}.pdf",
@@ -447,38 +458,41 @@ elif run_mode == 'py_binny':
             directory("bins_no_filter"),
             directory("bins")
         params:
-            plot_functions = SRCDIR + "/binny_functions.py",
-            binnydir="intermediary/"
+            py_functions = SRCDIR + "/binny_functions.py",
+            binnydir="intermediary/",
+            completeness=COMPLETENESS,
+            purity=PURITY
         resources:
             runtime = "12:00:00",
             mem = BIGMEMCORE if BIGMEMCORE else MEMCORE
         threads: workflow.cores
-        conda: ENVDIR + "/py_binny.yaml"
+        conda: ENVDIR + "/py_binny_linux.yaml"
         log: "logs/binning_binny.log"
-        message: "binny: Running Binny."
+        message: "binny: Running Python Binny."
         script:
             SRCDIR + "/binny_main.py"
-
-    rule tar_binny_files:
+    rule zip_output:
         input:
-            'bins_no_filter',
             'assembly.fa',
-            'intermediary'
+            "contig_data.tsv"
         output:
-            "intermediary.zip",
+            "bins_no_filter.zip",
             "assembly.fa.zip",
+            "contig_data.tsv.zip",
             "intermediary.zip"
         threads: 1
         resources:
             runtime = "8:00:00",
             mem = MEMCORE
         params:
-            intermediary = "intermediary/"
-        log: "logs/binning_tar_binny_files.log"
-        message: "tar_binny_files: Compressing intermediary files from binny."
+            intermediary = "intermediary/",
+            bins_no_filter = "bins_no_filter/"
+        log: "logs/zip_output.log"
+        message: "Compressing binny output."
         shell:
            """
-           zip -rm {output[0]} {input[0]} >> {log} 2>&1
-           zip -m {output[1]} {input[1]} >> {log} 2>&1
-           zip -rm {output[2]} {input[2]} >> {log} 2>&1
+           zip -rm {output[0]} {params.bins_no_filter} >> {log} 2>&1
+           zip -m {output[1]} {input[0]} >> {log} 2>&1
+           zip -m {output[2]} {input[1]} >> {log} 2>&1
+           zip -rm {output[3]} {params.intermediary} >> {log} 2>&1
            """
