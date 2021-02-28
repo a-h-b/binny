@@ -11,6 +11,7 @@ import pandas as pd
 import seaborn as sns
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.cluster import DBSCAN
+from sklearn.cluster import OPTICS
 from unidip import UniDip
 
 
@@ -84,7 +85,7 @@ def contig_df2cluster_dict(contig_info_df, dbscan_labels):
     contig_info_df['cluster'] = dbscan_labels
     tmp_contig_dict = contig_info_df.fillna('non_essential').set_index('contig').to_dict('index')
     for contig in tmp_contig_dict:
-        contig_cluster = str(tmp_contig_dict.get(contig, {}).get('cluster'))
+        contig_cluster = shorten_cluster_names(str(tmp_contig_dict.get(contig, {}).get('cluster')))
         contig_essential = tmp_contig_dict.get(contig, {}).get('essential')
         contig_depth = tmp_contig_dict.get(contig, {}).get('depth')
         contig_x = tmp_contig_dict.get(contig, {}).get('x')
@@ -105,17 +106,47 @@ def contig_df2cluster_dict(contig_info_df, dbscan_labels):
     return cluster_dict
 
 
-def dbscan_cluster(contig_data_df, pk, n_jobs):
+def dbscan_cluster(contig_data_df, pk=None, n_jobs=1):
+    if not pk:
+        pk = int(np.log(contig_data_df['contig'].size))
     # Get reachability distance estimate
     est = knn_vizbin_coords(contig_data_df, pk)
     # Run parallelized dbscan
     df_vizbin_coordinates = contig_data_df.loc[:, ['x', 'y']].to_numpy(dtype=np.float64)
-    print('Running dbscan.')
+    # print('Running dbscan.')
     with parallel_backend('threading'):
         dbsc = DBSCAN(eps=est, min_samples=pk, n_jobs=n_jobs).fit(df_vizbin_coordinates)
     cluster_labels = dbsc.labels_
     cluster_dict = contig_df2cluster_dict(contig_data_df, cluster_labels)
     return cluster_dict, cluster_labels
+
+
+def optics_cluster(contig_data_df, min_samples=None, include_depth=False, n_jobs=1):
+    if not include_depth:
+        dim_df = contig_data_df.loc[:, ['x', 'y']].to_numpy(dtype=np.float64)
+    else:
+        dim_df = contig_data_df.loc[:, ['x', 'y', 'depth']].to_numpy(dtype=np.float64)
+    if not min_samples:
+        min_samples = int(np.log(contig_data_df['contig'].size))
+    # print('Running OPTICS.')
+    clustering = OPTICS(min_samples=min_samples, n_jobs=n_jobs).fit(dim_df)
+    cluster_labels = clustering.labels_
+    cluster_dict = contig_df2cluster_dict(contig_data_df, cluster_labels)
+    return cluster_dict, cluster_labels
+
+
+def run_initial_scan(contig_data_df, initial_cluster_mode, dbscan_threads, pk=None):
+    if initial_cluster_mode == 'DBSCAN' or not initial_cluster_mode:
+        # Run parallelized dbscan
+        first_clust_dict, labels = dbscan_cluster(contig_data_df, pk=pk, n_jobs=dbscan_threads)
+
+    elif initial_cluster_mode == 'OPTICS':
+        # Run OPTICS
+        first_clust_dict, labels = optics_cluster(contig_data_df, include_depth=True)
+    # Write first scan to file
+    first_clust_df = cluster_df_from_dict(first_clust_dict)
+    first_clust_df.to_csv('contigs2clusters_initial.tsv', sep='\t', index=False)
+    return first_clust_dict, labels
 
 
 def cluster_df_from_dict(cluster_dict):
@@ -165,10 +196,10 @@ def sort_cluster_dict_data_by_depth(cluster_dict):
 def gather_cluster_data(cluster, cluster_dict):
     cluster_essential_genes = [gene for genes in cluster_dict.get(cluster, {}).get('essential')
                                for gene in genes.split(',') if not gene == 'non_essential' ]
-    cluster_unique_ssential_genes = set(cluster_essential_genes)
+    cluster_unique_essential_genes = set(cluster_essential_genes)
     if cluster_essential_genes:
-        cluster_purity = round(len(cluster_unique_ssential_genes) / len(cluster_essential_genes), 2)
-        cluster_completeness = round(len(cluster_unique_ssential_genes) / 115, 2)
+        cluster_purity = round(len(cluster_unique_essential_genes) / len(cluster_essential_genes), 2)
+        cluster_completeness = round(len(cluster_unique_essential_genes) / 115, 2)
     else:
         cluster_purity = 0
         cluster_completeness = 0
@@ -212,58 +243,100 @@ def create_new_clusters(cluster, intervals, clust_dat):
     return new_clusters
 
 
-def get_sub_clusters(cluster, cluster_dict, threads_for_dbscan, purity_threshold=0.8, alpha=0.001):
+def get_sub_clusters(cluster, cluster_dict, threads_for_dbscan, purity_threshold=0.9, alpha=0.001, pk=None, cluster_mode=None):
     # Create dict with just cluster and sort again, to ensure order by depth is
     cluster_dict = sort_cluster_dict_data_by_depth({cluster: cluster_dict[cluster]})
     # All data needed stored in list with following order:
     # 0:contigs, 1:genes, 2:depth, 3:x, 4:y, 5:purity, 6:completeness
     clust_dat = gather_cluster_data(cluster, cluster_dict)
     if clust_dat[5] < purity_threshold and isinstance(clust_dat[5], float):
-        print('Cluster {0} below purity threshold of {1} with {2}. Attempting to split.'.format(cluster, purity_threshold, clust_dat[5]))
+        print('Cluster {0} below purity threshold of {1} with {2}. Attempting to split.'.format(shorten_cluster_names(cluster), purity_threshold, clust_dat[5]))
         intervals = [1]
         while len(intervals) == 1 and alpha < 0.05:
             intervals = UniDip(clust_dat[2], alpha=alpha, ntrials=100, mrg_dst=1).run()
             alpha += 0.001
             if len(intervals) > 1:
-                print('Found {0} depth sub-clusters at {1} in cluster {2} with alpha of {3}'.format(
-                    len(intervals), intervals, cluster, alpha))
+                print('Found {0} depth sub-clusters in cluster {1} with alpha of {2}'.format(
+                    len(intervals), shorten_cluster_names(cluster), round(alpha, 3)))
                 new_clusters = create_new_clusters(cluster, intervals, clust_dat)
                 return [new_clusters, cluster]
-        print('Failed to find depth sub-bclusters for {0}. Trying with DBSCAN'.format(cluster))
+        print('Failed to find depth sub-bclusters for {0}'.format(shorten_cluster_names(cluster)))
+        # initialise some stuff
         cluster_contig_df = contig_df_from_cluster_dict(cluster_dict)
-        pk = cluster_contig_df['contig'].size - 1
-        # while cluster_contig_df['contig'].size < pk and pk > 1:
-        #     pk -= 1
+        if not pk:
+            pk = int(np.log(cluster_contig_df['contig'].size))
+            # if pk < 10 < int(np.log(cluster_contig_df['contig'].size)):
+            #     pk = 10
         new_clusters_labels = [1]
-        dbscan_tries = 0
-        while len(set(new_clusters_labels)) == 1 and 1 <= pk < cluster_contig_df['contig'].size:
-            dbscan_tries += 1
-            cluster_est = knn_vizbin_coords(cluster_contig_df, pk)
-            while not cluster_est and pk > 1:
+        if cluster_mode == 'DBSCAN' or not cluster_mode:
+            print('Trying with DBSCAN.')
+            while cluster_contig_df['contig'].size < pk and pk > 0:
                 pk = int(pk * 0.75)
+            dbscan_tries = 0
+            print('Working on {0}.'.format(shorten_cluster_names(cluster)))
+            while len(set(new_clusters_labels)) == 1 and 0 < pk < cluster_contig_df['contig'].size:
+                dbscan_tries += 1
                 cluster_est = knn_vizbin_coords(cluster_contig_df, pk)
-            if cluster_est and pk < cluster_contig_df['contig'].size:
-                df_vizbin_coords = cluster_contig_df.loc[:, ['x', 'y']].to_numpy(dtype=np.float64)
-                with parallel_backend('threading'):
-                    dbsc = DBSCAN(eps=cluster_est, min_samples=pk, n_jobs=threads_for_dbscan).fit(df_vizbin_coords)
-                new_clusters_labels = dbsc.labels_
+                while not cluster_est and pk > 0:
+                    pk = int(pk * 0.75)
+                    if pk > 0:
+                        cluster_est = knn_vizbin_coords(cluster_contig_df, pk)
+                if cluster_est and cluster_contig_df['contig'].size > pk > 0:
+                    df_vizbin_coords = cluster_contig_df.loc[:, ['x', 'y']].to_numpy(dtype=np.float64)
+                    with parallel_backend('threading'):
+                        dbsc = DBSCAN(eps=cluster_est, min_samples=pk, n_jobs=threads_for_dbscan).fit(df_vizbin_coords)
+                    new_clusters_labels = dbsc.labels_
+                    if len(set(new_clusters_labels)) > 1:
+                        new_cluster_names = {item: cluster + '.' + str(index + 1) for index, item in
+                                             enumerate(set(new_clusters_labels))}
+                        new_clusters_labels = [new_cluster_names[cluster] for cluster in new_clusters_labels]
+                        print('Found {0} sub-clusters in cluster {1} with pk of {2}'.format(
+                            len(set(new_clusters_labels)), cluster, pk))
+                        new_clusters = contig_df2cluster_dict(cluster_contig_df, new_clusters_labels)
+                        return [new_clusters, cluster]
+                    pk = int(pk * 0.75)
+                else:
+                    print('Failed to find sub-bclusters for {0} with DBSCAN: Could not estimate reachability distance.'.format(shorten_cluster_names(cluster)))
+                    return
+        elif cluster_mode == "OPTICS":
+            print('Trying with OPTICS.')
+            # Try with automatic pk first
+            min_samples = pk
+            optics_tries = 0
+            try_interval = 1
+            while len(set(new_clusters_labels)) == 1 and 0 < min_samples < cluster_contig_df['contig'].size and optics_tries <= 100:
+                if optics_tries == try_interval * 10:
+                    try_interval += 1
+                    min_samples = int(min_samples / 2)
+                    print('Currently at OPTICS try {0} with min samples of {1} for cluster {2}.'.format(optics_tries,
+                                                                                                               min_samples,
+                                                                                                               shorten_cluster_names(cluster)))
+                new_clusters_labels = optics_cluster(cluster_contig_df, min_samples=min_samples, include_depth=True,
+                                                     n_jobs=threads_for_dbscan)[1]
                 if len(set(new_clusters_labels)) > 1:
                     new_cluster_names = {item: cluster + '.' + str(index + 1) for index, item in
                                          enumerate(set(new_clusters_labels))}
                     new_clusters_labels = [new_cluster_names[cluster] for cluster in new_clusters_labels]
-                    print('Found {0} sub-clusters {1} in cluster {2} with pk of {3}'.format(
-                        len(set(new_clusters_labels)), set(new_clusters_labels), cluster, pk))
+                    print('Found {0} sub-clusters in cluster {1} with min samples of {2}'.format(
+                        len(set(new_clusters_labels)), cluster, min_samples))
                     new_clusters = contig_df2cluster_dict(cluster_contig_df, new_clusters_labels)
                     return [new_clusters, cluster]
-                pk = int(pk * 0.75)
-            else:
-                print('Failed to find sub-bclusters for {0} with DBSCAN: Could not estimate reachability distance.'.format(cluster))
-                return
+                optics_tries += 1
+                min_samples = int(min_samples * 0.75)
+            print('Failed to find sub-bclusters for {0} with OPTICS.'.format(shorten_cluster_names(cluster)))
+            return
     else:
-        print('Cluster {0} meets purity threshold of {1} with {2}.'.format(cluster, purity_threshold, clust_dat[5]))
+        if clust_dat[5] == 0:
+            print('Could not calculate purity for cluster {0}. Leaving at 0 and skipping.'.format(shorten_cluster_names(cluster)))
+        else:
+            print('Cluster {0} meets purity threshold of {1} with {2} and has completeness of {3}.'.format(shorten_cluster_names(cluster),
+                                                                                                           purity_threshold,
+                                                                                                           clust_dat[5],
+                                                                                                           clust_dat[6]))
 
 
-def divide_clusters_by_depth(ds_clstr_dict, threads):
+def divide_clusters_by_depth(ds_clstr_dict, threads, min_purity, pk=None, cluster_mode=None):
+    min_purity = min_purity / 100
     dict_cp = ds_clstr_dict.copy()
     n_tries = 0
     clusters_to_process = list(dict_cp.keys())
@@ -275,13 +348,17 @@ def divide_clusters_by_depth(ds_clstr_dict, threads):
         while n_tries < 100 and clusters_to_process:
             n_tries += 1
             print('Try: {0}'.format(n_tries))
-            sub_clstr_res = Parallel(n_jobs=len(clusters_to_process))(delayed(get_sub_clusters)(str(cluster), dict_cp, inner_max_threads)
+            sub_clstr_res = Parallel(n_jobs=len(clusters_to_process))(delayed(get_sub_clusters)(str(cluster),
+                                                                                                dict_cp,
+                                                                                                inner_max_threads,
+                                                                                                min_purity, pk=pk,
+                                                                                                cluster_mode=cluster_mode)
                                                                       for cluster in clusters_to_process)
             for output in sub_clstr_res:
                 if output:
                     print('Removing {0}.'.format(output[1]))
                     dict_cp.pop(output[1])
-                    print('Adding {0}.'.format(', '.join(list(output[0]))))
+                    print('Adding sub-clusters of {0}.'.format(output[1]))
                     dict_cp.update(output[0])
             clusters_to_process = [i for e in sub_clstr_res if e for i in list(e[0].keys())]
     print('Tries until end: {0}'.format(n_tries))
@@ -290,13 +367,22 @@ def divide_clusters_by_depth(ds_clstr_dict, threads):
 
 def contig_df_from_cluster_dict(cluster_dict):
     clust_contig_df_rows = []
-    clust_contig_df_cols = ['contig', 'essential', 'x', 'y', 'depth', 'cluster']
+    clust_contig_df_cols = ['contig', 'essential', 'x', 'y', 'depth', 'cluster', 'purity', 'completeness']
     clust_contig_df_ind = []
     clust_contig_df_ind_init = 0
     for i in cluster_dict:
+        cluster_essential_genes = [gene for genes in cluster_dict.get(i, {}).get('essential')
+                                   for gene in genes.split(',') if not gene == 'non_essential']
+        cluster_unique_essential_genes = set(cluster_essential_genes)
+        if cluster_essential_genes:
+            cluster_purity = round(len(cluster_unique_essential_genes) / len(cluster_essential_genes), 2)
+            cluster_completeness = round(len(cluster_unique_essential_genes) / 115, 2)
+        else:
+            cluster_purity = 0
+            cluster_completeness = 0
         for index, contig in enumerate(cluster_dict[i]['contigs']):
             new_row = [contig, cluster_dict[i]['essential'][index], cluster_dict[i]['x'][index],
-                       cluster_dict[i]['y'][index], cluster_dict[i]['depth'][index], i]
+                       cluster_dict[i]['y'][index], cluster_dict[i]['depth'][index], i, cluster_purity, cluster_completeness]
             clust_contig_df_rows.append(new_row)
             clust_contig_df_ind.append(clust_contig_df_ind_init)
             clust_contig_df_ind_init += 1
@@ -306,8 +392,15 @@ def contig_df_from_cluster_dict(cluster_dict):
 
 
 def write_scatterplot(df, file_path, hue):
-    scatter_plot = sns.scatterplot(data=df,x="x", y="y", hue=hue, sizes=0.4, s=4,
-                                   palette=sns.color_palette("husl", len(set(hue))))
+    palette = sns.color_palette("husl", len(set(hue)))
+    sorted_set = []
+    for i in hue:
+        if not i in sorted_set:
+            sorted_set.append(i)
+    for index, i in enumerate(sorted_set):
+        if i == 'N':
+            palette[index] = ('silver')
+    scatter_plot = sns.scatterplot(data=df, x="x", y="y", hue=hue, sizes=0.4, s=4, palette=palette)
     scatter_plot.legend(fontsize=3, title="Clusters", title_fontsize=4, ncol=1,
                         bbox_to_anchor=(1.01, 1), borderaxespad=0)
     scatter_plot.get_figure().savefig(file_path)

@@ -451,11 +451,9 @@ elif run_mode == 'py_binny':
             assembly="assembly.fa",
         output:
             "contig_data.tsv",
-            expand(["dbscan_scatter_plot_pk{pk}.pdf",
-            "contigs2clusters_initial_pk{pk}.tsv",
-            "contigs2clusters_final_pk{pk}.tsv",
-            "final_scatter_plot_pk{pk}.pdf"], pk=config["binning"]["binny"]["pk"]),
-            directory("bins_no_filter"),
+            "initial_scatter_plot.pdf",
+            "contigs2clusters_initial.tsv",
+            "final_scatter_plot.pdf",
             directory("bins")
         params:
             py_functions = SRCDIR + "/binny_functions.py",
@@ -476,7 +474,6 @@ elif run_mode == 'py_binny':
             'assembly.fa',
             "contig_data.tsv"
         output:
-            "bins_no_filter.zip",
             "assembly.fa.zip",
             "contig_data.tsv.zip",
             "intermediary.zip"
@@ -485,13 +482,11 @@ elif run_mode == 'py_binny':
             runtime = "8:00:00",
             mem = MEMCORE
         params:
-            intermediary = "intermediary/",
-            bins_no_filter = "bins_no_filter/"
+            intermediary = "intermediary/"
         log: "logs/zip_output.log"
         message: "Compressing binny output."
         shell:
            """
-           zip -rm {output[0]} {params.bins_no_filter} >> {log} 2>&1
            zip -m {output[1]} {input[0]} >> {log} 2>&1
            zip -m {output[2]} {input[1]} >> {log} 2>&1
            zip -rm {output[3]} {params.intermediary} >> {log} 2>&1
