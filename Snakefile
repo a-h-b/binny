@@ -133,12 +133,11 @@ elif run_mode == 'py_binny':
     rule ALL:
         input:
             "contig_data.tsv",
-            expand(["dbscan_scatter_plot_pk{pk}.pdf",
-            "contigs2clusters_initial_pk{pk}.tsv",
-            "contigs2clusters_final_pk{pk}.tsv",
-            "final_scatter_plot_pk{pk}.pdf"], pk=config["binning"]["binny"]["pk"]),
-            "bins/",
-            "bins_no_filter.zip",
+            "initial_scatter_plot.pdf",
+            "contigs2clusters_initial.tsv",
+            "final_scatter_plot.pdf",
+            "contigs2clusters_final.tsv",
+            directory("bins"),
             "assembly.fa.zip",
             "intermediary.zip"
 
@@ -454,6 +453,7 @@ elif run_mode == 'py_binny':
             "initial_scatter_plot.pdf",
             "contigs2clusters_initial.tsv",
             "final_scatter_plot.pdf",
+            "contigs2clusters_final.tsv",
             directory("bins")
         params:
             py_functions = SRCDIR + "/binny_functions.py",
