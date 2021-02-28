@@ -90,13 +90,13 @@ def contig_df2cluster_dict(contig_info_df, dbscan_labels):
         contig_depth = tmp_contig_dict.get(contig, {}).get('depth')
         contig_x = tmp_contig_dict.get(contig, {}).get('x')
         contig_y = tmp_contig_dict.get(contig, {}).get('y')
-        if not cluster_dict.get(contig_cluster):
+        if not cluster_dict.get(contig_cluster) and '-1' not in contig_cluster:
             cluster_dict[contig_cluster] = {'essential': [contig_essential],  # .split(','),
                                             'depth': [contig_depth],
                                             'contigs': [contig],
                                             'x': [contig_x],
                                             'y': [contig_y]}
-        else:
+        elif '-1' not in contig_cluster:
             if contig_essential:
                 cluster_dict.get(contig_cluster, {}).get('essential').append(contig_essential)  # .extend(contig_essential.split(','))
             cluster_dict.get(contig_cluster, {}).get('depth').append(contig_depth)
@@ -151,7 +151,7 @@ def run_initial_scan(contig_data_df, initial_cluster_mode, dbscan_threads, pk=No
 
 def cluster_df_from_dict(cluster_dict):
     cluster_df = pd.DataFrame()
-    cluster_df['cluster'] = [cluster for cluster in cluster_dict]
+    cluster_df['cluster'] = [cluster for cluster in cluster_dict if not cluster == '-1']
     for metric in ['contigs', 'essential']:
         metric_list = []
         metric_uniq_list = None
@@ -243,14 +243,15 @@ def create_new_clusters(cluster, intervals, clust_dat):
     return new_clusters
 
 
-def get_sub_clusters(cluster, cluster_dict, threads_for_dbscan, purity_threshold=0.9, alpha=0.001, pk=None, cluster_mode=None):
+def get_sub_clusters(cluster, cluster_dict, threads_for_dbscan, purity_threshold=0.9, completeness_threshold=0.4, alpha=0.001, pk=None, cluster_mode=None, include_depth=False):
     # Create dict with just cluster and sort again, to ensure order by depth is
     cluster_dict = sort_cluster_dict_data_by_depth({cluster: cluster_dict[cluster]})
     # All data needed stored in list with following order:
     # 0:contigs, 1:genes, 2:depth, 3:x, 4:y, 5:purity, 6:completeness
     clust_dat = gather_cluster_data(cluster, cluster_dict)
-    if clust_dat[5] < purity_threshold and isinstance(clust_dat[5], float):
-        print('Cluster {0} below purity threshold of {1} with {2}. Attempting to split.'.format(shorten_cluster_names(cluster), purity_threshold, clust_dat[5]))
+    if clust_dat[5] < purity_threshold and isinstance(clust_dat[5], float) and clust_dat[6] > completeness_threshold:
+        print('Cluster {0} below purity threshold of {1} with {2} and above completeness threshold of {3} with {4}. '
+              'Attempting to split.'.format(shorten_cluster_names(cluster), purity_threshold, clust_dat[5], completeness_threshold, clust_dat[6]))
         intervals = [1]
         while len(intervals) == 1 and alpha < 0.05:
             intervals = UniDip(clust_dat[2], alpha=alpha, ntrials=100, mrg_dst=1).run()
@@ -311,7 +312,7 @@ def get_sub_clusters(cluster, cluster_dict, threads_for_dbscan, purity_threshold
                     print('Currently at OPTICS try {0} with min samples of {1} for cluster {2}.'.format(optics_tries,
                                                                                                                min_samples,
                                                                                                                shorten_cluster_names(cluster)))
-                new_clusters_labels = optics_cluster(cluster_contig_df, min_samples=min_samples, include_depth=True,
+                new_clusters_labels = optics_cluster(cluster_contig_df, min_samples=min_samples, include_depth=include_depth,
                                                      n_jobs=threads_for_dbscan)[1]
                 if len(set(new_clusters_labels)) > 1:
                     new_cluster_names = {item: cluster + '.' + str(index + 1) for index, item in
@@ -328,6 +329,11 @@ def get_sub_clusters(cluster, cluster_dict, threads_for_dbscan, purity_threshold
     else:
         if clust_dat[5] == 0:
             print('Could not calculate purity for cluster {0}. Leaving at 0 and skipping.'.format(shorten_cluster_names(cluster)))
+            return [{}, cluster]
+        elif clust_dat[6] < completeness_threshold:
+            print('Cluster {0} below completeness threshold with {1}. Skipping.'.format(shorten_cluster_names(cluster),
+                                                                                        clust_dat[6]))
+            return [{}, cluster]
         else:
             print('Cluster {0} meets purity threshold of {1} with {2} and has completeness of {3}.'.format(shorten_cluster_names(cluster),
                                                                                                            purity_threshold,
@@ -335,8 +341,9 @@ def get_sub_clusters(cluster, cluster_dict, threads_for_dbscan, purity_threshold
                                                                                                            clust_dat[6]))
 
 
-def divide_clusters_by_depth(ds_clstr_dict, threads, min_purity, pk=None, cluster_mode=None):
+def divide_clusters_by_depth(ds_clstr_dict, threads, min_purity=0.9, min_completeness=0.4, pk=None, cluster_mode=None, include_depth=False):
     min_purity = min_purity / 100
+    min_completeness = min_completeness / 100
     dict_cp = ds_clstr_dict.copy()
     n_tries = 0
     clusters_to_process = list(dict_cp.keys())
@@ -348,11 +355,12 @@ def divide_clusters_by_depth(ds_clstr_dict, threads, min_purity, pk=None, cluste
         while n_tries < 100 and clusters_to_process:
             n_tries += 1
             print('Try: {0}'.format(n_tries))
-            sub_clstr_res = Parallel(n_jobs=len(clusters_to_process))(delayed(get_sub_clusters)(str(cluster),
-                                                                                                dict_cp,
+            sub_clstr_res = Parallel(n_jobs=len(clusters_to_process))(delayed(get_sub_clusters)(str(cluster), dict_cp,
                                                                                                 inner_max_threads,
-                                                                                                min_purity, pk=pk,
-                                                                                                cluster_mode=cluster_mode)
+                                                                                                purity_threshold=min_purity,
+                                                                                                completeness_threshold=min_completeness,
+                                                                                                pk=pk, cluster_mode=cluster_mode,
+                                                                                                include_depth=include_depth)
                                                                       for cluster in clusters_to_process)
             for output in sub_clstr_res:
                 if output:

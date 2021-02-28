@@ -137,7 +137,7 @@ elif run_mode == 'py_binny':
             "contigs2clusters_initial.tsv",
             "final_scatter_plot.pdf",
             "contigs2clusters_final.tsv",
-            directory("bins"),
+            "bins/",
             "assembly.fa.zip",
             "intermediary.zip"
 
@@ -468,7 +468,7 @@ elif run_mode == 'py_binny':
         log: "logs/binning_binny.log"
         message: "binny: Running Python Binny."
         script:
-            SRCDIR + "/binny_main.py"
+            SRCDIR + "/binny_main.py"qGg
     rule zip_output:
         input:
             'assembly.fa',
@@ -487,7 +487,7 @@ elif run_mode == 'py_binny':
         message: "Compressing binny output."
         shell:
            """
-           zip -m {output[1]} {input[0]} >> {log} 2>&1
-           zip -m {output[2]} {input[1]} >> {log} 2>&1
-           zip -rm {output[3]} {params.intermediary} >> {log} 2>&1
+           zip -m {output[0]} {input[0]} >> {log} 2>&1
+           zip -m {output[1]} {input[1]} >> {log} 2>&1
+           zip -rm {output[2]} {params.intermediary} >> {log} 2>&1
            """
