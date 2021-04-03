@@ -11,10 +11,10 @@ sample: test
 outputdir: "binny_initialized"
 db_path: "database"
 binning:
-  run_mode: 'py_binny' # r_binny or py_binny
   binny:
     pk: 10
     nn: 4
+<<<<<<< Updated upstream
   vizbin:
     dimension: 50
     kmer: 5
@@ -24,4 +24,10 @@ binning:
     cutoff: 1000
   filtering:
     completeness: 25
+=======
+    kmers: '2,3,4'
+    cutoff: 1000
+  filtering:
+    completeness: 90
+>>>>>>> Stashed changes
     purity: 90

@@ -29,9 +29,6 @@ ENVDIR = srcdir("workflow/envs")
 
 # get parameters from the config file
 
-#run_mode
-run_mode = config["binning"]["run_mode"]
-
 # output
 if os.path.isabs(os.path.expandvars(config['outputdir'])):
     OUTPUTDIR = os.path.expandvars(config['outputdir'])
@@ -65,7 +62,11 @@ if not os.path.isabs(DBPATH):
     DBPATH = os.getcwd() + "/" + DBPATH
 if not os.path.exists(DBPATH):
     os.makedirs(DBPATH)
-    urllib.request.urlretrieve("https://webdav-r3lab.uni.lu/public/R3lab/IMP/essential.hmm", DBPATH + "/essential.hmm")
+    # urllib.request.urlretrieve("https://webdav-r3lab.uni.lu/public/R3lab/IMP/essential.hmm", DBPATH + "/essential.hmm")
+    urllib.request.urlretrieve("https://data.ace.uq.edu.au/public/CheckM_databases/checkm_data_2015_01_16.tar.gz", DBPATH + "/checkm_data_2015_01_16.tar.gz")
+    'tar -xvzf ' + DBPATH + '/checkm_data_2015_01_16.tar.gz "taxon_marker_sets.tsv" "pfam/tigrfam2pfam.tsv" "hmms/checkm.hmm" -C ' + DBPATH
+    'cat <(head -n 1 taxon_marker_sets.tsv) <(tail -n +2 taxon_marker_sets.tsv | sort -t'   ' -k3) > taxon_marker_sets_lineage_sorted.tsv'
+
 
 # Filer thresholds
 COMPLETENESS = str(config["binning"]["filtering"]["completeness"])
@@ -122,24 +123,13 @@ def _process_file(fname, inp, outfilename):
 localrules: prepare_input_data, ALL, prepare_binny
 
 
-if run_mode == 'r_binny':
-    rule ALL:
-        input:
-            "intermediary.tar.gz",
-            "contigs2bin.tsv",
-            "bins/",
-            "contigs2bin_filtered.tsv"
-elif run_mode == 'py_binny':
-    rule ALL:
-        input:
-            "contig_data.tsv",
-            "initial_scatter_plot.pdf",
-            "contigs2clusters_initial.tsv",
-            "final_scatter_plot.pdf",
-            "contigs2clusters_final.tsv",
-            "bins/",
-            "assembly.fa.zip",
-            "intermediary.zip"
+rule ALL:
+    input:
+        "final_contigs2clusters.tsv",
+        "final_scatter_plot.pdf",
+        "bins/",
+        "assembly.fa.zip",
+        "intermediary.zip"
 
 yaml.add_representer(OrderedDict, lambda dumper, data: dumper.represent_mapping('tag:yaml.org,2002:map', data.items()))
 yaml.add_representer(tuple, lambda dumper, data: dumper.represent_sequence('tag:yaml.org,2002:seq', data))
@@ -227,8 +217,14 @@ rule annotate:
         if [ ! -f $CONDA_PREFIX/db/hmm/HAMAP.hmm.h3m ]; then
           {BINDIR}/prokkaC --dbdir $CONDA_PREFIX/db --setupdb
         fi
+<<<<<<< Updated upstream
 	    {BINDIR}/prokkaC --mincontiglen {config[binning][vizbin][cutoff]} --dbdir $CONDA_PREFIX/db --force --outdir intermediary/ --prefix prokka --noanno --cpus {threads} --metagenome {input[0]} >> {log} 2>&1
 
+=======
+	    {BINDIR}/prokkaC --dbdir $CONDA_PREFIX/db --force --outdir intermediary/ --prefix prokka --noanno --cpus {threads} --metagenome {input[0]} >> {log} 2>&1
+        # --mincontiglen {config[binning][binny][cutoff]}    
+        
+>>>>>>> Stashed changes
 	    # Prokka gives a gff file with a long header and with all the contigs at the bottom.  The command below removes the
         # And keeps only the gff table.
 
@@ -282,45 +278,6 @@ rule hmmer_essential:
           --tblout {output} {params.dbs}/*.hmm {input} >/dev/null 2>> {log}
         """
 
-rule makegff:
-    input:
-        "intermediary/prokka.faa.essential.hmmscan",
-        "intermediary/annotation.filt.gff",
-        "intermediary/prokka.faa"
-    output:
-        "intermediary/annotation.CDS.RNA.essential.gff"
-    resources:
-        runtime = "4:00:00",
-        mem = MEMCORE
-    threads: 1
-    conda: ENVDIR + "/IMP_annotation.yaml"
-    log: "logs/analysis_makegff.essential.log"
-    message: "makegff: Adding hmmer results of essential genes to gff."
-    shell:
-        """
-        export PERL5LIB=$CONDA_PREFIX/lib/site_perl/5.26.2
-        {SRCDIR}/hmmscan_addBest2gff.pl -i {input[0]} -a {input[1]} \
-         -n essential -o {output} -g $(grep ">" {input[2]} | wc -l) > {log} 2>&1
-        """
-
-rule mergegff:
-    input:
-        "intermediary/annotation.filt.gff",
-        "intermediary/annotation.CDS.RNA.essential.gff"
-    output:
-        "intermediary/annotation_CDS_RNA_hmms.gff"
-    resources:
-        runtime = "2:00:00",
-        mem = MEMCORE
-    conda: ENVDIR + "/IMP_annotation.yaml"
-    threads: 1
-    log: "logs/analysis_mergegff.log"
-    message: "mergegff: Merging gffs with hmmer results."
-    shell:
-        """
-        export PERL5LIB=$CONDA_PREFIX/lib/site_perl/5.26.2
-        {SRCDIR}/mergegffs.pl {output} {input} > {log} 2>&1
-        """
 
 # binning
 rule vizbin:
@@ -370,6 +327,7 @@ rule prepare_binny:
        mkdir -p {output} || echo "{output} exists"
        """
 
+<<<<<<< Updated upstream
 if run_mode == 'r_binny':
     rule binny:
         input:
@@ -491,3 +449,58 @@ elif run_mode == 'py_binny':
            zip -m {output[1]} {input[1]} >> {log} 2>&1
            zip -rm {output[2]} {params.intermediary} >> {log} 2>&1
            """
+=======
+rule binny:
+    input:
+        mgdepth='intermediary/assembly.contig_depth.txt',
+        gff="intermediary/annotation_CDS_RNA_hmms.gff",
+        assembly="assembly.fa",
+    output:
+        "intermediary/contig_coordinates.tsv",
+        "intermediary/contig_data.tsv",
+        "final_contigs2clusters.tsv",
+        "final_scatter_plot.pdf",
+        directory("bins")
+    params:
+        py_functions = SRCDIR + "/binny_functions.py",
+        binnydir="intermediary/",
+        completeness=COMPLETENESS,
+        purity=PURITY,
+        kmers=config["binning"]["binny"]["kmers"],
+        cutoff=config["binning"]["binny"]["cutoff"]
+    resources:
+        runtime = "12:00:00",
+        mem = BIGMEMCORE if BIGMEMCORE else MEMCORE
+    threads: workflow.cores
+    conda: ENVDIR + "/py_binny_linux.yaml"
+    log: "logs/binning_binny.log"
+    message: "binny: Running Python Binny."
+    script:
+        SRCDIR + "/binny_main.py"
+
+rule zip_output:
+    input:
+        'assembly.fa',
+        'final_contigs2clusters.tsv',
+        'final_scatter_plot.pdf'
+    output:
+        "assembly.fa.zip",
+        'final_contigs2clusters.tsv.zip',
+        'final_scatter_plot.pdf.zip',
+        "intermediary.zip"
+    threads: 1
+    resources:
+        runtime = "8:00:00",
+        mem = MEMCORE
+    params:
+        intermediary = "intermediary/"
+    log: "logs/zip_output.log"
+    message: "Compressing binny output."
+    shell:
+       """
+       zip -m {output[0]} {input[0]} >> {log} 2>&1
+       zip -m {output[1]} {input[1]} >> {log} 2>&1
+       zip -m {output[2]} {input[2]} >> {log} 2>&1
+       zip -rm {output[3]} {params.intermediary} >> {log} 2>&1
+       """
+>>>>>>> Stashed changes
