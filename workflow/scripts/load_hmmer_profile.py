@@ -14,6 +14,7 @@ def load_hmmer_profiles(hmmer_file):
 
 def get_all_marker_set_markers(markers_sets_file):
     all_markers = set()
+    sets_dict = {}
     with open(markers_sets_file, 'r') as f:
         for line in f:
             line = line.strip('\n \t').split('\t')
@@ -22,9 +23,10 @@ def get_all_marker_set_markers(markers_sets_file):
                 marker_sets = marker_sets.replace(char, '').replace('set', '')
             marker_sets = [[marker.split('.')[0] for marker in marker_set.split(',')] for marker_set in
                            marker_sets.split(';') if not marker_set.split(',') == ['']]
+            sets_dict[line[2]] = marker_sets
             marker_sets = [marker for marker_set in marker_sets for marker in marker_set]
             all_markers.update(marker_sets)
-    return all_markers
+    return all_markers, sets_dict
 
 
 def tigrfam2pfam_dict(tigrfam2pfam_file):
@@ -52,7 +54,7 @@ def remove_unused_checkm_hmm_profiles(hmmer_file, markers_sets_file, tigrfam2pfa
     with open(out_file, 'w') as of:
         for profile in profiles_accs:
             if profile in all_markers or any(alt_acc in all_markers for alt_acc in tf2pf.get(profile, [])):
-                if any(alt_acc in all_markers for alt_acc in tf2pf.get(profile, [])) and not profile in all_markers:
+                # if any(alt_acc in all_markers for alt_acc in tf2pf.get(profile, [])) and not profile in all_markers:
                     # print(profile, tf2pf.get(profile, []))
                 of.write(profiles[profile])
             else:
@@ -65,13 +67,20 @@ tigrfam2pfam_file = '/Users/oskar.hickl/Downloads/checkm_data_2015_01_16/pfam/ti
 out_file = '/Users/oskar.hickl/Downloads/checkm_data_2015_01_16/hmms/checkm_binny_test.hmm'
 old_binny_file = '/Users/oskar.hickl/Downloads/checkm_data_2015_01_16/hmms/checkm_binny.hmm'
 
+
 remove_unused_checkm_hmm_profiles(hmmer_file, markers_sets_file, tigrfam2pfam_file, out_file)
+
 tf2pf = tigrfam2pfam_dict(tigrfam2pfam_file)
 
+
+markers_set, markers_dict = get_all_marker_set_markers(markers_sets_file)
 old_binny_hmms = set(list(load_hmmer_profiles(old_binny_file).keys()))
 new_binny_hmms = set(list(load_hmmer_profiles(out_file).keys()))
 
-example_domtblout = '/Users/oskar.hickl/local_tools/binny_fork/binny/database/prokka.faa.checkm.v3.domtblout.hmmscan'
+not_in_old = new_binny_hmms - old_binny_hmms
+not_in_new = old_binny_hmms - new_binny_hmms
+
+example_domtblout = '/Users/oskar.hickl/Downloads/checkm_data_2015_01_16/hmms/prokka.faa.checkm.domtblout.v4.hmmscan'
 
 
 def parse_domtblout(domtblout_file, i_eval_threshold=1e-10):
@@ -91,11 +100,26 @@ def parse_domtblout(domtblout_file, i_eval_threshold=1e-10):
                             # print('test1', [other_acc[0] for other_acc in domtblout_data[gene]])
                             # print('test2', acc, [alt_acc for alt_acc in tf2pf.get(acc, [])])
                             domtblout_data[gene].append([acc, i_eval, start, end])
+                        elif any(acc == other_acc[0] for other_acc in domtblout_data[gene]):
+                            for ind, i in enumerate(domtblout_data[gene]):
+                                if acc == i[0]:
+                                    if i_eval < i[1]:
+                                        # print('Better hit for same ID {0} ({1}): Old i-eval(ID: {2}) = {3}, new i-eval(ID: {4}) = {5}'.format(
+                                        #     acc, tf2pf.get(acc, []), i[0],  i[1], acc, i_eval))
+                                        domtblout_data[gene][ind] = [acc, i_eval, start, end]
+                        elif any(alt_acc == other_acc[0] for other_acc in domtblout_data[gene] for alt_acc in tf2pf.get(acc, [])):
+                            for ind, i in enumerate(domtblout_data[gene]):
+                                if any(alt_acc == i[0] for alt_acc in tf2pf.get(acc, [])):
+                                    if i_eval < i[1]:
+                                        # print('Better hit for same ID {0} ({1}): Old i-eval(ID: {2}) = {3}, new i-eval(ID: {4}) = {5}'.format(
+                                        #     acc, tf2pf.get(acc, []), i[0], i[1], acc, i_eval))
+                                        domtblout_data[gene][ind] = [acc, i_eval, start, end]
                         # domtblout_data[gene].append([acc, i_eval, start, end])
     for k in domtblout_data:
-        domtblout_data[k].sort(key=lambda x:x[1], reverse=False)
+        domtblout_data[k].sort(key=lambda x: x[1], reverse=False)
 
     for k, v in domtblout_data.items():
+        print(k, v)
         new_v = [v[0]]
         for ind, i in enumerate(v):
             if ind > 0:
@@ -106,5 +130,6 @@ def parse_domtblout(domtblout_file, i_eval_threshold=1e-10):
         #     print(k, v)
         #     print(k,new_v)
     return domtblout_data
+
 
 gene_markers = parse_domtblout(example_domtblout)

@@ -7,7 +7,7 @@ sys.path.append(binny_functions_path)
 from binny_functions import *
 
 ########################################################################################################################
-os.chdir('/Users/oskar.hickl/binny_bench/binner_data/Binny/binny_outputs/2017.12.04_18.45.54_sample_0_py_v02')
+os.chdir('/Users/oskar.hickl/binny_bench/binner_data/Binny/binny_outputs/2017.12.04_18.45.54_sample_5')
 ########################################################################################################################
 binnydir = 'intermediary/'
 mg_depth_file = 'intermediary/assembly.contig_depth.txt'
@@ -17,23 +17,24 @@ assembly = 'assembly.fa'
 annot_file = 'intermediary/annotation_CDS_RNA_hmms_checkm.gff'
 raw_annot = 'intermediary/annotation.filt.gff'
 # prokka_checkm_marker_hmm_out = 'intermediary/prokka.faa.checkm.v3.tblout.hmmscan' # for smaple 5
-prokka_checkm_marker_hmm_out = 'intermediary/prokka.faa.checkm.hmmscan'
+# prokka_checkm_marker_hmm_out = 'intermediary/prokka.faa.checkm.hmmscan'
+prokka_checkm_marker_hmm_out = 'intermediary/prokka.faa.checkm.domtblout.v4.hmmscan'
 # annot_file_checkm = 'intermediary/annotation_CDS_RNA_hmms_checkm_test.gff'
 tigrfam2pfam_file = '/Users/oskar.hickl/Downloads/checkm_data_2015_01_16/pfam/tigrfam2pfam.tsv'
 taxon_marker_set_file = '/Users/oskar.hickl/Downloads/checkm_data_2015_01_16/taxon_marker_sets_lineage_sorted.tsv'
 
-min_completeness = 90
-min_purity = 90
+starting_completeness = 90  # 90
+min_completeness = 70  # 70
+min_purity = 90  # 90
 threads = 10
 n_dim = 2
 
+tigrfam2pfam_data = tigrfam2pfam_dict(tigrfam2pfam_file)
 
 # annot_df, annot_dict = gff2ess_gene_df(annot_file, get_dict=True)
-checkm_hmmer_search2prokka_gff(prokka_checkm_marker_hmm_out, raw_annot)
+checkm_hmmer_search2prokka_gff_v2(prokka_checkm_marker_hmm_out, raw_annot, tigrfam2pfam_data)
 annot_df, annot_dict = gff2ess_gene_df(annot_file, target_attribute='checkm_marker', get_dict=True)
 assembly_dict = load_fasta(assembly)
-
-tigrfam2pfam_data = tigrfam2pfam_dict(tigrfam2pfam_file)
 
 taxon_marker_sets = load_checkm_markers(taxon_marker_set_file)
 
@@ -80,10 +81,11 @@ with open(gs, 'r') as f:
 ########################################################################################################################
 
 depth_dict = load_depth_dict(mg_depth_file)
-
+########################################################################################################################
 embedding_tries = 1
 early_exag = 100
-
+internal_completeness = starting_completeness
+########################################################################################################################
 while embedding_tries <= 100:
     round_X_contigs = []
     round_X = []
@@ -180,7 +182,7 @@ while embedding_tries <= 100:
     coord_df['contig'] = round_X_contigs  #_good
     # Reorder
     coord_df = coord_df[['contig']+['dim'+str(i) for i in dim_range]]
-    coords_file = 'intermediary/contig_coordinates_dynamic_marker_sets_v04.tsv'
+    coords_file = 'intermediary/contig_coordinates_dynamic_marker_sets_v06.tsv'
     coord_df.to_csv(coords_file, sep='\t', index=False, header=False)
 
     # Load data
@@ -195,27 +197,30 @@ while embedding_tries <= 100:
     # Write contig data to file
     if embedding_tries == 1:
         contig_data_df_org = contig_data_df.copy()
-        contig_data_df_org.to_csv('intermediary/contig_data_original_dynamic_marker_sets_v04.tsv', sep='\t', index=False)
-    contig_data_df.to_csv('intermediary/contig_data_dynamic_marker_sets_v04.tsv', sep='\t', index=False)
+        contig_data_df_org.to_csv('intermediary/contig_data_original_dynamic_marker_sets_v06.tsv', sep='\t', index=False)
+    contig_data_df.to_csv('intermediary/contig_data_dynamic_marker_sets_v06.tsv', sep='\t', index=False)
 
     # Find bins
     good_bins, final_init_clust_dict = binny_iterate(contig_data_df, threads, taxon_marker_sets, tigrfam2pfam_data,
-                                                     min_purity, min_completeness, 1, embedding_iteration=embedding_tries)
+                                                     min_purity, internal_completeness, 1, embedding_iteration=embedding_tries)
 
-    if not list(good_bins.keys()) and min_completeness > 60:  # 60
+    if not list(good_bins.keys()) and internal_completeness > min_completeness:  # 60
         # if min_completeness < 90:
         #     min_purity = 95
-        min_completeness = min_completeness - 5
+        internal_completeness = internal_completeness - 5
         early_exag = early_exag * 1.1  # * 1.1
-        print('Could not find good bins. Lowering completeness threshold to {0} and increasing t-SNE early exaggeration to {1}.'.format(min_completeness, early_exag))
+        print('Could not find good bins. Lowering completeness threshold to {0} and increasing t-SNE early exaggeration to {1}.'.format(internal_completeness, early_exag))
     elif not list(good_bins.keys()) and not list(round_good_bins.keys()):
         if embedding_tries > 1:
-            print('test1')
+            print('Found no good bins two times in a row')
             break
-    elif not list(good_bins.keys()) and min_completeness < 60:  # 60
+    elif not list(good_bins.keys()) and internal_completeness < min_completeness:  # 60
         if embedding_tries > 1:
-            print('test2')
+            print('Reached min completeness and found no more bins. Exiting embedding iteration')
             break
+    else:
+        early_exag = early_exag * 10
+
     round_good_bins = good_bins
 
     # if not list(good_bins.keys()):
@@ -228,14 +233,14 @@ while embedding_tries <= 100:
     # Write round table
     round_clust_dict = {**good_bins, **final_init_clust_dict}
     round_clust_df = cluster_df_from_dict(round_clust_dict)
-    round_clust_df.to_csv('round_contigs2clusters_dynamic_marker_sets_v04.tsv', sep='\t', index=False)
+    round_clust_df.to_csv('round_contigs2clusters_dynamic_marker_sets_v06.tsv', sep='\t', index=False)
 
     round_clust_contig_df = contig_df_from_cluster_dict(round_clust_dict)
 
     conditions = [(round_clust_contig_df['purity'] >= min_purity / 100) & (
-                round_clust_contig_df['completeness'] >= min_completeness / 100),
+                round_clust_contig_df['completeness'] >= internal_completeness / 100),
                   (round_clust_contig_df['purity'] < min_purity / 100) | (
-                              round_clust_contig_df['completeness'] < min_completeness / 100)]
+                              round_clust_contig_df['completeness'] < internal_completeness / 100)]
     values = [round_clust_contig_df['cluster'], 'N']
     round_clust_contig_df['above_thresh'] = np.select(conditions, values)
     round_clust_contig_df = contig_data_df.merge(round_clust_contig_df, how='outer', on='contig', suffixes=(None, '_y'))
@@ -274,6 +279,7 @@ while embedding_tries <= 100:
         print('WARNING: {0} duplicate contigs in bins found!'.format(len(all_contigs) - len(set(all_contigs))))
         break
     print('Good bins so far:{0}.'.format(len(all_good_bins.keys())))
+########################################################################################################################
 
 final_init_clust_dict, labels = run_initial_scan(contig_data_df_org, 'HDBSCAN', threads, include_depth=False)
 for cluster in final_init_clust_dict:
@@ -284,10 +290,9 @@ for cluster in final_init_clust_dict:
 
 # Write final table
 final_clust_dict = {**all_good_bins, **final_init_clust_dict}
-
 # final_clust_dict = {**good_bins, **final_init_clust_dict}
 final_clust_df = cluster_df_from_dict(final_clust_dict)
-final_clust_df.to_csv('final_contigs2clusters_dynamic_marker_sets_v04.tsv', sep='\t', index=False)
+final_clust_df.to_csv('final_contigs2clusters_dynamic_marker_sets_v06.tsv', sep='\t', index=False)
 
 final_clust_contig_df = contig_df_from_cluster_dict(final_clust_dict)
 
@@ -303,7 +308,7 @@ final_clust_contig_df = final_clust_contig_df[final_clust_contig_df.columns.drop
 # print(final_clust_contig_df.columns)
 final_clust_contig_df['above_thresh'] = final_clust_contig_df['above_thresh'].fillna('N')
 
-final_clust_contig_df['gs_genome'] = [cont2gen_gs_dict [contig] for contig in final_clust_contig_df['contig'].tolist()]
+final_clust_contig_df['gs_genome'] = [cont2gen_gs_dict[contig] for contig in final_clust_contig_df['contig'].tolist()]
 
 ########################################################################################################################
 gs_stats = gold_standard_stats(cont2gen_gs_dict, assembly_dict)
@@ -338,7 +343,7 @@ bin_stats = asses_bins(final_clust_contig_df, gs_stats)
 ########################################################################################################################
 
 # if n_dim <= 3:
-#     write_scatterplot(final_clust_contig_df, 'final_scatter_plot_dynamic_marker_sets_v04.pdf',
+#     write_scatterplot(final_clust_contig_df, 'final_scatter_plot_dynamic_marker_sets_v06.pdf',
 #                       final_clust_contig_df['above_thresh'])
 
 # Check if something went wrong and contigs were duplicated.
@@ -349,6 +354,6 @@ if len(all_contigs) != len(set(all_contigs)):
     print('WARNING: {0} duplicate contigs in bins found!'.format(len(all_contigs) - len(set(all_contigs))))
 
 # Write bin fastas.
-write_bins(all_good_bins, assembly, min_comp=int(min_completeness), min_pur=int(min_purity), bin_dir='bins_dynamic_marker_sets_v04')
+write_bins(all_good_bins, assembly, min_comp=int(min_completeness), min_pur=int(min_purity), bin_dir='bins_dynamic_marker_sets_v06')
 
 print('Run finished.')

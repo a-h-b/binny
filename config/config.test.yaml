@@ -1,7 +1,7 @@
 mem:
   big_mem_avail: FALSE
   normal_mem_per_core_gb: 4
-  big_mem_per_core_gb: 40
+  big_mem_per_core_gb: 26
 tmp_dir: tmp
 raws:
   Contigs: "test/assembly.fasta"
@@ -12,22 +12,10 @@ outputdir: "test_output4"
 db_path: "database"
 binning:
   binny:
-<<<<<<< Updated upstream
     pk: 10
     nn: 4
-  vizbin:
-    dimension: 50
-    kmer: 5
-    size: 4
-    theta: 0.5
-    perp: 30
-    cutoff: 1000
-  filtering:
-    completeness: 25
-=======
     kmers: '2,3,4'
     cutoff: 1000
   filtering:
     completeness: 90
->>>>>>> Stashed changes
     purity: 90

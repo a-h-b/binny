@@ -63,10 +63,34 @@ if not os.path.isabs(DBPATH):
 if not os.path.exists(DBPATH):
     os.makedirs(DBPATH)
     # urllib.request.urlretrieve("https://webdav-r3lab.uni.lu/public/R3lab/IMP/essential.hmm", DBPATH + "/essential.hmm")
-    urllib.request.urlretrieve("https://data.ace.uq.edu.au/public/CheckM_databases/checkm_data_2015_01_16.tar.gz", DBPATH + "/checkm_data_2015_01_16.tar.gz")
-    'tar -xvzf ' + DBPATH + '/checkm_data_2015_01_16.tar.gz "taxon_marker_sets.tsv" "pfam/tigrfam2pfam.tsv" "hmms/checkm.hmm" -C ' + DBPATH
-    'cat <(head -n 1 taxon_marker_sets.tsv) <(tail -n +2 taxon_marker_sets.tsv | sort -t'   ' -k3) > taxon_marker_sets_lineage_sorted.tsv'
 
+    rule prepare_checkm_data:
+        input:
+            DBPATH
+        output:
+            DBPATH + "/taxon_marker_sets.tsv",
+            DBPATH + "/pfam/tigrfam2pfam.tsv",
+            DBPATH + "/taxon_marker_sets_lineage_sorted.tsv",
+            DBPATH + "/hmms/checkm_filtered.hmm",
+        threads: 1
+        resources:
+            runtime = "4:00:00",
+            mem = MEMCORE
+        message: "Preparing checkm data."
+        shell:
+            """
+            # Download checkm marker set data
+            wget https://data.ace.uq.edu.au/public/CheckM_databases/checkm_data_2015_01_16.tar.gz -P {input[0]}
+            # Extract only needed files
+            cd {input[0]}
+            tar -xvzf {input[0]}/checkm_data_2015_01_16.tar.gz "./taxon_marker_sets.tsv" "./pfam/tigrfam2pfam.tsv" "./hmms/checkm.hmm"  # -C {input[0]} <-- This doesnt seem to work on iris
+            # Sort by marker sets file by lineage
+            sort -t'   ' -k3 {output[0]} > {output[2]}
+            # Filter out hmm profiles not found in marker sets
+            ./{SRCDIR}/remove_unused_checkm_hmm_profiles.py {input[0]}/hmms/checkm.hmm {output[0]} {output[1]} {output[3]}
+            # Remove intermediary data
+            rm {input[0]}/checkm_data_2015_01_16.tar.gz {input[0]}/hmms/checkm.hmm
+            """
 
 # Filer thresholds
 COMPLETENESS = str(config["binning"]["filtering"]["completeness"])
@@ -217,14 +241,9 @@ rule annotate:
         if [ ! -f $CONDA_PREFIX/db/hmm/HAMAP.hmm.h3m ]; then
           {BINDIR}/prokkaC --dbdir $CONDA_PREFIX/db --setupdb
         fi
-<<<<<<< Updated upstream
-	    {BINDIR}/prokkaC --mincontiglen {config[binning][vizbin][cutoff]} --dbdir $CONDA_PREFIX/db --force --outdir intermediary/ --prefix prokka --noanno --cpus {threads} --metagenome {input[0]} >> {log} 2>&1
-
-=======
 	    {BINDIR}/prokkaC --dbdir $CONDA_PREFIX/db --force --outdir intermediary/ --prefix prokka --noanno --cpus {threads} --metagenome {input[0]} >> {log} 2>&1
         # --mincontiglen {config[binning][binny][cutoff]}    
         
->>>>>>> Stashed changes
 	    # Prokka gives a gff file with a long header and with all the contigs at the bottom.  The command below removes the
         # And keeps only the gff table.
 
@@ -234,32 +253,12 @@ rule annotate:
         head -n $LN intermediary/prokka.gff | grep -v "^#" | sort | uniq | grep -v "^==" > {output[0]}
         """
 
-rule cut_rRNA:
-    input:
-        "assembly.fa",
-        "intermediary/annotation.filt.gff"
-    output:
-        "intermediary/assembly.cut.fa"
-    log: "logs/binning_cut_rRNA.log"
-    resources:
-        runtime = "2:00:00",
-        mem = MEMCORE
-    threads: 1
-    conda: ENVDIR + "/IMP_annotation.yaml"
-    message: "cut_rRNA: Cutting contigs for vizbin."
-    shell:
-        """
-        export PERL5LIB=$CONDA_PREFIX/lib/site_perl/5.26.2
-        {SRCDIR}/fastaExtractCutRibosomal1000.pl -f {input[0]} -g {input[1]} -l {log} -o {output} -c {config[binning][vizbin][cutoff]}
-        """
-
-
 # essential genes
 rule hmmer_essential:
     input:
         "intermediary/prokka.faa",
     output:
-        "intermediary/prokka.faa.essential.hmmscan"
+        "intermediary/prokka.faa.markers.hmmscan"
     params:
         dbs = DBPATH
     resources:
@@ -271,49 +270,14 @@ rule hmmer_essential:
     message: "hmmer: Running HMMER for essential."
     shell:
         """
-        if [ ! -f {DBPATH}/essential.hmm.h3i ]; then
-          hmmpress {DBPATH}/essential.hmm 2>> {log}
+        if [ ! -f {DBPATH}/hmms/checkm.hmm.h3i ]; then
+          hmmpress {DBPATH}/hmms/checkm.hmm 2>> {log}
         fi
         hmmsearch --cpu {threads} --cut_tc --noali --notextw \
-          --tblout {output} {params.dbs}/*.hmm {input} >/dev/null 2>> {log}
+          --domtblout {output} {params.dbs}/hmms/checkm.hmm {input} >/dev/null 2>> {log}
         """
-
 
 # binning
-rule vizbin:
-    input:
-        "intermediary/assembly.cut.fa"
-    output:
-        "vizbin.with-contig-names.points"
-    params:
-        java_mem = int(BIGMEMCORE.strip('G')) * workflow.cores if BIGMEMCORE else int(MEMCORE.strip('G')) * workflow.cores
-    resources:
-        runtime = "12:00:00",
-        mem = BIGMEMCORE if BIGMEMCORE else MEMCORE
-    threads: workflow.cores
-    conda: ENVDIR + "/IMP_annotation.yaml"
-    log: "logs/binning_vizbin.log"
-    message: "vizbin: Running VizBin."
-    shell:
-        """
-        TMP_VIZBIN=$(mktemp --tmpdir=intermediary -dt "VIZBIN_XXXXXX")
-        java -jar -Xmx{params[0]}G {BINDIR}/VizBin-dist.jar \
-         -a {config[binning][vizbin][dimension]} \
-         -c {config[binning][vizbin][cutoff]} \
-         -i {input} \
-         -o $TMP_VIZBIN/data.points \
-         -k {config[binning][vizbin][kmer]} \
-         -p {config[binning][vizbin][perp]} \
-         -t {threads} > {log} 2>&1
-
-         if [ -f $TMP_VIZBIN/data.points ]
-           then
-             paste <(grep "^>" {input} | sed -e 's/>//') \
-              <(cat $TMP_VIZBIN/data.points | sed -e 's/,/\t/') > {output}
-           fi
-        rm -rf $TMP_VIZBIN
-        """
-
 rule prepare_binny:
     input:
        mgdepth='intermediary/assembly.contig_depth.txt',
@@ -327,139 +291,18 @@ rule prepare_binny:
        mkdir -p {output} || echo "{output} exists"
        """
 
-<<<<<<< Updated upstream
-if run_mode == 'r_binny':
-    rule binny:
-        input:
-           outdir="intermediary/clusterFiles",
-           mgdepth='intermediary/assembly.contig_depth.txt',
-           vizbin="vizbin.with-contig-names.points",
-           gff="intermediary/annotation_CDS_RNA_hmms.gff"
-        output:
-            expand("intermediary/reachabilityDistanceEstimates.{pk}.{nn}.tsv \
-            intermediary/clusterFirstScan.{pk}.{nn}.tsv \
-            intermediary/bimodalClusterCutoffs.{pk}.{nn}.tsv \
-            intermediary/contigs2clusters.{pk}.{nn}.tsv \
-            intermediary/contigs2clusters.{pk}.{nn}.RDS \
-            intermediary/finalClusterMap.{pk}.{nn}.png \
-            intermediary/clusteringWS.{pk}.{nn}.Rdata".split(),pk=config["binning"]["binny"]["pk"],nn=config["binning"]["binny"]["nn"])
-        params:
-            plot_functions = SRCDIR + "/IMP_plot_binny_functions.R",
-            binnydir="intermediary/"
-        resources:
-            runtime = "12:00:00",
-            mem = BIGMEMCORE if BIGMEMCORE else MEMCORE
-        threads: workflow.cores
-        conda: ENVDIR + "/IMP_binning.yaml"
-        log: "logs/binning_binny.log"
-        message: "binny: Running R Binny."
-        script:
-            SRCDIR + "/binny.R"
-
-    rule tar_binny_files:
-        input:
-            expand("intermediary/contigs2clusters.{pk}.{nn}.tsv \
-            intermediary/finalClusterMap.{pk}.{nn}.png".split(),pk=config["binning"]["binny"]["pk"],nn=config["binning"]["binny"]["nn"])
-        output:
-            "intermediary.tar.gz",
-            "contigs2bin.tsv",
-            "finalClusterMap.png"
-        threads: 1
-        resources:
-            runtime = "8:00:00",
-            mem = MEMCORE
-        params:
-            intermediary = "intermediary/"
-        log: "logs/binning_tar_binny_files.log"
-        message: "tar_binny_files: Compressing intermediary files from binny."
-        shell:
-           """
-           cp {input[0]} {output[1]}
-           cp {input[1]} {output[2]}
-           tar cvzf {output[0]} {params.intermediary} >> {log} 2>&1 && rm -r {params.intermediary} >> {log} 2>&1
-           """
-    rule filter_output:
-        input:
-            "assembly.fa",
-            "contigs2bin.tsv"
-        output:
-            directory("bins"),
-            "contigs2bin_filtered.tsv"
-        threads: 1
-        resources:
-            runtime = "0:30:00",
-            mem = MEMCORE
-        params:
-            COMPLETENESS,
-            PURITY
-        log: "logs/filter_output.log"
-        message: "filtering output."
-        shell:
-           """
-           /{SRCDIR}/filter_binny_output.py {input[0]} {input[1]} . {params[0]} {params[1]} >> {log} 2>&1
-           """
-elif run_mode == 'py_binny':
-    rule binny:
-        input:
-            outdir="intermediary/clusterFiles",
-            mgdepth='intermediary/assembly.contig_depth.txt',
-            vizbin="vizbin.with-contig-names.points",
-            gff="intermediary/annotation_CDS_RNA_hmms.gff",
-            assembly="assembly.fa",
-        output:
-            "contig_data.tsv",
-            "initial_scatter_plot.pdf",
-            "contigs2clusters_initial.tsv",
-            "final_scatter_plot.pdf",
-            "contigs2clusters_final.tsv",
-            directory("bins")
-        params:
-            py_functions = SRCDIR + "/binny_functions.py",
-            binnydir="intermediary/",
-            completeness=COMPLETENESS,
-            purity=PURITY
-        resources:
-            runtime = "12:00:00",
-            mem = BIGMEMCORE if BIGMEMCORE else MEMCORE
-        threads: workflow.cores
-        conda: ENVDIR + "/py_binny_linux.yaml"
-        log: "logs/binning_binny.log"
-        message: "binny: Running Python Binny."
-        script:
-            SRCDIR + "/binny_main.py"qGg
-    rule zip_output:
-        input:
-            'assembly.fa',
-            "contig_data.tsv"
-        output:
-            "assembly.fa.zip",
-            "contig_data.tsv.zip",
-            "intermediary.zip"
-        threads: 1
-        resources:
-            runtime = "8:00:00",
-            mem = MEMCORE
-        params:
-            intermediary = "intermediary/"
-        log: "logs/zip_output.log"
-        message: "Compressing binny output."
-        shell:
-           """
-           zip -m {output[0]} {input[0]} >> {log} 2>&1
-           zip -m {output[1]} {input[1]} >> {log} 2>&1
-           zip -rm {output[2]} {params.intermediary} >> {log} 2>&1
-           """
-=======
 rule binny:
     input:
         mgdepth='intermediary/assembly.contig_depth.txt',
-        gff="intermediary/annotation_CDS_RNA_hmms.gff",
+        raw_gff='intermediary/annotation.filt.gff',
         assembly="assembly.fa",
+        t2p=DBPATH + "/pfam/tigrfam2pfam.tsv",
+        marker_sets=DBPATH + "/taxon_marker_sets_lineage_sorted.tsv"
     output:
-        "intermediary/contig_coordinates.tsv",
-        "intermediary/contig_data.tsv",
+        # "intermediary/contig_coordinates.tsv",
+        # "intermediary/contig_data.tsv",
         "final_contigs2clusters.tsv",
-        "final_scatter_plot.pdf",
+        # "final_scatter_plot.pdf",
         directory("bins")
     params:
         py_functions = SRCDIR + "/binny_functions.py",
@@ -467,7 +310,9 @@ rule binny:
         completeness=COMPLETENESS,
         purity=PURITY,
         kmers=config["binning"]["binny"]["kmers"],
-        cutoff=config["binning"]["binny"]["cutoff"]
+        cutoff=config["binning"]["binny"]["cutoff"],
+        gff="intermediary/annotation_CDS_RNA_hmms_checkm.gff",
+        hmm_markers="intermediary/prokka.faa.markers.hmmscan"
     resources:
         runtime = "12:00:00",
         mem = BIGMEMCORE if BIGMEMCORE else MEMCORE
@@ -503,4 +348,3 @@ rule zip_output:
        zip -m {output[2]} {input[2]} >> {log} 2>&1
        zip -rm {output[3]} {params.intermediary} >> {log} 2>&1
        """
->>>>>>> Stashed changes
