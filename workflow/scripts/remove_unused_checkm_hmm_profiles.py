@@ -66,8 +66,8 @@ def remove_unused_checkm_hmm_profiles(hmmer_file, markers_sets_file, tigrfam2pfa
                 # if any(alt_acc in all_markers for alt_acc in tf2pf.get(profile, [])) and not profile in all_markers:
                     # print(profile, tf2pf.get(profile, []))
                 of.write(profiles[profile])
-            else:
-                print('not found', profile, tf2pf.get(profile, 'No alt found.'))
+            # else:
+            #     print('not found', profile, tf2pf.get(profile, 'No alt found.'))
 
 
 hmmer_file = sys.argv[1]

@@ -53,6 +53,13 @@ else:
     else:
         MGaln = os.getcwd() + "/" + os.path.expandvars(config['raws']['Alignment_metagenomics'])
 
+# hardware parameters
+MEMCORE = str(config['mem']['normal_mem_per_core_gb']) + "G"
+if config['mem']['big_mem_avail']:
+    BIGMEMCORE = str(config['mem']['big_mem_per_core_gb']) + "G"
+else:
+    BIGMEMCORE = False
+
 SAMPLE = config['sample']
 if SAMPLE == "":
     SAMPLE = "_".join(OUTPUTDIR.split("/")[-2:])
@@ -71,7 +78,7 @@ if not os.path.exists(DBPATH):
             DBPATH + "/taxon_marker_sets.tsv",
             DBPATH + "/pfam/tigrfam2pfam.tsv",
             DBPATH + "/taxon_marker_sets_lineage_sorted.tsv",
-            DBPATH + "/hmms/checkm_filtered.hmm",
+            DBPATH + "/hmms/checkm_filtered.hmm"
         threads: 1
         resources:
             runtime = "4:00:00",
@@ -85,9 +92,9 @@ if not os.path.exists(DBPATH):
             cd {input[0]}
             tar -xvzf {input[0]}/checkm_data_2015_01_16.tar.gz "./taxon_marker_sets.tsv" "./pfam/tigrfam2pfam.tsv" "./hmms/checkm.hmm"  # -C {input[0]} <-- This doesnt seem to work on iris
             # Sort by marker sets file by lineage
-            sort -t'   ' -k3 {output[0]} > {output[2]}
+            sort -t$'\t' -k3 {output[0]} > {output[2]}
             # Filter out hmm profiles not found in marker sets
-            ./{SRCDIR}/remove_unused_checkm_hmm_profiles.py {input[0]}/hmms/checkm.hmm {output[0]} {output[1]} {output[3]}
+            {SRCDIR}/remove_unused_checkm_hmm_profiles.py {input[0]}/hmms/checkm.hmm {output[0]} {output[1]} {output[3]}
             # Remove intermediary data
             rm {input[0]}/checkm_data_2015_01_16.tar.gz {input[0]}/hmms/checkm.hmm
             """
@@ -95,14 +102,6 @@ if not os.path.exists(DBPATH):
 # Filer thresholds
 COMPLETENESS = str(config["binning"]["filtering"]["completeness"])
 PURITY = str(config["binning"]["filtering"]["purity"])
-
-# hardware parameters
-MEMCORE = str(config['mem']['normal_mem_per_core_gb']) + "G"
-if config['mem']['big_mem_avail']:
-    BIGMEMCORE = str(config['mem']['big_mem_per_core_gb']) + "G"
-else:
-    BIGMEMCORE = False
-
 
 # temporary directory will be stored inside the OUTPUTDIR directory
 # unless a absolute path is set
@@ -149,8 +148,8 @@ localrules: prepare_input_data, ALL, prepare_binny
 
 rule ALL:
     input:
-        "final_contigs2clusters.tsv",
-        "final_scatter_plot.pdf",
+        # "final_contigs2clusters.tsv",
+        # "final_scatter_plot.pdf",
         "bins/",
         "assembly.fa.zip",
         "intermediary.zip"
@@ -270,11 +269,11 @@ rule hmmer_essential:
     message: "hmmer: Running HMMER for essential."
     shell:
         """
-        if [ ! -f {DBPATH}/hmms/checkm.hmm.h3i ]; then
-          hmmpress {DBPATH}/hmms/checkm.hmm 2>> {log}
+        if [ ! -f {DBPATH}/hmms/checkm_filtered.hmm.h3i ]; then
+          hmmpress {DBPATH}/hmms/checkm_filtered.hmm 2>> {log}
         fi
         hmmsearch --cpu {threads} --cut_tc --noali --notextw \
-          --domtblout {output} {params.dbs}/hmms/checkm.hmm {input} >/dev/null 2>> {log}
+          --domtblout {output} {params.dbs}/hmms/checkm_filtered.hmm {input} >/dev/null 2>> {log}
         """
 
 # binning
@@ -297,11 +296,12 @@ rule binny:
         raw_gff='intermediary/annotation.filt.gff',
         assembly="assembly.fa",
         t2p=DBPATH + "/pfam/tigrfam2pfam.tsv",
-        marker_sets=DBPATH + "/taxon_marker_sets_lineage_sorted.tsv"
+        marker_sets=DBPATH + "/taxon_marker_sets_lineage_sorted.tsv",
+        hmm_markers="intermediary/prokka.faa.markers.hmmscan"
     output:
         # "intermediary/contig_coordinates.tsv",
         # "intermediary/contig_data.tsv",
-        "final_contigs2clusters.tsv",
+        # "final_contigs2clusters.tsv",
         # "final_scatter_plot.pdf",
         directory("bins")
     params:
@@ -312,7 +312,6 @@ rule binny:
         kmers=config["binning"]["binny"]["kmers"],
         cutoff=config["binning"]["binny"]["cutoff"],
         gff="intermediary/annotation_CDS_RNA_hmms_checkm.gff",
-        hmm_markers="intermediary/prokka.faa.markers.hmmscan"
     resources:
         runtime = "12:00:00",
         mem = BIGMEMCORE if BIGMEMCORE else MEMCORE
@@ -326,12 +325,12 @@ rule binny:
 rule zip_output:
     input:
         'assembly.fa',
-        'final_contigs2clusters.tsv',
-        'final_scatter_plot.pdf'
+        # 'final_contigs2clusters.tsv',
+        # 'final_scatter_plot.pdf'
     output:
         "assembly.fa.zip",
-        'final_contigs2clusters.tsv.zip',
-        'final_scatter_plot.pdf.zip',
+        # 'final_contigs2clusters.tsv.zip',
+        # 'final_scatter_plot.pdf.zip',
         "intermediary.zip"
     threads: 1
     resources:
@@ -344,7 +343,7 @@ rule zip_output:
     shell:
        """
        zip -m {output[0]} {input[0]} >> {log} 2>&1
-       zip -m {output[1]} {input[1]} >> {log} 2>&1
-       zip -m {output[2]} {input[2]} >> {log} 2>&1
-       zip -rm {output[3]} {params.intermediary} >> {log} 2>&1
+       # zip -m {output[1]} {input[1]} >> {log} 2>&1
+       # zip -m {output[2]} {input[2]} >> {log} 2>&1
+       zip -rm {output[1]} {params.intermediary} >> {log} 2>&1
        """

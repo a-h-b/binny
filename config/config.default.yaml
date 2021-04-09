@@ -12,10 +12,8 @@ outputdir: "test"
 db_path: "../db"
 binning:
   binny:
-    pk: 10
-    nn: 4
     kmers: '2,3,4'
     cutoff: 1000
   filtering:
-    completeness: 90
+    completeness: 70
     purity: 90

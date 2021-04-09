@@ -839,7 +839,7 @@ def divide_clusters_by_depth2(ds_clstr_dict, threads, marker_sets_graph, tigrfam
                gather_cluster_data(k, dict_cp, marker_sets_graph, tigrfam2pfam_data_dict)[clust_dat_comp_ind] >= min_completeness}
     # dict_cp = {(k): (v if (v.get('purity') and v['purity'] >= min_purity and v['completeness'] >= min_completeness) else v) for k, v in dict_cp.items()}
     end = timer()
-    print('Adding purity and completeness stats to the final dict to {0}s.'.format(int(end-start)))
+    print('Added purity and completeness stats to the final dict in {0}s.'.format(int(end-start)))
     # print('testB')
     return dict_cp, split_contigs
 
@@ -1354,7 +1354,7 @@ def asses_contig_completeness_purity(essential_gene_lol, n_dims, marker_sets_gra
         marker_set = chose_checkm_marker_set(all_ess, marker_sets_graph, tigrfam2pfam_data_dict)
         taxon, comp, pur = marker_set[0], marker_set[1], marker_set[2]
         # print(row['essential'], all_ess, unique_ess, pur, comp)
-        if pur > 0.95 and comp > 0.95:  # pur > 0.96 and comp > 0.96
+        if pur > 0.95 and comp > 0.95:  # pur > 0.95 and comp > 0.95
             bin_dict = {contig_data[0]: {'depth': np.array([None]), 'contigs': np.array([contig_data[0]]),
                                         'essential': np.array(all_ess), 'purity': pur, 'completeness': comp,
                                          'taxon': taxon}}  #, 'dim1': np.array([]), 'dim2': np.array([])}}
@@ -1388,7 +1388,7 @@ def load_checkm_markers(marker_file):
     linegae_dict = {0: 'domain', 1: 'phylum', 2: 'class', 3: 'order', 4: 'family', 5: 'genus', 6: 'species'}
     tms_data = nx.DiGraph()
     with open(marker_file, 'r') as f:
-        next(f)
+        # next(f)
         for line in f:
             line = line.strip('\n \t').split('\t')
             if any(line[1] == to_ignore for to_ignore in ['Prokaryote', 'Candidatus Blochmannia', 'Wigglesworthia', 'Wigglesworthia glossinidia']):
@@ -1663,7 +1663,8 @@ def checkm_hmmer_search2prokka_gff_v2(hmm_checkm_marker_out, prokka_gff, tigrfam
                     pcg.write(line + '\n')
 
 
-def iterative_embedding(x, x_contigs, depth_dict, all_good_bins, starting_completeness, min_purity, min_completeness):
+def iterative_embedding(x, x_contigs, depth_dict, all_good_bins, starting_completeness, min_purity, min_completeness,
+                        threads, n_dim, annot_file, mg_depth_file, single_contig_bins, taxon_marker_sets, tigrfam2pfam_data, main_contig_data_dict):
     embedding_tries = 1
     early_exag = 100
     internal_completeness = starting_completeness
@@ -1766,10 +1767,10 @@ def iterative_embedding(x, x_contigs, depth_dict, all_good_bins, starting_comple
             if embedding_tries > 1:
                 print('Reached min completeness and found no more bins. Exiting embedding iteration')
                 break
-        else:
+        elif not list(good_bins.keys()):  # did this on first iris run: 'else:'. Meant to do this: 'elif not list(good_bins.keys()):'. Check which is better
             early_exag = early_exag * 10
 
-        # round_good_bins = good_bins
+        round_good_bins = good_bins
 
         print('Good bins this iteration:{0}.'.format(len(good_bins.keys())))
 

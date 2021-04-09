@@ -326,7 +326,7 @@ def asses_bins(final_df, gs_stats):
             genome_size_seq = len(cluster_df['contig'][cluster_df['gs_genome'] == genome].tolist())
             final_bins_dict[cluster][genome] = [genome_size_bp, genome_size_seq]
         genome_sizes_bp = [[genome, data[0]] for genome, data in final_bins_dict[cluster].items()]
-        genome_sizes_bp.sort(key=lambda x:x[1], reverse=True)
+        genome_sizes_bp.sort(key=lambda x: x[1], reverse=True)
         largest_genome = genome_sizes_bp[0][0]
 
         final_bins_dict[cluster]['completeness_bp'] = round(final_bins_dict[cluster][largest_genome][0] / gs_stats[largest_genome][0], 3)

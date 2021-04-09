@@ -1,4 +1,4 @@
- mem:
+mem:
   big_mem_avail: FALSE
   normal_mem_per_core_gb: 4
   big_mem_per_core_gb: 26
@@ -12,8 +12,6 @@ outputdir: "binny_initialized"
 db_path: "database"
 binning:
   binny:
-    pk: 10
-    nn: 4
     kmers: '2,3,4'
     cutoff: 1000
   filtering:
