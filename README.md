@@ -32,7 +32,7 @@ chmod 755 binny
 ```
 * if you want to keep the process running snakemake on the frontend using tmux:
 ```
-cp runscripts/binny_tmux.sh
+cp runscripts/binny_tmux.sh binny
 chmod 755 binny
 ```
 
