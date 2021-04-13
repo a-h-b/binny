@@ -60,10 +60,6 @@ This run sets up the conda environments that will be usable by all users and wil
 ./binny -i config/config.init.yaml 
 ```
 This step will take several minutes to an hour. It will create a folder with the name "database". It contains the database of unique genes from [CheckM](https://data.ace.uq.edu.au/public/CheckM_databases/checkm_data_2015_01_16.tar.gz). You can move this elsewhere and specify the path in the config, if you wish.
-I strongly suggest to **remove one line from the activation script** after the installation, namely the one reading: `R CMD javareconf > /dev/null 2>&1 || true`, because you don't need this line later and if two users run this at the same time it can cause trouble. You can do this by running:
-```
-sed -i "s/R CMD javareconf/#R CMD javareconf/" conda/*/etc/conda/activate.d/activate-r-base.sh
-```
 
 7) **Optional** test run:
 You should be able to test run by 

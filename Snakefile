@@ -82,7 +82,7 @@ if not os.path.exists(DBPATH):
     checkm_tar.extract("./hmms/checkm.hmm",DBPATH)
     markers_df = pd.read_csv(DBPATH + '/taxon_marker_sets.tsv', sep='\t', skipinitialspace=True, header=None)
     markers_df.sort_values(markers_df.columns[2])
-    markers_df.to_csv(DBPATH + "/taxon_marker_sets_lineage_sorted.tsv", header=None, index=None)
+    markers_df.to_csv(DBPATH + "/taxon_marker_sets_lineage_sorted.tsv", header=None, index=None, sep="\t")
     prepCheckM.remove_unused_checkm_hmm_profiles(DBPATH + "/hmms/checkm.hmm", DBPATH + '/taxon_marker_sets.tsv', DBPATH + "/pfam/tigrfam2pfam.tsv", DBPATH + "/hmms/checkm_filtered.hmm")
     if os.path.exists(DBPATH + "/checkm_data_2015_01_16.tar.gz"):
         os.remove(DBPATH + "/checkm_data_2015_01_16.tar.gz")
@@ -314,12 +314,9 @@ rule binny:
 rule zip_output:
     input:
         'assembly.fa',
-        # 'final_contigs2clusters.tsv',
-        # 'final_scatter_plot.pdf'
+        "bins"
     output:
         "assembly.fa.zip",
-        # 'final_contigs2clusters.tsv.zip',
-        # 'final_scatter_plot.pdf.zip',
         "intermediary.zip"
     threads: 1
     resources:

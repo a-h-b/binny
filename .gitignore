@@ -1,5 +1,7 @@
 conda/
 .*
+*stderr
+*stdout
 database/
 binny_*
 binny
