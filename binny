@@ -47,12 +47,12 @@ do
         h)
             usage
             exit;;
-        *)  
-            echo "Unimplemented option: -$OPTARG" >&2 
+        *)
+            echo "Unimplemented option: -$OPTARG" >&2
             usage
             exit 1;;
-        :) 
-            echo "Missing option argument for -$OPTARG" >&2 
+        :)
+            echo "Missing option argument for -$OPTARG" >&2
             usage
             exit 1;;
         ?)
@@ -114,7 +114,9 @@ elif [ "$INITIAL" = true ]; then
     echo "Initializing conda environments."
     eval $LOADING_MODULES
     eval $CONDA_START
-    snakemake --cores 1 -s $DIR/Snakefile --conda-create-envs-only --use-conda --conda-prefix $DIR/conda --local-cores 1 --configfile $CONFIGFILE 
+    # snakemake --cores 1 -s $DIR/Snakefile -R "prepare_checkm_data"  # --use-conda --conda-prefix $DIR/conda --local-cores 1 --configfile $CONFIGFILE
+    snakemake --cores 1 -s $DIR/get_markers --local-cores 1 --configfile $CONFIGFILE
+    snakemake --cores 1 -s $DIR/Snakefile --conda-create-envs-only --use-conda --conda-prefix $DIR/conda --local-cores 1 --configfile $CONFIGFILE
 elif [ "$CLUSTER" = true ]; then
     if [ -z "$THREADS" ]; then
         THREADS=$MAX_THREADS
@@ -150,13 +152,13 @@ elif [ "$LAPTOP" = true ]; then
     eval $LOADING_MODULES
     eval $CONDA_START
     if [ "$REPORT" = true ]; then
-        snakemake --cores $THREADS -s $DIR/Snakefile --keep-going --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda 
-        snakemake --cores $THREADS -s $DIR/Snakefile --configfile $CONFIGFILE --use-conda --conda-prefix $DIR/conda --report report.html 
+        snakemake --cores $THREADS -s $DIR/Snakefile --keep-going --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda
+        snakemake --cores $THREADS -s $DIR/Snakefile --configfile $CONFIGFILE --use-conda --conda-prefix $DIR/conda --report report.html
         eval $CONDA_END
     else
-        snakemake --cores $THREADS -s $DIR/Snakefile --keep-going --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda 
+        snakemake --cores $THREADS -s $DIR/Snakefile --keep-going --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda
         eval $CONDA_END
-    fi    
+    fi
 elif [ "$REPORT" = true ]; then
     echo "Writing report."
     eval $LOADING_MODULES
@@ -166,5 +168,3 @@ elif [ "$REPORT" = true ]; then
 else
     echo "Nothing was done, please give -u, -d, -r, -c, -f, -i, or -l to start anything."
 fi
-
-
