@@ -72,7 +72,7 @@ If you don't want to see binny's guts at this point, you can also run this with 
 ## How to run binny
 To run the binny, you need a config file, plus data: 
 * The config file (in yaml format) is read by Snakemake to determine the inputs, arguments and outputs. 
-* You need contigs in a fasta file and the alignments of metagenomic reads in bam format, both have to be set in the config file. 
+* You need contigs in a fasta file and the alignments of metagenomic reads in bam format, or the contigs plus a tab-separated depth file. The paths have to be set in the config file. 
 
 ### Using the binny wrapper
 As shown in the installation description above, binny can be run in a single step, by calling the binny executable. Since most of the configuration is done via the config file, the options are very limited. You can either:
