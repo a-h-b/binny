@@ -5,6 +5,7 @@ tmp_dir: tmp
 raws: 
   Contigs: "test/assembly.fasta"
   Alignment_metagenomics: "test/mg.reads.sorted.bam"
+  Contig_depth: ""
 sample: test
 outputdir: "test_output4"
 db_path: "database"

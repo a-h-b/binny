@@ -2,9 +2,10 @@ mem:
   normal_mem_per_core_gb: 9
   big_mem_per_core_gb: 36
 tmp_dir: tmp
-raws: 
+raws:
   Contigs: ""
   Alignment_metagenomics: ""
+  Contig_depth: ""
 sample: test
 outputdir: "test"
 db_path: "../db"
