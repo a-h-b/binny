@@ -3,5 +3,5 @@ conda/
 database/
 binny_*
 binny
-test*
+test_*
 !.gitignore
