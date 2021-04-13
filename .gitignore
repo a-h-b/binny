@@ -3,5 +3,6 @@ conda/
 database/
 binny_*
 binny
+workflow/scripts/__pycache__/
 test_*
 !.gitignore

@@ -11,6 +11,7 @@ import subprocess
 import pandas as pd
 from pathlib import Path
 import urllib.request
+import tarfile
 
 def open_output(filename):
     return(open(OUTPUTDIR+'/'+filename, 'w+'))
@@ -26,6 +27,10 @@ configfile:
 SRCDIR = srcdir("workflow/scripts")
 BINDIR = srcdir("workflow/bin")
 ENVDIR = srcdir("workflow/envs")
+
+if SRCDIR not in sys.path:
+    sys.path.append(SRCDIR)
+    import remove_unused_checkm_hmm_profiles as prepCheckM
 
 # get parameters from the config file
 
@@ -68,36 +73,21 @@ DBPATH = os.path.expandvars(config['db_path'])
 if not os.path.isabs(DBPATH):
     DBPATH = os.getcwd() + "/" + DBPATH
 if not os.path.exists(DBPATH):
+    print("Setting up marker database")
     os.makedirs(DBPATH)
-    # urllib.request.urlretrieve("https://webdav-r3lab.uni.lu/public/R3lab/IMP/essential.hmm", DBPATH + "/essential.hmm")
-
-    rule prepare_checkm_data:
-        input:
-            DBPATH
-        output:
-            DBPATH + "/taxon_marker_sets.tsv",
-            DBPATH + "/pfam/tigrfam2pfam.tsv",
-            DBPATH + "/taxon_marker_sets_lineage_sorted.tsv",
-            DBPATH + "/hmms/checkm_filtered.hmm"
-        threads: 1
-        resources:
-            runtime = "4:00:00",
-            mem = MEMCORE
-        message: "Preparing checkm data."
-        shell:
-            """
-            # Download checkm marker set data
-            wget https://data.ace.uq.edu.au/public/CheckM_databases/checkm_data_2015_01_16.tar.gz -P {input[0]}
-            # Extract only needed files
-            cd {input[0]}
-            tar -xvzf {input[0]}/checkm_data_2015_01_16.tar.gz "./taxon_marker_sets.tsv" "./pfam/tigrfam2pfam.tsv" "./hmms/checkm.hmm"  # -C {input[0]} <-- This doesnt seem to work on iris
-            # Sort by marker sets file by lineage
-            sort -t$'\t' -k3 {output[0]} > {output[2]}
-            # Filter out hmm profiles not found in marker sets
-            {SRCDIR}/remove_unused_checkm_hmm_profiles.py {input[0]}/hmms/checkm.hmm {output[0]} {output[1]} {output[3]}
-            # Remove intermediary data
-            rm {input[0]}/checkm_data_2015_01_16.tar.gz {input[0]}/hmms/checkm.hmm
-            """
+    urllib.request.urlretrieve("https://data.ace.uq.edu.au/public/CheckM_databases/checkm_data_2015_01_16.tar.gz", DBPATH + "/checkm_data_2015_01_16.tar.gz")
+    checkm_tar = tarfile.open( DBPATH + "/checkm_data_2015_01_16.tar.gz")
+    checkm_tar.extract("./taxon_marker_sets.tsv",DBPATH)
+    checkm_tar.extract("./pfam/tigrfam2pfam.tsv",DBPATH)
+    checkm_tar.extract("./hmms/checkm.hmm",DBPATH)
+    markers_df = pd.read_csv(DBPATH + '/taxon_marker_sets.tsv', sep='\t', skipinitialspace=True, header=None)
+    markers_df.sort_values(markers_df.columns[2])
+    markers_df.to_csv(DBPATH + "/taxon_marker_sets_lineage_sorted.tsv", header=None, index=None)
+    prepCheckM.remove_unused_checkm_hmm_profiles(DBPATH + "/hmms/checkm.hmm", DBPATH + '/taxon_marker_sets.tsv', DBPATH + "/pfam/tigrfam2pfam.tsv", DBPATH + "/hmms/checkm_filtered.hmm")
+    if os.path.exists(DBPATH + "/checkm_data_2015_01_16.tar.gz"):
+        os.remove(DBPATH + "/checkm_data_2015_01_16.tar.gz")
+    if os.path.exists(DBPATH + "/hmms/checkm.hmm"):
+        os.remove(DBPATH + "/hmms/checkm.hmm")
 
 # Filer thresholds
 COMPLETENESS = str(config["binning"]["filtering"]["completeness"])
@@ -110,7 +100,7 @@ if not os.path.isabs(TMPDIR):
     TMPDIR = os.path.join(OUTPUTDIR, TMPDIR)
 if not os.path.exists(TMPDIR):
     os.makedirs(TMPDIR)
-
+    
 # set working directory and dump output
 workdir:
     OUTPUTDIR
@@ -157,7 +147,6 @@ rule ALL:
 yaml.add_representer(OrderedDict, lambda dumper, data: dumper.represent_mapping('tag:yaml.org,2002:map', data.items()))
 yaml.add_representer(tuple, lambda dumper, data: dumper.represent_sequence('tag:yaml.org,2002:seq', data))
 yaml.dump(config, open_output('binny.config.yaml'), allow_unicode=True,default_flow_style=False)
-
 
 rule prepare_input_data:
     input:
