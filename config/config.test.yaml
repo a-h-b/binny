@@ -12,7 +12,7 @@ outputdir: "test_output4"
 db_path: "database"
 binning:
   binny:
-    kmers: '2,3,4'
+    kmers: '4'
     cutoff: 1000
   filtering:
     completeness: 70
