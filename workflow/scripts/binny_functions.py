@@ -1110,10 +1110,18 @@ def get_contig_kmer_matrix2(contig_list, ksize_list, n_jobs=1):
     contig_list.sort(key=lambda i: i[2], reverse=True)
     start = timer()
     chunks_to_process = [[] for i in range(n_jobs)]
-    for i in contig_list:
-        # chunks_to_process.sort(key=lambda i: len(''.join([contig[1] for contig in i])))
-        chunks_to_process.sort(key=lambda i: sum([contig[2] for contig in i]))
-        chunks_to_process[0].append(i)
+    
+    list_pos = 0
+    for contig in contig_list:
+        chunks_to_process[list_pos].append(contig)
+        list_pos += 1
+        if list_pos + 1 > len(chunks_to_process):
+            list_pos = 0
+    
+    # for i in contig_list:
+    #     # chunks_to_process.sort(key=lambda i: len(''.join([contig[1] for contig in i])))
+    #     chunks_to_process.sort(key=lambda i: sum([contig[2] for contig in i]))
+    #     chunks_to_process[0].append(i)
     end = timer()
     print('Created load balanced list in {0}s.'.format(int(end - start)))
     # Try to free mem
