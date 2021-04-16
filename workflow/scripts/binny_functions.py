@@ -835,9 +835,12 @@ def divide_clusters_by_depth2(ds_clstr_dict, threads, marker_sets_graph, tigrfam
     # for k, v in dict_cp.items():
     #     print(k, v)
     start = timer()
-    dict_cp = {k: v for k, v in dict_cp.items() if gather_cluster_data(k, dict_cp, marker_sets_graph, tigrfam2pfam_data_dict)[clust_dat_pur_ind] >= min_purity and
-               gather_cluster_data(k, dict_cp, marker_sets_graph, tigrfam2pfam_data_dict)[clust_dat_comp_ind] >= min_completeness}
+    # dict_cp = {k: v for k, v in dict_cp.items() if gather_cluster_data(k, dict_cp, marker_sets_graph, tigrfam2pfam_data_dict)[clust_dat_pur_ind] >= min_purity and
+    #            gather_cluster_data(k, dict_cp, marker_sets_graph, tigrfam2pfam_data_dict)[clust_dat_comp_ind] >= min_completeness}
     # dict_cp = {(k): (v if (v.get('purity') and v['purity'] >= min_purity and v['completeness'] >= min_completeness) else v) for k, v in dict_cp.items()}
+    
+    dict_cp = {k: v for k, v in dict_cp.items() if v.get('purity', 0) >= min_purity and v.get('completeness', 0) >= min_completeness}
+    
     end = timer()
     print('Added purity and completeness stats to the final dict in {0}s.'.format(int(end-start)))
     # print('testB')
@@ -1666,7 +1669,7 @@ def checkm_hmmer_search2prokka_gff_v2(hmm_checkm_marker_out, prokka_gff, tigrfam
 def iterative_embedding(x, x_contigs, depth_dict, all_good_bins, starting_completeness, min_purity, min_completeness,
                         threads, n_dim, annot_file, mg_depth_file, single_contig_bins, taxon_marker_sets, tigrfam2pfam_data, main_contig_data_dict):
     embedding_tries = 1
-    early_exag = 100
+    early_exag = 1000
     internal_completeness = starting_completeness
     while embedding_tries <= 100:
         print('Running embedding iteration {0}.'.format(embedding_tries))
@@ -1707,10 +1710,10 @@ def iterative_embedding(x, x_contigs, depth_dict, all_good_bins, starting_comple
         # print(n_comp, round(sum(pca.explained_variance_ratio_), 3))  # , pca.explained_variance_ratio_)
         x_pca = transformer.transform(X_scaled)
 
-        if len(round_x_contigs) >= 1e5:
-            preplexities = [4, 10, 100, 1000, 10000, 100000]
-        else:
-            preplexities = [4, 10, 100, 1000, 10000]
+        # if len(round_x_contigs) >= 1e5:
+        #     preplexities = [4, 10, 100, 1000, 10000, 100000]
+        # else:
+        preplexities = [10, 100, 500]
 
         affinities_multiscale_mixture = affinity.Multiscale(x_pca, perplexities=preplexities, metric="manhattan",
                                                             n_jobs=threads, random_state=0,
