@@ -835,6 +835,7 @@ def divide_clusters_by_depth2(ds_clstr_dict, threads, marker_sets_graph, tigrfam
     # for k, v in dict_cp.items():
     #     print(k, v)
     start = timer()
+<<<<<<< HEAD
     # for k, v in dict_cp.items():
     #     if not v.get('purity'):
     #         print(k, v)
@@ -844,6 +845,14 @@ def divide_clusters_by_depth2(ds_clstr_dict, threads, marker_sets_graph, tigrfam
 
     dict_cp = {k: v for k, v in dict_cp.items() if v.get('purity', 0) >= min_purity and v.get('completeness', 0) >= min_completeness}
 
+=======
+    # dict_cp = {k: v for k, v in dict_cp.items() if gather_cluster_data(k, dict_cp, marker_sets_graph, tigrfam2pfam_data_dict)[clust_dat_pur_ind] >= min_purity and
+    #            gather_cluster_data(k, dict_cp, marker_sets_graph, tigrfam2pfam_data_dict)[clust_dat_comp_ind] >= min_completeness}
+    # dict_cp = {(k): (v if (v.get('purity') and v['purity'] >= min_purity and v['completeness'] >= min_completeness) else v) for k, v in dict_cp.items()}
+    
+    dict_cp = {k: v for k, v in dict_cp.items() if v.get('purity', 0) >= min_purity and v.get('completeness', 0) >= min_completeness}
+    
+>>>>>>> d7a26408ab3d05fc8cafec2ce8baf84833ff18fc
     end = timer()
     print('Added purity and completeness stats to the final dict in {0}s.'.format(int(end-start)))
     # print('testB')
@@ -1116,14 +1125,22 @@ def get_contig_kmer_matrix2(contig_list, ksize_list, n_jobs=1):
     contig_list.sort(key=lambda i: i[2], reverse=True)
     start = timer()
     chunks_to_process = [[] for i in range(n_jobs)]
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> d7a26408ab3d05fc8cafec2ce8baf84833ff18fc
     list_pos = 0
     for contig in contig_list:
         chunks_to_process[list_pos].append(contig)
         list_pos += 1
         if list_pos + 1 > len(chunks_to_process):
             list_pos = 0
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> d7a26408ab3d05fc8cafec2ce8baf84833ff18fc
     # for i in contig_list:
     #     # chunks_to_process.sort(key=lambda i: len(''.join([contig[1] for contig in i])))
     #     chunks_to_process.sort(key=lambda i: sum([contig[2] for contig in i]))
@@ -1680,7 +1697,7 @@ def checkm_hmmer_search2prokka_gff_v2(hmm_checkm_marker_out, prokka_gff, tigrfam
 def iterative_embedding(x, x_contigs, depth_dict, all_good_bins, starting_completeness, min_purity, min_completeness,
                         threads, n_dim, annot_file, mg_depth_file, single_contig_bins, taxon_marker_sets, tigrfam2pfam_data, main_contig_data_dict):
     embedding_tries = 1
-    early_exag = 100
+    early_exag = 1000
     internal_completeness = starting_completeness
     super_exagg = False
     while embedding_tries <= 100:
@@ -1725,6 +1742,7 @@ def iterative_embedding(x, x_contigs, depth_dict, all_good_bins, starting_comple
         # if len(round_x_contigs) >= 1e5:
         #     preplexities = [4, 10, 100, 1000, 10000, 100000]
         # else:
+
         preplexities = [10, 100]
 
         affinities_multiscale_mixture = affinity.Multiscale(x_pca, perplexities=preplexities, metric="manhattan",

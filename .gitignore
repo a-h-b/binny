@@ -1,7 +1,10 @@
 conda/
 .*
+*stderr
+*stdout
 database/
 binny_*
 binny
-test*
+workflow/scripts/__pycache__/
+test_*
 !.gitignore

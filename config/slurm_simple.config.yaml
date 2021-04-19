@@ -5,6 +5,6 @@ __default__:
   qos: ""
   mem_per_cpu: "--mem-per-cpu "  
   runtime: "-t "
-  threads: "-n "
-
+  threads: "-c "
+  stdout: "-o binny.{rule}.{wildcards}.stdout"
 

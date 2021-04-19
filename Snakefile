@@ -100,7 +100,7 @@ if not os.path.isabs(TMPDIR):
     TMPDIR = os.path.join(OUTPUTDIR, TMPDIR)
 if not os.path.exists(TMPDIR):
     os.makedirs(TMPDIR)
-
+    
 # set working directory and dump output
 workdir:
     OUTPUTDIR

@@ -32,7 +32,7 @@ chmod 755 binny
 ```
 * if you want to keep the process running snakemake on the frontend using tmux:
 ```
-cp runscripts/binny_tmux.sh
+cp runscripts/binny_tmux.sh binny
 chmod 755 binny
 ```
 
@@ -55,15 +55,11 @@ binny is meant to be used by multiple users. Set the permissions accordingly. I'
 * It can also be useful to make the VARIABLE_CONFIG file not-writable, because you will always need it. The same goes for config.default.yaml once you've set the paths to the databases you want to use (see below).
 
 6) Initialize conda environments:
-This run sets up the conda environments that will be usable by all users and will download a database of essential genes from (https://webdav-r3lab.uni.lu/public/R3lab/IMP/essential.hmm):
+This run sets up the conda environments that will be usable by all users and will download a database:
 ```
 ./binny -i config/config.init.yaml 
 ```
-This step will take several minutes to an hour. It will create a folder with the name "database". It contains the database of essential genes. You can move this elsewhere and specify the path in the config, if you wish.
-I strongly suggest to **remove one line from the activation script** after the installation, namely the one reading: `R CMD javareconf > /dev/null 2>&1 || true`, because you don't need this line later and if two users run this at the same time it can cause trouble. You can do this by running:
-```
-sed -i "s/R CMD javareconf/#R CMD javareconf/" conda/*/etc/conda/activate.d/activate-r-base.sh
-```
+This step will take several minutes to an hour. It will create a folder with the name "database". It contains the database of unique genes from [CheckM](https://data.ace.uq.edu.au/public/CheckM_databases/checkm_data_2015_01_16.tar.gz). You can move this elsewhere and specify the path in the config, if you wish.
 
 7) **Optional** test run:
 You should be able to test run by 
@@ -76,7 +72,7 @@ If you don't want to see binny's guts at this point, you can also run this with 
 ## How to run binny
 To run the binny, you need a config file, plus data: 
 * The config file (in yaml format) is read by Snakemake to determine the inputs, arguments and outputs. 
-* You need contigs in a fasta file and the alignments of metagenomic reads in bam format, both have to be set in the config file. 
+* You need contigs in a fasta file and the alignments of metagenomic reads in bam format, or the contigs plus a tab-separated depth file. The paths have to be set in the config file. 
 
 ### Using the binny wrapper
 As shown in the installation description above, binny can be run in a single step, by calling the binny executable. Since most of the configuration is done via the config file, the options are very limited. You can either:

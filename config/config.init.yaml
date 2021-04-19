@@ -12,7 +12,7 @@ outputdir: "binny_initialized"
 db_path: "database"
 binning:
   binny:
-    kmers: '4' # Input a list, e.g. '2,3,4'
+    kmers: '2,3,4' # Input a list, e.g. '2,3,4'
     cutoff: 1000
   filtering:
     completeness: 70

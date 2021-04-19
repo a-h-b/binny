@@ -263,7 +263,7 @@ if(!"essential" %in% colnames(annot.1)){
     # save.image(paste0(binny_dir,"/binny_WS.Rdata"))
     
     #fourth iteration of clustering on clusters with more than 20% duplicated essential genes
-    ### - reachability estimates are based on nth nearest neighbor (independent of number of neighbouring points)
+    ### - reachability estimates are based on nth nearest neighbour (independent of number of neighbouring points)
     ### - neighboring points are increased by 2 again
     pk6 <- pk + 6
     pdf(paste0(binny_dir,paste("/scatterPlots4",pk,nn,"pdf",sep=".")))

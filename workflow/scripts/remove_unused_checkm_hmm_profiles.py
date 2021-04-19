@@ -70,10 +70,10 @@ def remove_unused_checkm_hmm_profiles(hmmer_file, markers_sets_file, tigrfam2pfa
             #     print('not found', profile, tf2pf.get(profile, 'No alt found.'))
 
 
-hmmer_file = sys.argv[1]
-markers_sets_file = sys.argv[2]
-tigrfam2pfam_file = sys.argv[3]
-out_file = sys.argv[4]
+#hmmer_file = sys.argv[1]
+#markers_sets_file = sys.argv[2]
+#tigrfam2pfam_file = sys.argv[3]
+#out_file = sys.argv[4]
 
 
-remove_unused_checkm_hmm_profiles(hmmer_file, markers_sets_file, tigrfam2pfam_file, out_file)
+#remove_unused_checkm_hmm_profiles(hmmer_file, markers_sets_file, tigrfam2pfam_file, out_file)
