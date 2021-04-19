@@ -59,7 +59,7 @@ mask_rep_featrues(contig_rrna_crispr_region_dict, contig_list)
 
 # Get length normalized k-mer frequencies.
 print('Counting k-mers.')
-kmer_sizes = [2, 3, 4]  # list(range(6, 7))
+kmer_sizes = [4]  # [2, 3, 4]
 start = timer()
 kfreq_array = get_contig_kmer_matrix2(contig_list, kmer_sizes, threads)
 end = timer()
@@ -83,8 +83,9 @@ with open(gs, 'r') as f:
 depth_dict = load_depth_dict(mg_depth_file)
 ########################################################################################################################
 embedding_tries = 1
-early_exag = 100
+early_exag = 1000
 internal_completeness = starting_completeness
+super_exagg = False
 ########################################################################################################################
 while embedding_tries <= 100:
     round_X_contigs = []
@@ -144,11 +145,11 @@ while embedding_tries <= 100:
     print(n_comp, round(sum(pca.explained_variance_ratio_), 3))  #, pca.explained_variance_ratio_)
     X_pca = transformer.transform(X_scaled)
 
-    if len(round_X_contigs) >= 1e5:
-        preplexities = [4, 10, 100, 1000, 5000]
-    else:
-        # preplexities = [4, 10, 100, 1000]
-        preplexities = [4, 10, 100, 500]  # for sample 0, so it fits in ram
+    # if len(round_X_contigs) >= 1e5:
+    #     preplexities = [4, 10, 100, 1000, 5000]
+    # else:
+    #     # preplexities = [4, 10, 100, 1000]
+    preplexities = [10, 100, 500]  # for sample 0, so it fits in ram
 
     affinities_multiscale_mixture = affinity.Multiscale(X_pca, perplexities=preplexities, metric="manhattan", n_jobs=threads, random_state=0, verbose=True)  # [perp, perp*10, perp*100] #, 10000 # [2, 10, 100, 1000]
     init = initialization.pca(X_pca, random_state=0, verbose=True)
@@ -182,7 +183,7 @@ while embedding_tries <= 100:
     coord_df['contig'] = round_X_contigs  #_good
     # Reorder
     coord_df = coord_df[['contig']+['dim'+str(i) for i in dim_range]]
-    coords_file = 'intermediary/contig_coordinates_dynamic_marker_sets_v06.tsv'
+    coords_file = 'intermediary/contig_coordinates_alpha_003.tsv'
     coord_df.to_csv(coords_file, sep='\t', index=False, header=False)
 
     # Load data
@@ -197,8 +198,8 @@ while embedding_tries <= 100:
     # Write contig data to file
     if embedding_tries == 1:
         contig_data_df_org = contig_data_df.copy()
-        contig_data_df_org.to_csv('intermediary/contig_data_original_dynamic_marker_sets_v06.tsv', sep='\t', index=False)
-    contig_data_df.to_csv('intermediary/contig_data_dynamic_marker_sets_v06.tsv', sep='\t', index=False)
+        contig_data_df_org.to_csv('intermediary/contig_data_original_alpha_003.tsv', sep='\t', index=False)
+    contig_data_df.to_csv('intermediary/contig_data_alpha_003.tsv', sep='\t', index=False)
 
     # Find bins
     good_bins, final_init_clust_dict = binny_iterate(contig_data_df, threads, taxon_marker_sets, tigrfam2pfam_data,
@@ -212,13 +213,18 @@ while embedding_tries <= 100:
         print('Could not find good bins. Lowering completeness threshold to {0} and increasing t-SNE early exaggeration to {1}.'.format(internal_completeness, early_exag))
     elif not list(good_bins.keys()) and not list(round_good_bins.keys()):
         if embedding_tries > 1:
-            print('Found no good bins two times in a row')
-            break
+            if not super_exagg:
+                early_exag = early_exag * 10
+                super_exagg = True
+            else:
+                print('Found no good bins two times in a row')
+                break
     elif not list(good_bins.keys()) and internal_completeness < min_completeness:  # 60
         if embedding_tries > 1:
             print('Reached min completeness and found no more bins. Exiting embedding iteration')
             break
-    else:
+    elif not list(good_bins.keys()):  # did this on first iris run: 'else:'. Meant to do this: 'elif not list(good_bins.keys()):'. Check which is better
+        print('PerpTestB')
         early_exag = early_exag * 10
 
     round_good_bins = good_bins
@@ -233,7 +239,7 @@ while embedding_tries <= 100:
     # Write round table
     round_clust_dict = {**good_bins, **final_init_clust_dict}
     round_clust_df = cluster_df_from_dict(round_clust_dict)
-    round_clust_df.to_csv('round_contigs2clusters_dynamic_marker_sets_v06.tsv', sep='\t', index=False)
+    round_clust_df.to_csv('round_contigs2clusters_alpha_003.tsv', sep='\t', index=False)
 
     round_clust_contig_df = contig_df_from_cluster_dict(round_clust_dict)
 
@@ -292,7 +298,7 @@ for cluster in final_init_clust_dict:
 final_clust_dict = {**all_good_bins, **final_init_clust_dict}
 # final_clust_dict = {**good_bins, **final_init_clust_dict}
 final_clust_df = cluster_df_from_dict(final_clust_dict)
-final_clust_df.to_csv('final_contigs2clusters_dynamic_marker_sets_v06.tsv', sep='\t', index=False)
+final_clust_df.to_csv('final_contigs2clusters_alpha_003.tsv', sep='\t', index=False)
 
 final_clust_contig_df = contig_df_from_cluster_dict(final_clust_dict)
 
@@ -343,7 +349,7 @@ bin_stats = asses_bins(final_clust_contig_df, gs_stats)
 ########################################################################################################################
 
 # if n_dim <= 3:
-#     write_scatterplot(final_clust_contig_df, 'final_scatter_plot_dynamic_marker_sets_v06.pdf',
+#     write_scatterplot(final_clust_contig_df, 'final_scatter_plot_alpha_003.pdf',
 #                       final_clust_contig_df['above_thresh'])
 
 # Check if something went wrong and contigs were duplicated.
@@ -354,6 +360,6 @@ if len(all_contigs) != len(set(all_contigs)):
     print('WARNING: {0} duplicate contigs in bins found!'.format(len(all_contigs) - len(set(all_contigs))))
 
 # Write bin fastas.
-write_bins(all_good_bins, assembly, min_comp=int(min_completeness), min_pur=int(min_purity), bin_dir='bins_dynamic_marker_sets_v06')
+write_bins(all_good_bins, assembly, min_comp=int(min_completeness), min_pur=int(min_purity), bin_dir='bins_alpha_003')
 
 print('Run finished.')

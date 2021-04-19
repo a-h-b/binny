@@ -460,7 +460,7 @@ def uni_dip_depth(clust_dat, cluster, alpha):
 
 
 def dbscan_sub_clusters(cluster_contig_df, cluster, pk, min_dims, threads_for_dbscan, max_tries=5):
-    start = timer()
+    # start = timer()
 
     while cluster_contig_df['contig'].size < pk and pk >= min_dims:
         pk = int(pk * 0.75)
@@ -504,7 +504,7 @@ def dbscan_sub_clusters(cluster_contig_df, cluster, pk, min_dims, threads_for_db
             # print('Failed to find sub-clusters for {0} with DBSCAN after {1}s: Could not estimate reachability distance.'.format(
             #     shorten_cluster_names(cluster), int(end - start)))
             return [{}, cluster]
-    end = timer()
+    # end = timer()
     # print(
     #     'Failed to find sub-clusters for {0} with DBSCAN after {1}s.'.format(
     #         shorten_cluster_names(cluster), int(end - start)))
@@ -835,9 +835,15 @@ def divide_clusters_by_depth2(ds_clstr_dict, threads, marker_sets_graph, tigrfam
     # for k, v in dict_cp.items():
     #     print(k, v)
     start = timer()
-    dict_cp = {k: v for k, v in dict_cp.items() if gather_cluster_data(k, dict_cp, marker_sets_graph, tigrfam2pfam_data_dict)[clust_dat_pur_ind] >= min_purity and
-               gather_cluster_data(k, dict_cp, marker_sets_graph, tigrfam2pfam_data_dict)[clust_dat_comp_ind] >= min_completeness}
+    # for k, v in dict_cp.items():
+    #     if not v.get('purity'):
+    #         print(k, v)
+    # dict_cp = {k: v for k, v in dict_cp.items() if gather_cluster_data(k, dict_cp, marker_sets_graph, tigrfam2pfam_data_dict)[clust_dat_pur_ind] >= min_purity and
+    #            gather_cluster_data(k, dict_cp, marker_sets_graph, tigrfam2pfam_data_dict)[clust_dat_comp_ind] >= min_completeness}
     # dict_cp = {(k): (v if (v.get('purity') and v['purity'] >= min_purity and v['completeness'] >= min_completeness) else v) for k, v in dict_cp.items()}
+
+    dict_cp = {k: v for k, v in dict_cp.items() if v.get('purity', 0) >= min_purity and v.get('completeness', 0) >= min_completeness}
+
     end = timer()
     print('Added purity and completeness stats to the final dict in {0}s.'.format(int(end-start)))
     # print('testB')
@@ -1004,7 +1010,7 @@ def write_bins(cluster_dict, assembly, min_comp=40, min_pur=90, bin_dir='bins'):
         # if cluster_purity >= min_pur and cluster_completeness >= min_comp:
         if cluster_dict[cluster]['purity'] >= min_pur/100 and cluster_dict[cluster]['completeness'] >= min_comp/100:
             new_cluster_name = shorten_cluster_names(cluster)
-            bin_name = '_'.join(['binny'] + [cluster_dict[cluster]['taxon']] + ['C'+str(int(round(cluster_dict[cluster]['completeness'] * 100, 0)))]
+            bin_name = '_'.join(['binny'] + [cluster_dict[cluster]['taxon'].replace(' ', '_')] + ['C'+str(int(round(cluster_dict[cluster]['completeness'] * 100, 0)))]
                                 + ['P'+str(int(round(cluster_dict[cluster]['purity'] * 100, 0)))] + [new_cluster_name])
             bin_file_name = bin_name + '.fasta'
             bin_out_path = bin_dir / bin_file_name
@@ -1083,15 +1089,15 @@ def kmer_counter2_bloom(ksize, kmer_list_can, sequence):
 def get_contig_kmer_freq2(ksize, can_k_mers, assembly_chunk):
     chunk_list = []
     for contig in assembly_chunk:
-        start = timer()
+        # start = timer()
         # if ksize < 7:
         #     kmer_count_list = kmer_counter2(can_k_mers, contig[1])
         # else:
         #     kmer_count_list = kmer_counter2_bloom(ksize, can_k_mers, contig[1])
         kmer_count_list = kmer_counter2(can_k_mers, contig[1])
-        end = timer()
-        if end - start >= 30:
-            print('Counting k-mers in {0} took longer than 30s with {1}s.'.format(contig[0], int(end - start)))
+        # end = timer()
+        # if end - start >= 30:
+        #     print('Counting k-mers in {0} took longer than 30s with {1}s.'.format(contig[0], int(end - start)))
         # print('Counted k-mers in {0} in {1}s.'.format(contig[0], end - start))
         contig_kfreq = [contig[0]] + kmer_count_list
         # contig_kfreq = kmer_count_list
@@ -1110,10 +1116,18 @@ def get_contig_kmer_matrix2(contig_list, ksize_list, n_jobs=1):
     contig_list.sort(key=lambda i: i[2], reverse=True)
     start = timer()
     chunks_to_process = [[] for i in range(n_jobs)]
-    for i in contig_list:
-        # chunks_to_process.sort(key=lambda i: len(''.join([contig[1] for contig in i])))
-        chunks_to_process.sort(key=lambda i: sum([contig[2] for contig in i]))
-        chunks_to_process[0].append(i)
+
+    list_pos = 0
+    for contig in contig_list:
+        chunks_to_process[list_pos].append(contig)
+        list_pos += 1
+        if list_pos + 1 > len(chunks_to_process):
+            list_pos = 0
+
+    # for i in contig_list:
+    #     # chunks_to_process.sort(key=lambda i: len(''.join([contig[1] for contig in i])))
+    #     chunks_to_process.sort(key=lambda i: sum([contig[2] for contig in i]))
+    #     chunks_to_process[0].append(i)
     end = timer()
     print('Created load balanced list in {0}s.'.format(int(end - start)))
     # Try to free mem
@@ -1221,7 +1235,7 @@ def binny_iterate(contig_data_df, threads, marker_sets_graph, tigrfam2pfam_data_
     good_clusters = {}
 
     if not max_tries:
-        max_tries = 10  # 3 + embedding_iteration * 2
+        max_tries = 2  # 10  # 3 + embedding_iteration * 2
 
     while n_iterations <= max_iterations and n_new_clusters > 0:
         print('Running iteration: {0}.'.format(n_iterations))
@@ -1668,6 +1682,7 @@ def iterative_embedding(x, x_contigs, depth_dict, all_good_bins, starting_comple
     embedding_tries = 1
     early_exag = 100
     internal_completeness = starting_completeness
+    super_exagg = False
     while embedding_tries <= 100:
         print('Running embedding iteration {0}.'.format(embedding_tries))
         if embedding_tries == 1:
@@ -1707,10 +1722,10 @@ def iterative_embedding(x, x_contigs, depth_dict, all_good_bins, starting_comple
         # print(n_comp, round(sum(pca.explained_variance_ratio_), 3))  # , pca.explained_variance_ratio_)
         x_pca = transformer.transform(X_scaled)
 
-        if len(round_x_contigs) >= 1e5:
-            preplexities = [4, 10, 100, 1000, 10000, 100000]
-        else:
-            preplexities = [4, 10, 100, 1000, 10000]
+        # if len(round_x_contigs) >= 1e5:
+        #     preplexities = [4, 10, 100, 1000, 10000, 100000]
+        # else:
+        preplexities = [10, 100]
 
         affinities_multiscale_mixture = affinity.Multiscale(x_pca, perplexities=preplexities, metric="manhattan",
                                                             n_jobs=threads, random_state=0,
@@ -1751,23 +1766,29 @@ def iterative_embedding(x, x_contigs, depth_dict, all_good_bins, starting_comple
                                                          min_purity, internal_completeness, 1,
                                                          embedding_iteration=embedding_tries)
 
-        if not list(good_bins.keys()) and internal_completeness >= min_completeness:
+        if not list(good_bins.keys()) and internal_completeness > min_completeness:
             # if min_completeness < 90:
             #     min_purity = 95
             internal_completeness = internal_completeness - 5
             early_exag = early_exag * 1.1
+            print('PerpTestA')
             print(
                 'Could not find any good bins. Lowering completeness threshold to {0} and increasing t-SNE early exaggeration to {1}.'.format(
                     internal_completeness, early_exag))
         elif not list(good_bins.keys()) and not list(round_good_bins.keys()):
             if embedding_tries > 1:
-                print('Found no good bins two times in a row')
-                break
+                if not super_exagg:
+                    early_exag = early_exag * 10
+                    super_exagg = True
+                else:
+                    print('Found no good bins two times in a row')
+                    break
         elif not list(good_bins.keys()) and internal_completeness < min_completeness:  # 60
             if embedding_tries > 1:
                 print('Reached min completeness and found no more bins. Exiting embedding iteration')
                 break
         elif not list(good_bins.keys()):  # did this on first iris run: 'else:'. Meant to do this: 'elif not list(good_bins.keys()):'. Check which is better
+            print('PerpTestB')
             early_exag = early_exag * 10
 
         round_good_bins = good_bins
