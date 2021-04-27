@@ -267,9 +267,6 @@ rule mantis_checkm_marker_sets:
                                            -o intermediary/mantis_out -c {threads} -et 1e-10 >> {log} 2>&1
         """
 
-# t2p = DBPATH + "/pfam/tigrfam2pfam.tsv"
-# marker_sets = DBPATH + "/taxon_marker_sets_lineage_sorted.tsv"
-
 rule binny:
     input:
         mgdepth='intermediary/assembly.contig_depth.txt',
@@ -277,8 +274,6 @@ rule binny:
         assembly="assembly.fa",
         t2p=DBPATH + "/pfam/tigrfam2pfam.tsv",
         marker_sets=DBPATH + "/taxon_marker_sets_lineage_sorted.tsv",
-        # t2p=t2p,
-        # marker_sets=marker_sets,
         # hmm_markers="intermediary/prokka.faa.markers.hmmscan"
         hmm_markers="intermediary/mantis_out/consensus_annotation.tsv"
     output:
