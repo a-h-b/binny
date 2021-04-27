@@ -135,7 +135,7 @@ def _process_file(fname, inp, outfilename):
     else:
         shutil.copy(inp, outfilename)
 
-localrules: prepare_input_data, ALL, prepare_binny
+localrules: prepare_input_data, ALL
 
 
 rule ALL:
