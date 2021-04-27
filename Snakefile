@@ -264,7 +264,7 @@ rule mantis_checkm_marker_sets:
     shell:
         """
         python {BINDIR}/mantis/ run_mantis -t {input[0]} -da heuristic -mc {BINDIR}/mantis/MANTIS.config \
-                                           -o intermediary/mantis_out -c {threads} -et 1e-10
+                                           -o intermediary/mantis_out -c {threads} -et 1e-10 >> {log} 2>&1
         """
 
 # t2p = DBPATH + "/pfam/tigrfam2pfam.tsv"
@@ -326,7 +326,5 @@ rule zip_output:
     shell:
        """
        zip -m {output[0]} {input[0]} >> {log} 2>&1
-       # zip -m {output[1]} {input[1]} >> {log} 2>&1
-       # zip -m {output[2]} {input[2]} >> {log} 2>&1
        zip -rm {output[1]} {params.intermediary} >> {log} 2>&1
        """
