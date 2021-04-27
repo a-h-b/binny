@@ -47,12 +47,12 @@ do
         h)
             usage
             exit;;
-        *)  
-            echo "Unimplemented option: -$OPTARG" >&2 
+        *)
+            echo "Unimplemented option: -$OPTARG" >&2
             usage
             exit 1;;
-        :) 
-            echo "Missing option argument for -$OPTARG" >&2 
+        :)
+            echo "Missing option argument for -$OPTARG" >&2
             usage
             exit 1;;
         ?)
@@ -111,10 +111,33 @@ elif [ "$DRYRUN" = true ]; then
     snakemake --cores 1 -s $DIR/Snakefile --dryrun --config sessionName=$JNAME --configfile $CONFIGFILE
     eval $CONDA_END
 elif [ "$INITIAL" = true ]; then
-    echo "Initializing conda environments."
     eval $LOADING_MODULES
     eval $CONDA_START
+    echo 'Getting MANTIS'
+    # mkdir -r ${DIR}/workflow/bin/mantis
+    # git clone https://github.com/PedroMTQ/mantis.git ${DIR}/workflow/bin/mantis
+    curl -L https://github.com/PedroMTQ/mantis/archive/master.zip --output $DIR/workflow/bin/mantis.zip
+    unzip -q $DIR/workflow/bin/mantis.zip -d $DIR/workflow/bin/ && mv $DIR/workflow/bin/mantis-master $DIR/workflow/bin/mantis && rm $DIR/workflow/bin/mantis.zip
     snakemake --cores 1 -s $DIR/Snakefile --conda-create-envs-only --use-conda --conda-prefix $DIR/conda --local-cores 1 --configfile $CONFIGFILE
+    echo "Initializing conda environments."
+    sed -i -e "s|\#nog_hmm_folder\=|nog_hmm_folder=NA|g" \
+           -e "s|\#pfam_hmm_folder\=|pfam_hmm_folder=NA|g" \
+           -e "s|\#kofam_hmm_folder\=|kofam_hmm_folder=NA|g" \
+           -e "s|\#tigrfam_hmm_folder\=|tigrfam_hmm_folder=NA|g" \
+           -e "s|\#ncbi_hmm_folder\=|ncbi_hmm_folder=NA|g" \
+           -e "s|\#ncbi_dmp_path_folder\=|ncbi_dmp_path_folder=NA|g" \
+           -e "s|\#custom_hmm\=path\/to\/hmm/custom1\.hmm|custom_hmm=${DIR}/database/hmms/checkm_tf/checkm_filtered_tf.hmm\ncheckm_filtered_tf_weight=0.5\ncustom_hmm=${DIR}/database/hmms/checkm_pf/checkm_filtered_pf.hmm\ncheckm_filtered_pf_weight=1|g" \
+           ${DIR}/workflow/bin/mantis/MANTIS.config
+    for i in ${DIR}/conda/*.yaml; do
+      env_name=$(head -n 1 ${i} | cut -d' ' -f2)
+      if [[ ${env_name} == 'mantis_env' ]]; then
+        mantis_env=$(basename -s .yaml ${i})
+      fi
+    done
+    echo "Setting up the CheckM database for MANTIS"
+    conda activate ${DIR}/conda/${mantis_env}
+    python ${DIR}/workflow/bin/mantis/ setup_databases --chunk_size 1200
+    python ${DIR}/workflow/bin/mantis/ check_installation
 elif [ "$CLUSTER" = true ]; then
     if [ -z "$THREADS" ]; then
         THREADS=$MAX_THREADS
@@ -150,13 +173,13 @@ elif [ "$LAPTOP" = true ]; then
     eval $LOADING_MODULES
     eval $CONDA_START
     if [ "$REPORT" = true ]; then
-        snakemake --cores $THREADS -s $DIR/Snakefile --keep-going --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda 
-        snakemake --cores $THREADS -s $DIR/Snakefile --configfile $CONFIGFILE --use-conda --conda-prefix $DIR/conda --report report.html 
+        snakemake --cores $THREADS -s $DIR/Snakefile --keep-going --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda
+        snakemake --cores $THREADS -s $DIR/Snakefile --configfile $CONFIGFILE --use-conda --conda-prefix $DIR/conda --report report.html
         eval $CONDA_END
     else
-        snakemake --cores $THREADS -s $DIR/Snakefile --keep-going --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda 
+        snakemake --cores $THREADS -s $DIR/Snakefile --keep-going --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda
         eval $CONDA_END
-    fi    
+    fi
 elif [ "$REPORT" = true ]; then
     echo "Writing report."
     eval $LOADING_MODULES
@@ -166,5 +189,3 @@ elif [ "$REPORT" = true ]; then
 else
     echo "Nothing was done, please give -u, -d, -r, -c, -f, -i, or -l to start anything."
 fi
-
-

@@ -6,6 +6,7 @@ Created on Wed Feb 22 10:50:35 2021
 @author: oskar.hickl
 """
 
+sample = snakemake.params['sample']
 # cluster_dir = snakemake.input['outdir']
 mg_depth_file = snakemake.input['mgdepth']
 assembly = snakemake.input['assembly']
@@ -31,10 +32,15 @@ starting_completeness = 90
 n_dim = 2
 
 import sys
+import logging
 sys.path.append(functions)
 from binny_functions import *
 
-sys.stdout = open(log, 'w')
+# sys.stdout = open(log, 'w')
+
+logging.basicConfig(filename=log, level=logging.DEBUG, format='%(asctime)s - %(message)s', datefmt='%d/%m/%Y %I:%M:%S %p',
+                    filemode='w')
+logging.info('Starting Binny run for sample {0}.'.format(sample))
 
 # Load TIGRFAMs to PFAMs conversion table.
 tigrfam2pfam_data = tigrfam2pfam_dict(tigrfam2pfam_file)
@@ -49,10 +55,10 @@ taxon_marker_sets = load_checkm_markers(taxon_marker_set_file)
 
 # Look for complete genomes on single contigs
 all_good_bins = {}
-print('Looking for single contig bins.')
+logging.info('Looking for single contig bins.')
 single_contig_bins = get_single_contig_bins(annot_df, all_good_bins, n_dim, taxon_marker_sets, tigrfam2pfam_data,
                                             threads)
-print('Found {0} single contig bins.'.format(len(single_contig_bins)))
+logging.info('Found {0} single contig bins.'.format(len(single_contig_bins)))
 
 min_cont_size = 1000
 
@@ -60,7 +66,7 @@ min_cont_size = 1000
 # Load assembly and mask rRNAs and CRISPR arrays
 contig_list = [[contig] + [seq] for contig, seq in assembly_dict.items() if (len(seq) >= min_cont_size or annot_dict.get(contig))
                                                                         and contig not in single_contig_bins]
-print('{0} contigs match length threshold of {1} or contain marker genes and will be used for binning'.format(len(contig_list),
+logging.info('{0} contigs match length threshold of {1} or contain marker genes and will be used for binning'.format(len(contig_list),
                                                                                                               min_cont_size))
 contig_rrna_crispr_region_dict = gff2low_comp_feature_dict(annot_file)
 mask_rep_featrues(contig_rrna_crispr_region_dict, contig_list)
@@ -71,7 +77,7 @@ kmer_sizes = [int(kmer) for kmer in kmers.split(',')]
 start = timer()
 kfreq_array = get_contig_kmer_matrix2(contig_list, kmer_sizes, threads)
 end = timer()
-print('K-mer frequency matrix created in {0}s.'.format(int(end - start)))
+logging.info('K-mer frequency matrix created in {0}s.'.format(int(end - start)))
 
 # Make array, removing fully masked sequences with no counts and standardize k-mer freq data
 x = np.array([c_kfreq[1:] for c_kfreq in kfreq_array[1:] if not sum(c_kfreq[1:]) == 0])
@@ -92,11 +98,11 @@ all_contigs = []
 for bin in all_good_bins:
     all_contigs.extend(all_good_bins[bin]['contigs'])
 if len(all_contigs) != len(set(all_contigs)):
-    print('WARNING: {0} duplicate contigs in bins found!'.format(len(all_contigs) - len(set(all_contigs))))
+    logging.warning('WARNING: {0} duplicate contigs in bins found!'.format(len(all_contigs) - len(set(all_contigs))))
 
 # Write bin fastas.
 write_bins(all_good_bins, assembly, min_comp=int(min_completeness), min_pur=int(min_purity),
            bin_dir='bins')
 
-print('Run finished.')
-sys.stdout.close()
+logging.info('Run finished.')
+# sys.stdout.close()

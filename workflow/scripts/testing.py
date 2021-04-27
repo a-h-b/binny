@@ -2,12 +2,14 @@ binny_functions_path = '/Users/oskar.hickl/local_tools/binny_fork/binny/workflow
 
 import os
 import sys
+import logging
 
 sys.path.append(binny_functions_path)
 from binny_functions import *
 
 ########################################################################################################################
-os.chdir('/Users/oskar.hickl/binny_bench/binner_data/Binny/binny_outputs/2017.12.04_18.45.54_sample_5')
+os.chdir('/Users/oskar.hickl/binny_bench/binner_data/Binny/binny_outputs/2017.12.04_18.45.54_sample_0_py_v02')
+sample = '2017.12.04_18.45.54_sample_0'
 ########################################################################################################################
 binnydir = 'intermediary/'
 mg_depth_file = 'intermediary/assembly.contig_depth.txt'
@@ -22,12 +24,20 @@ prokka_checkm_marker_hmm_out = 'intermediary/prokka.faa.checkm.domtblout.v4.hmms
 # annot_file_checkm = 'intermediary/annotation_CDS_RNA_hmms_checkm_test.gff'
 tigrfam2pfam_file = '/Users/oskar.hickl/Downloads/checkm_data_2015_01_16/pfam/tigrfam2pfam.tsv'
 taxon_marker_set_file = '/Users/oskar.hickl/Downloads/checkm_data_2015_01_16/taxon_marker_sets_lineage_sorted.tsv'
+log = 'binny_alpha_005.log'
 
 starting_completeness = 90  # 90
 min_completeness = 70  # 70
 min_purity = 90  # 90
 threads = 10
 n_dim = 2
+
+# sys.stdout = open(log, 'a')
+
+logging.basicConfig(filename=log, level=logging.INFO, format='%(asctime)s - %(message)s', datefmt='%d/%m/%Y %I:%M:%S %p',
+                    filemode='w')
+logging.info('Starting Binny run for sample {0}.'.format(sample))
+
 
 tigrfam2pfam_data = tigrfam2pfam_dict(tigrfam2pfam_file)
 
@@ -40,10 +50,9 @@ taxon_marker_sets = load_checkm_markers(taxon_marker_set_file)
 
 # Look for complete genomes on single contigs
 all_good_bins = {}
-print('Looking for single contig bins.')
+logging.info('Looking for single contig bins.')
 single_contig_bins = get_single_contig_bins(annot_df, all_good_bins, n_dim, taxon_marker_sets, tigrfam2pfam_data, threads=10)
-print('Found {0} single contig bins.'.format(len(single_contig_bins)))
-print(len(all_good_bins.keys()))
+logging.info('Found {0} single contig bins.'.format(len(single_contig_bins)))
 
 min_cont_size = 1000
 
@@ -53,17 +62,17 @@ min_cont_size = 1000
 #                                                                         and contig not in single_contig_bins]
 contig_list = [[contig] + [seq] for contig, seq in assembly_dict.items() if (len(seq) >= min_cont_size or annot_dict.get(contig))
                                                                         and contig not in single_contig_bins]
-print(len(contig_list))
+logging.info('Using {0} contigs for binning.'.format(len(contig_list)))
 contig_rrna_crispr_region_dict = gff2low_comp_feature_dict(annot_file)
 mask_rep_featrues(contig_rrna_crispr_region_dict, contig_list)
 
 # Get length normalized k-mer frequencies.
-print('Counting k-mers.')
-kmer_sizes = [4]  # [2, 3, 4]
+logging.info('Counting k-mers.')
+kmer_sizes = [2, 3, 4]  # [2, 3, 4]
 start = timer()
 kfreq_array = get_contig_kmer_matrix2(contig_list, kmer_sizes, threads)
 end = timer()
-print('K-mer frequency matrix created in {0}s.'.format(end - start))
+logging.info('K-mer frequency matrix created in {0}s.'.format(int(end - start)))
 
 # Make array, removing fully masked sequences with no counts and standardize k-mer freq data
 X = np.array([c_kfreq[1:] for c_kfreq in kfreq_array[1:] if not sum(c_kfreq[1:]) == 0])
@@ -90,7 +99,7 @@ super_exagg = False
 while embedding_tries <= 100:
     round_X_contigs = []
     round_X = []
-    print('Running embedding iteration {0}.'.format(embedding_tries))
+    logging.info('Running embedding iteration {0}.'.format(embedding_tries))
     if embedding_tries == 1:
         round_X_contigs = X_contigs
         round_X = X
@@ -102,7 +111,7 @@ while embedding_tries <= 100:
         #         round_X_contigs.append(X_contigs[index])
         #         round_X.append(X[index])
     if len(round_X_contigs) != len(round_X):
-        print('fuuuuuuuuck')
+        logging.warning('fuuuuuuuuck')
         raise Exception
     # print(len(round_X_contigs))
     # round_X_contigs = round_X
@@ -117,7 +126,7 @@ while embedding_tries <= 100:
     # X_scaled = np.loadtxt('/Users/oskar.hickl/local_tools/EMBEDR/Data/mnist2500_X.txt')
 
     # Manifold learning and dimension reduction.
-    print('Running manifold learning and dimension reduction')
+    logging.info('Running manifold learning and dimension reduction.')
     # perp = int(get_perp(len(round_X_contigs)))  # / embedding_tries) # - embedding_tries
     # perp = 3000
 
@@ -132,7 +141,7 @@ while embedding_tries <= 100:
     pca = PCA(n_components=n_comp, random_state=0)
     transformer = pca.fit(X_scaled)
     sum_var_exp = sum(pca.explained_variance_ratio_)
-    # print(n_comp, sum(pca.explained_variance_ratio_), pca.explained_variance_ratio_)
+    # logging.info('PCA initial stats: ' + str(n_comp) + ' ' + str(sum(pca.explained_variance_ratio_)) + ' ' + str(pca.explained_variance_ratio_))
 
     while sum_var_exp <= 0.75 and n_tries <= 100 and len(pca.explained_variance_ratio_) <= 75:
         pca = PCA(n_components=n_comp)
@@ -142,23 +151,24 @@ while embedding_tries <= 100:
         # print(pca.singular_values_)
         n_comp += 5
         n_tries += 1
-    print(n_comp, round(sum(pca.explained_variance_ratio_), 3))  #, pca.explained_variance_ratio_)
+    logging.info('PCA stats: Dimensions: {0}; Amount of variation explained: {1}%.'.format(n_comp, int(round(sum(pca.explained_variance_ratio_), 3) * 100)))  #, pca.explained_variance_ratio_)
     X_pca = transformer.transform(X_scaled)
 
     # if len(round_X_contigs) >= 1e5:
     #     preplexities = [4, 10, 100, 1000, 5000]
     # else:
     #     # preplexities = [4, 10, 100, 1000]
-    preplexities = [10, 100, 500]  # for sample 0, so it fits in ram
+    preplexities = [10, 100]  # for sample 0, so it fits in ram
 
-    affinities_multiscale_mixture = affinity.Multiscale(X_pca, perplexities=preplexities, metric="manhattan", n_jobs=threads, random_state=0, verbose=True)  # [perp, perp*10, perp*100] #, 10000 # [2, 10, 100, 1000]
-    init = initialization.pca(X_pca, random_state=0, verbose=True)
-    embedding = TSNEEmbedding(init, affinities_multiscale_mixture, negative_gradient_method="fft", n_jobs=threads, random_state=0, verbose=True)
-    embedding1 = embedding.optimize(n_iter=250, exaggeration=early_exag, momentum=0.5, n_jobs=threads, verbose=True)
-    embedding2 = embedding1.optimize(n_iter=750, exaggeration=1, momentum=0.8, n_jobs=threads, verbose=True)
+    logging.info('Running t-SNE dimensionality-reduction.')
+    affinities_multiscale_mixture = affinity.Multiscale(X_pca, perplexities=preplexities, metric="manhattan", n_jobs=threads, random_state=0, verbose=0)  # [perp, perp*10, perp*100] #, 10000 # [2, 10, 100, 1000]
+    init = initialization.pca(X_pca, random_state=0, verbose=0)
+    embedding = TSNEEmbedding(init, affinities_multiscale_mixture, negative_gradient_method="fft", n_jobs=threads, random_state=0, verbose=0)
+    embedding1 = embedding.optimize(n_iter=250, exaggeration=early_exag, momentum=0.5, n_jobs=threads, verbose=0)
+    embedding2 = embedding1.optimize(n_iter=750, exaggeration=1, momentum=0.8, n_jobs=threads, verbose=0)
     embedding_multiscale = embedding2.view(np.ndarray)
     data_Y = [embedding_multiscale]
-
+    logging.info('Finished t-SNE dimensionality-reduction.')
 
     # Plot gs
     # print('Plotting with gold standard genomes')
@@ -191,7 +201,7 @@ while embedding_tries <= 100:
 
     for i in single_contig_bins:
         if i in coord_df['contig'].tolist():
-            print('TEST')
+            logging.warning('TEST')
             raise Exception
 
 
@@ -209,22 +219,22 @@ while embedding_tries <= 100:
         # if min_completeness < 90:
         #     min_purity = 95
         internal_completeness = internal_completeness - 5
-        early_exag = early_exag * 1.1  # * 1.1
-        print('Could not find good bins. Lowering completeness threshold to {0} and increasing t-SNE early exaggeration to {1}.'.format(internal_completeness, early_exag))
+        early_exag = int(early_exag * 1.1)  # * 1.1
+        logging.info('Could not find good bins. Lowering completeness threshold to {0} and increasing t-SNE early exaggeration to {1}.'.format(internal_completeness, early_exag))
     elif not list(good_bins.keys()) and not list(round_good_bins.keys()):
         if embedding_tries > 1:
             if not super_exagg:
                 early_exag = early_exag * 10
                 super_exagg = True
             else:
-                print('Found no good bins two times in a row')
+                logging.info('Found no good bins two times in a row')
                 break
     elif not list(good_bins.keys()) and internal_completeness < min_completeness:  # 60
         if embedding_tries > 1:
-            print('Reached min completeness and found no more bins. Exiting embedding iteration')
+            logging.info('Reached min completeness and found no more bins. Exiting embedding iteration')
             break
     elif not list(good_bins.keys()):  # did this on first iris run: 'else:'. Meant to do this: 'elif not list(good_bins.keys()):'. Check which is better
-        print('PerpTestB')
+        # print('PerpTestB')
         early_exag = early_exag * 10
 
     round_good_bins = good_bins
@@ -235,7 +245,7 @@ while embedding_tries <= 100:
     #     good_bins, final_init_clust_dict = binny_iterate(contig_data_df, threads, min_purity=min_purity, min_completeness=min_completeness,
     #                                                      max_iterations=1, embedding_iteration=embedding_tries)
 
-    print('Good bins this iteration:{0}.'.format(len(good_bins.keys())))
+    logging.info('Good bins this iteration: {0}.'.format(len(good_bins.keys())))
     # Write round table
     round_clust_dict = {**good_bins, **final_init_clust_dict}
     round_clust_df = cluster_df_from_dict(round_clust_dict)
@@ -262,8 +272,8 @@ while embedding_tries <= 100:
             round_leftovers.columns.drop(list(round_leftovers.filter(regex='_y')))]
 
     if len(set(round_leftovers['contig'].tolist())) != len(round_leftovers['contig'].tolist()):
-        print('test2')
-        print(len(set(round_leftovers['contig'].tolist())), len(round_leftovers['contig'].tolist()))
+        # print('test2')
+        logging.warning(len(set(round_leftovers['contig'].tolist())), len(round_leftovers['contig'].tolist()))
         raise Exception
 
     if list(good_bins.keys()):
@@ -282,9 +292,9 @@ while embedding_tries <= 100:
     for bin in all_good_bins:
         all_contigs.extend(all_good_bins[bin]['contigs'])
     if len(all_contigs) != len(set(all_contigs)):
-        print('WARNING: {0} duplicate contigs in bins found!'.format(len(all_contigs) - len(set(all_contigs))))
+        logging.warning('WARNING: {0} duplicate contigs in bins found!'.format(len(all_contigs) - len(set(all_contigs))))
         break
-    print('Good bins so far:{0}.'.format(len(all_good_bins.keys())))
+    logging.info('Good bins so far: {0}.'.format(len(all_good_bins.keys())))
 ########################################################################################################################
 
 final_init_clust_dict, labels = run_initial_scan(contig_data_df_org, 'HDBSCAN', threads, include_depth=False)
@@ -338,10 +348,14 @@ def asses_bins(final_df, gs_stats):
         final_bins_dict[cluster]['completeness_bp'] = round(final_bins_dict[cluster][largest_genome][0] / gs_stats[largest_genome][0], 3)
         final_bins_dict[cluster]['completeness_seq'] = round(final_bins_dict[cluster][largest_genome][1] / gs_stats[largest_genome][1], 3)
 
-        final_bins_dict[cluster]['purity_bp'] = round(final_bins_dict[cluster][largest_genome][0] / sum([data[0] for genome, data in final_bins_dict[cluster].items() if isinstance(data, list)]), 3)
-        final_bins_dict[cluster]['purity_seq'] = round(final_bins_dict[cluster][largest_genome][1] / sum([data[1] for genome, data in final_bins_dict[cluster].items() if isinstance(data, list)]), 3)
-        print(cluster, 'Purity[bp]:', final_bins_dict[cluster]['purity_bp'], 'Completeness[bp]:', final_bins_dict[cluster]['completeness_bp'],
-              'Purity[seq]:', final_bins_dict[cluster]['purity_seq'], 'Completeness[seq]:', final_bins_dict[cluster]['completeness_seq'])
+        final_bins_dict[cluster]['purity_bp'] = round(final_bins_dict[cluster][largest_genome][0] /
+                                                      sum([data[0] for genome, data in final_bins_dict[cluster].items() if isinstance(data, list)]), 3)
+        final_bins_dict[cluster]['purity_seq'] = round(final_bins_dict[cluster][largest_genome][1] /
+                                                       sum([data[1] for genome, data in final_bins_dict[cluster].items() if isinstance(data, list)]), 3)
+        logging.info('Bin: {0}; Purity[bp]: {1}; Completeness[bp]: {2} - Purity[seq]: {3}; Completeness[seq]: {4}.'.format(
+            cluster, final_bins_dict[cluster]['purity_bp'], final_bins_dict[cluster]['completeness_bp'],
+            final_bins_dict[cluster]['purity_seq'], final_bins_dict[cluster]['completeness_seq']))
+
     return final_bins_dict
 
 
@@ -357,9 +371,10 @@ all_contigs = []
 for bin in all_good_bins:
     all_contigs.extend(all_good_bins[bin]['contigs'])
 if len(all_contigs) != len(set(all_contigs)):
-    print('WARNING: {0} duplicate contigs in bins found!'.format(len(all_contigs) - len(set(all_contigs))))
+    logging.warning('WARNING: {0} duplicate contigs in bins found!'.format(len(all_contigs) - len(set(all_contigs))))
 
 # Write bin fastas.
-write_bins(all_good_bins, assembly, min_comp=int(min_completeness), min_pur=int(min_purity), bin_dir='bins_alpha_003')
+write_bins(all_good_bins, assembly, min_comp=int(min_completeness), min_pur=int(min_purity), bin_dir='bins_alpha_005')
 
-print('Run finished.')
+logging.info('Run finished.')
+# sys.stdout.close()
