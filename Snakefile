@@ -222,6 +222,7 @@ rule annotate:
         runtime = "8:00:00",
         mem = MEMCORE
     log: "logs/analysis_annotate.log"
+    benchmark: "logs/analysis_annotate_benchmark.txt"
     conda: ENVDIR + "/IMP_annotation.yaml"
     message: "annotate: Running prokkaC."
     shell:
@@ -258,26 +259,13 @@ rule mantis_checkm_marker_sets:
     conda: BINDIR + "/mantis/mantis_env.yml"
     threads: workflow.cores
     log: "logs/analysis_checkm_markers.log"
+    benchmark: "logs/analysis_checkm_markers_benchmark.txt"
     message: "MANTIS: Running MANTIS with CheckM marker sets."
     shell:
         """
         python {BINDIR}/mantis/ run_mantis -t {input[0]} -da heuristic -mc {BINDIR}/mantis/MANTIS.config \
                                            -o intermediary/mantis_out -c {threads} -et 1e-10
         """
-
-# binning
-rule prepare_binny:
-    input:
-       mgdepth='intermediary/assembly.contig_depth.txt',
-       vizbin='vizbin.with-contig-names.points' ,
-       gff='intermediary/annotation_CDS_RNA_hmms.gff'
-    output:
-       directory("intermediary/clusterFiles")
-    message: "Prepare binny."
-    shell:
-       """
-       mkdir -p {output} || echo "{output} exists"
-       """
 
 # t2p = DBPATH + "/pfam/tigrfam2pfam.tsv"
 # marker_sets = DBPATH + "/taxon_marker_sets_lineage_sorted.tsv"
@@ -314,6 +302,7 @@ rule binny:
     threads: workflow.cores
     conda: ENVDIR + "/py_binny_linux.yaml"
     log: "logs/binning_binny.log"
+    benchmark: "logs/binning_binny_benchmark.txt"
     message: "binny: Running Python Binny."
     script:
         SRCDIR + "/binny_main.py"
@@ -332,7 +321,8 @@ rule zip_output:
     params:
         intermediary = "intermediary/"
     log: "logs/zip_output.log"
-    message: "Compressing binny output."
+    benchmark: "logs/zip_output_benchmark.txt"
+    message: "Compressing Binny output."
     shell:
        """
        zip -m {output[0]} {input[0]} >> {log} 2>&1
