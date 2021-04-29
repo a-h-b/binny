@@ -24,7 +24,7 @@ prokka_checkm_marker_hmm_out = 'intermediary/prokka.faa.checkm.domtblout.v4.hmms
 # annot_file_checkm = 'intermediary/annotation_CDS_RNA_hmms_checkm_test.gff'
 tigrfam2pfam_file = '/Users/oskar.hickl/Downloads/checkm_data_2015_01_16/pfam/tigrfam2pfam.tsv'
 taxon_marker_set_file = '/Users/oskar.hickl/Downloads/checkm_data_2015_01_16/taxon_marker_sets_lineage_sorted.tsv'
-log = 'binny_alpha_005.log'
+log = 'binny_alpha_006_no_unidip.log'
 
 starting_completeness = 90  # 90
 min_completeness = 70  # 70
@@ -374,7 +374,7 @@ if len(all_contigs) != len(set(all_contigs)):
     logging.warning('WARNING: {0} duplicate contigs in bins found!'.format(len(all_contigs) - len(set(all_contigs))))
 
 # Write bin fastas.
-write_bins(all_good_bins, assembly, min_comp=int(min_completeness), min_pur=int(min_purity), bin_dir='bins_alpha_005')
+write_bins(all_good_bins, assembly, min_comp=int(min_completeness), min_pur=int(min_purity), bin_dir='bins_alpha_006_no_unidip')
 
 logging.info('Run finished.')
 # sys.stdout.close()

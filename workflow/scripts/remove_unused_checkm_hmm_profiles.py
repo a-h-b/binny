@@ -61,8 +61,8 @@ def remove_unused_checkm_hmm_profiles(hmmer_file, markers_sets_file, tigrfam2pfa
     profiles_accs = list(profiles.keys())
     all_markers = get_all_marker_set_markers(markers_sets_file)
     tf2pf = tigrfam2pfam_dict(tigrfam2pfam_file)
-    out_path_pfam = Path(out_path + '/checkm_pfam/checkm_filtered_pfam.hmm')
-    out_path_tigrfam = Path(out_path + '/checkm_tigrfam/checkm_filtered_tigrfam.hmm')
+    out_path_pfam = Path(out_path + '/checkm_pf/checkm_filtered_pf.hmm')
+    out_path_tigrfam = Path(out_path + '/checkm_tf/checkm_filtered_tf.hmm')
     out_path_pfam.parent.mkdir(parents=True, exist_ok=True)
     out_path_tigrfam.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path_pfam, 'w') as of_pfam:

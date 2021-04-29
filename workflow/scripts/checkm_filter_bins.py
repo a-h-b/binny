@@ -5,9 +5,10 @@ import shutil
 
 proj_path = Path('/mnt/lscratch/users/ohickl/binning/binny_eval')
 
-binner = 'concoct'
+binner = 'maxbin'
 
-runs = list(proj_path.glob('{0}_out/H_S00?'.format(binner)))
+runs = list(proj_path.glob('{0}_out/2017.12.04_18.45.54_sample_?'.format(binner)))
+runs += list(proj_path.glob('{0}_out/2017.12.04_18.45.54_sample_??'.format(binner)))
 
 good_bins_dict = {str(sample).split('/')[-1]: [] for sample in runs}
 

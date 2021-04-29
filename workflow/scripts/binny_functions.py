@@ -646,10 +646,10 @@ def get_sub_clusters2(cluster_dicts, threads_for_dbscan, marker_sets_graph, tigr
             logging.debug('Cluster {0} below purity of {1} with {2} and matches completeness of {3} with {4}. '
                   'Attempting to split.'.format(shorten_cluster_names(cluster), purity_threshold, clust_pur, completeness_threshold, clust_comp))
             # print(shorten_cluster_names(cluster), len(clust_dat[0]), clust_dat[0][1:5])
-            uni_dip_out = uni_dip_depth(clust_dat, cluster, alpha)
-            if uni_dip_out[0]:
-                outputs.append(uni_dip_out)
-                continue
+            # uni_dip_out = uni_dip_depth(clust_dat, cluster, alpha)
+            # if uni_dip_out[0]:
+            #     outputs.append(uni_dip_out)
+            #     continue
 
             # initialise some stuff
             cluster_contig_df = contig_df_from_cluster_dict(cluster_dict)
