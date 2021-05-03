@@ -81,13 +81,15 @@ if not os.path.exists(DBPATH):
     checkm_tar.extract("./pfam/tigrfam2pfam.tsv",DBPATH)
     checkm_tar.extract("./hmms/checkm.hmm",DBPATH)
     markers_df = pd.read_csv(DBPATH + '/taxon_marker_sets.tsv', sep='\t', skipinitialspace=True, header=None)
-    markers_df.sort_values(markers_df.columns[2])
+    markers_df = markers_df.sort_values(markers_df.columns[2])
     markers_df.to_csv(DBPATH + "/taxon_marker_sets_lineage_sorted.tsv", header=None, index=None, sep="\t")
-    prepCheckM.remove_unused_checkm_hmm_profiles(DBPATH + "/hmms/checkm.hmm", DBPATH + '/taxon_marker_sets.tsv', DBPATH + "/pfam/tigrfam2pfam.tsv", DBPATH + "/hmms/checkm_filtered.hmm")
+    prepCheckM.remove_unused_checkm_hmm_profiles(DBPATH + "/hmms/checkm.hmm", DBPATH + '/taxon_marker_sets.tsv', DBPATH + "/pfam/tigrfam2pfam.tsv", DBPATH + "/hmms")
     if os.path.exists(DBPATH + "/checkm_data_2015_01_16.tar.gz"):
         os.remove(DBPATH + "/checkm_data_2015_01_16.tar.gz")
     if os.path.exists(DBPATH + "/hmms/checkm.hmm"):
         os.remove(DBPATH + "/hmms/checkm.hmm")
+    if os.path.exists(DBPATH + "/taxon_marker_sets.tsv") and os.path.exists(DBPATH + "/taxon_marker_sets_lineage_sorted.tsv"):
+        os.remove(DBPATH + "/taxon_marker_sets.tsv")
 
 # Filer thresholds
 COMPLETENESS = str(config["binning"]["filtering"]["completeness"])
@@ -133,7 +135,7 @@ def _process_file(fname, inp, outfilename):
     else:
         shutil.copy(inp, outfilename)
 
-localrules: prepare_input_data, ALL, prepare_binny
+localrules: prepare_input_data, ALL
 
 
 rule ALL:
@@ -173,7 +175,7 @@ rule format_assembly:
         runtime = "2:00:00",
         mem = MEMCORE
     message: "Preparing assembly."
-    conda: ENVDIR + "/IMP_fasta.yaml"
+    conda: ENVDIR + "/IMP_fasta_no_v.yaml"
     shell:
        "fasta_formatter -i {input} -o {output} -w 80"
 
@@ -220,6 +222,7 @@ rule annotate:
         runtime = "8:00:00",
         mem = MEMCORE
     log: "logs/analysis_annotate.log"
+    benchmark: "logs/analysis_annotate_benchmark.txt"
     conda: ENVDIR + "/IMP_annotation.yaml"
     message: "annotate: Running prokkaC."
     shell:
@@ -241,43 +244,28 @@ rule annotate:
         head -n $LN intermediary/prokka.gff | grep -v "^#" | sort | uniq | grep -v "^==" > {output[0]}
         """
 
-# essential genes
-rule hmmer_essential:
+# Find markers on contigs
+rule mantis_checkm_marker_sets:
     input:
-        "intermediary/prokka.faa",
+        "intermediary/prokka.faa"
     output:
-        "intermediary/prokka.faa.markers.hmmscan"
-    params:
-        dbs = DBPATH
+        # "intermediary/prokka.faa.markers.hmmscan"
+        "intermediary/mantis_out/output_annotation.tsv",
+        "intermediary/mantis_out/integrated_annotation.tsv",
+        "intermediary/mantis_out/consensus_annotation.tsv"
     resources:
         runtime = "48:00:00",
         mem = MEMCORE
-    conda: ENVDIR + "/IMP_annotation.yaml"
+    conda: BINDIR + "/mantis/mantis_env.yml"
     threads: workflow.cores
-    log: "logs/analysis_hmmer.essential.log"
-    message: "hmmer: Running HMMER for essential."
+    log: "logs/analysis_checkm_markers.log"
+    benchmark: "logs/analysis_checkm_markers_benchmark.txt"
+    message: "MANTIS: Running MANTIS with CheckM marker sets."
     shell:
         """
-        if [ ! -f {DBPATH}/hmms/checkm_filtered.hmm.h3i ]; then
-          hmmpress {DBPATH}/hmms/checkm_filtered.hmm 2>> {log}
-        fi
-        hmmsearch --cpu {threads} --cut_tc --noali --notextw \
-          --domtblout {output} {params.dbs}/hmms/checkm_filtered.hmm {input} >/dev/null 2>> {log}
+        python {BINDIR}/mantis/ run_mantis -t {input[0]} -da dfs -mc {BINDIR}/mantis/MANTIS.config \
+                                           -o intermediary/mantis_out -c {threads} -et 1e-10 >> {log} 2>&1
         """
-
-# binning
-rule prepare_binny:
-    input:
-       mgdepth='intermediary/assembly.contig_depth.txt',
-       vizbin='vizbin.with-contig-names.points' ,
-       gff='intermediary/annotation_CDS_RNA_hmms.gff'
-    output:
-       directory("intermediary/clusterFiles")
-    message: "Prepare binny."
-    shell:
-       """
-       mkdir -p {output} || echo "{output} exists"
-       """
 
 rule binny:
     input:
@@ -286,7 +274,8 @@ rule binny:
         assembly="assembly.fa",
         t2p=DBPATH + "/pfam/tigrfam2pfam.tsv",
         marker_sets=DBPATH + "/taxon_marker_sets_lineage_sorted.tsv",
-        hmm_markers="intermediary/prokka.faa.markers.hmmscan"
+        # hmm_markers="intermediary/prokka.faa.markers.hmmscan"
+        hmm_markers="intermediary/mantis_out/consensus_annotation.tsv"
     output:
         # "intermediary/contig_coordinates.tsv",
         # "intermediary/contig_data.tsv",
@@ -294,6 +283,7 @@ rule binny:
         # "final_scatter_plot.pdf",
         directory("bins")
     params:
+        sample=SAMPLE,
         py_functions = SRCDIR + "/binny_functions.py",
         binnydir="intermediary/",
         completeness=COMPLETENESS,
@@ -307,6 +297,7 @@ rule binny:
     threads: workflow.cores
     conda: ENVDIR + "/py_binny_linux.yaml"
     log: "logs/binning_binny.log"
+    benchmark: "logs/binning_binny_benchmark.txt"
     message: "binny: Running Python Binny."
     script:
         SRCDIR + "/binny_main.py"
@@ -314,7 +305,7 @@ rule binny:
 rule zip_output:
     input:
         'assembly.fa',
-        "bins"
+        'bins'
     output:
         "assembly.fa.zip",
         "intermediary.zip"
@@ -325,11 +316,10 @@ rule zip_output:
     params:
         intermediary = "intermediary/"
     log: "logs/zip_output.log"
-    message: "Compressing binny output."
+    benchmark: "logs/zip_output_benchmark.txt"
+    message: "Compressing Binny output."
     shell:
        """
        zip -m {output[0]} {input[0]} >> {log} 2>&1
-       # zip -m {output[1]} {input[1]} >> {log} 2>&1
-       # zip -m {output[2]} {input[2]} >> {log} 2>&1
        zip -rm {output[1]} {params.intermediary} >> {log} 2>&1
        """

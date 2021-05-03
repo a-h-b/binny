@@ -47,9 +47,10 @@ def tigrfam2pfam_dict(tigrfam2pfam_file):
 
 
 def remove_unused_checkm_hmm_profiles(hmmer_file, markers_sets_file, tigrfam2pfam_file, out_file):
+    unused = []
     profiles = load_hmmer_profiles(hmmer_file)
     profiles_accs = list(profiles.keys())
-    all_markers = get_all_marker_set_markers(markers_sets_file)
+    all_markers, all_markers_dict = get_all_marker_set_markers(markers_sets_file)
     tf2pf = tigrfam2pfam_dict(tigrfam2pfam_file)
     with open(out_file, 'w') as of:
         for profile in profiles_accs:
@@ -58,8 +59,9 @@ def remove_unused_checkm_hmm_profiles(hmmer_file, markers_sets_file, tigrfam2pfa
                     # print(profile, tf2pf.get(profile, []))
                 of.write(profiles[profile])
             else:
-                print('not found', profile, tf2pf.get(profile, 'No alt found.'))
-
+                # print('not found', profile, tf2pf.get(profile, 'No alt found.'))
+                unused.append([profile, tf2pf.get(profile, '')])
+    return unused
 
 hmmer_file = '/Users/oskar.hickl/Downloads/checkm_data_2015_01_16/hmms/checkm.hmm'
 markers_sets_file = '/Users/oskar.hickl/Downloads/checkm_data_2015_01_16/taxon_marker_sets.tsv'
@@ -68,7 +70,7 @@ out_file = '/Users/oskar.hickl/Downloads/checkm_data_2015_01_16/hmms/checkm_binn
 old_binny_file = '/Users/oskar.hickl/Downloads/checkm_data_2015_01_16/hmms/checkm_binny.hmm'
 
 
-remove_unused_checkm_hmm_profiles(hmmer_file, markers_sets_file, tigrfam2pfam_file, out_file)
+unused_profiles = remove_unused_checkm_hmm_profiles(hmmer_file, markers_sets_file, tigrfam2pfam_file, out_file)
 
 tf2pf = tigrfam2pfam_dict(tigrfam2pfam_file)
 

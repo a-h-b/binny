@@ -7,6 +7,7 @@ Created on Tue Apr 6 08:43:36 2021
 """
 
 import sys
+from pathlib import Path
 
 
 def load_hmmer_profiles(hmmer_file):
@@ -55,19 +56,27 @@ def tigrfam2pfam_dict(tigrfam2pfam_file):
     return tigrfam2pfam_dict
 
 
-def remove_unused_checkm_hmm_profiles(hmmer_file, markers_sets_file, tigrfam2pfam_file, out_file):
+def remove_unused_checkm_hmm_profiles(hmmer_file, markers_sets_file, tigrfam2pfam_file, out_path):
     profiles = load_hmmer_profiles(hmmer_file)
     profiles_accs = list(profiles.keys())
     all_markers = get_all_marker_set_markers(markers_sets_file)
     tf2pf = tigrfam2pfam_dict(tigrfam2pfam_file)
-    with open(out_file, 'w') as of:
-        for profile in profiles_accs:
-            if profile in all_markers or any(alt_acc in all_markers for alt_acc in tf2pf.get(profile, [])):
-                # if any(alt_acc in all_markers for alt_acc in tf2pf.get(profile, [])) and not profile in all_markers:
-                    # print(profile, tf2pf.get(profile, []))
-                of.write(profiles[profile])
-            # else:
-            #     print('not found', profile, tf2pf.get(profile, 'No alt found.'))
+    out_path_pfam = Path(out_path + '/checkm_pf/checkm_filtered_pf.hmm')
+    out_path_tigrfam = Path(out_path + '/checkm_tf/checkm_filtered_tf.hmm')
+    out_path_pfam.parent.mkdir(parents=True, exist_ok=True)
+    out_path_tigrfam.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_path_pfam, 'w') as of_pfam:
+        with open(out_path_tigrfam, 'w') as of_tigrfam:
+            for profile in profiles_accs:
+                if profile in all_markers or any(alt_acc in all_markers for alt_acc in tf2pf.get(profile, [])):
+                    # if any(alt_acc in all_markers for alt_acc in tf2pf.get(profile, [])) and not profile in all_markers:
+                        # print(profile, tf2pf.get(profile, []))
+                    if profile.startswith('PF'):
+                        of_pfam.write(profiles[profile])
+                    elif profile.startswith('TIGR'):
+                        of_tigrfam.write(profiles[profile])
+                # else:
+                #     print('not found', profile, tf2pf.get(profile, 'No alt found.'))
 
 
 #hmmer_file = sys.argv[1]
