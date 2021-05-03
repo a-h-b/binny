@@ -250,7 +250,7 @@ rule hmmer_essential:
     params:
         dbs = DBPATH
     resources:
-        runtime = "8:00:00",
+        runtime = "48:00:00",
         mem = MEMCORE
     conda: ENVDIR + "/IMP_annotation.yaml"
     threads: workflow.cores

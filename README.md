@@ -11,7 +11,7 @@ Change into the binny directory:
 ```
 cd binny
 ```
-At this point, you have all the scripts you need to run the workflow using snakemake, and you'd just need to get some data and a database (see point ). If you want to use the **comfortable binny wrapper**, follow the points 2-6. 
+At this point, you have all the scripts you need to run the workflow using snakemake. If you want to use the **comfortable binny wrapper**, follow the points 2-6. 
 
 2) Adjust the file VARIABLE_CONFIG to your requirements (have a tab between the variable name and your setting):
 * SNAKEMAKE_VIA_CONDA - set this to true, if you don't have snakemake in your path and want to install it via conda. Leave empty, if you don't need an additional snakemake.
