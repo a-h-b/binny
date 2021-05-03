@@ -40,10 +40,10 @@ chmod 755 binny
 If you want to use snakemake via conda (and you've set SNAKEMAKE_VIA_CONDA to true), install the environment, as [recommended by Snakemake](https://snakemake.readthedocs.io/en/stable/getting_started/installation.html):
 ```
 conda install -c conda-forge mamba
-mamba create --prefix $PWD/conda/snakemake_env
-conda activate $PWD/conda/snakemake_env
-mamba install -c conda-forge -c bioconda snakemake
-conda deactivate
+if ! [ -x "$(command -v unzip)" ]; then
+  mamba create --prefix $PWD/conda/snakemake_env snakemake unzip -c conda-forge -c bioconda
+else
+  mamba create --prefix $PWD/conda/snakemake_env snakemake -c conda-forge -c bioconda
 ```
 
 5) **optional**: Set permissions / PATH:
