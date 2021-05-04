@@ -1713,9 +1713,9 @@ def parse_mantis_cons_annot(mantis_out_annot):
 
 def checkm_hmmer_search2prokka_gff_v2(hmm_checkm_marker_out, prokka_gff, tigrfam2pfam_data):
     prokka_checkm_gff = 'intermediary/annotation_CDS_RNA_hmms_checkm.gff'
-    checkm_marker_dict = parse_domtblout(hmm_checkm_marker_out, tigrfam2pfam_data, e_val_threshold=1e-10)  # for domtblout
+    # checkm_marker_dict = parse_domtblout(hmm_checkm_marker_out, tigrfam2pfam_data, e_val_threshold=1e-10)  # for domtblout
     # checkm_marker_dict = parse_mantis_out_annot(hmm_checkm_marker_out, tigrfam2pfam_data, e_val_threshold=1e-6)
-    # checkm_marker_dict = parse_mantis_cons_annot(hmm_checkm_marker_out)
+    checkm_marker_dict = parse_mantis_cons_annot(hmm_checkm_marker_out)
     # for k, v in checkm_marker_dict.items():
     #     print(k, v)
     # raise Exception
