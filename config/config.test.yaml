@@ -1,11 +1,11 @@
 mem:
-  big_mem_avail: FALSE
+  big_mem_avail: TRUE
   normal_mem_per_core_gb: 4
-  big_mem_per_core_gb: 26
+  big_mem_per_core_gb: 36
 tmp_dir: tmp
 raws:
-  Contigs: "test/assembly.fasta"
-  Alignment_metagenomics: "test/mg.reads.sorted.bam"
+  Contigs: "/data/idiv_biu/heintzbu/EXTDATA/CAMI/strainMadness/assembly/strmgCAMI2_short_read_pooled_gold_standard_assembly.fasta"
+  Alignment_metagenomics: "/data/idiv_biu/heintzbu/EXTDATA/CAMI/strainMadness/mapping/strmgCAMI2_short_read_pooled_gold_standard_assembly.sample_0.sorted.bam"
   Contig_depth: ""
 sample: test
 outputdir: "test_output4"

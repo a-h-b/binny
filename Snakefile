@@ -272,8 +272,6 @@ rule binny:
         mgdepth='intermediary/assembly.contig_depth.txt',
         raw_gff='intermediary/annotation.filt.gff',
         assembly="assembly.fa",
-        t2p=DBPATH + "/pfam/tigrfam2pfam.tsv",
-        marker_sets=DBPATH + "/taxon_marker_sets_lineage_sorted.tsv",
         # hmm_markers="intermediary/prokka.faa.markers.hmmscan"
         hmm_markers="intermediary/mantis_out/consensus_annotation.tsv"
     output:
@@ -286,6 +284,8 @@ rule binny:
         sample=SAMPLE,
         py_functions = SRCDIR + "/binny_functions.py",
         binnydir="intermediary/",
+        t2p=DBPATH + "/pfam/tigrfam2pfam.tsv",
+        marker_sets=DBPATH + "/taxon_marker_sets_lineage_sorted.tsv",
         completeness=COMPLETENESS,
         purity=PURITY,
         kmers=config["binning"]["binny"]["kmers"],
