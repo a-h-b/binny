@@ -110,10 +110,45 @@ elif [ "$DRYRUN" = true ]; then
     snakemake --cores 1 -s $DIR/Snakefile --dryrun --config sessionName=$JNAME --configfile $CONFIGFILE
     eval $CONDA_END
 elif [ "$INITIAL" = true ]; then
-    echo "Initializing conda environments."
     eval $LOADING_MODULES
     eval $CONDA_START
-    snakemake --cores 1 -s $DIR/Snakefile --conda-create-envs-only --use-conda --conda-prefix $DIR/conda --local-cores 1 --configfile $CONFIGFILE 
+    echo 'Getting MANTIS'
+    # mkdir -r ${DIR}/workflow/bin/mantis
+    # git clone https://github.com/PedroMTQ/mantis.git ${DIR}/workflow/bin/mantis
+    curl -L https://github.com/PedroMTQ/mantis/archive/master.zip --output $DIR/workflow/bin/mantis.zip
+    unzip -q $DIR/workflow/bin/mantis.zip -d $DIR/workflow/bin/ && mv $DIR/workflow/bin/mantis-master $DIR/workflow/bin/mantis && rm $DIR/workflow/bin/mantis.zip
+    snakemake --verbose --cores 1 -s $DIR/Snakefile --conda-create-envs-only --use-conda --conda-prefix $DIR/conda --local-cores 1 --configfile $CONFIGFILE
+    echo "Initializing conda environments."
+    sed -i -e "s|\#nog_hmm_folder\=|nog_hmm_folder=NA|g" \
+           -e "s|\#pfam_hmm_folder\=|pfam_hmm_folder=NA|g" \
+           -e "s|\#kofam_hmm_folder\=|kofam_hmm_folder=NA|g" \
+           -e "s|\#tigrfam_hmm_folder\=|tigrfam_hmm_folder=NA|g" \
+           -e "s|\#ncbi_hmm_folder\=|ncbi_hmm_folder=NA|g" \
+           -e "s|\#ncbi_dmp_path_folder\=|ncbi_dmp_path_folder=NA|g" \
+           -e "s|\#custom_hmm\=path\/to\/hmm/custom1\.hmm|custom_hmm=${DB_PATH}/hmms/checkm_tf/checkm_filtered_tf.hmm\ncheckm_filtered_tf_weight=0.5\ncustom_hmm=${DB_PATH}/hmms/checkm_pf/checkm_filtered_pf.hmm\ncheckm_filtered_pf_weight=1|g" \
+           ${DIR}/workflow/bin/mantis/MANTIS.config
+    # If Mantis is supposed to run with the default -domE param for hmmsearch comment the following
+    sed -i -e "s|threshold_type \= \'\-\-domE\'|threshold_type = '--cut_tc'|g" \
+           -e "s|command \+\= f\' \{threshold_type\} \{self\.evalue\_threshold \* 10}\'|command += f' {threshold_type}'|g" \
+           ${DIR}/workflow/bin/mantis/source/MANTIS_MP.py
+    # Find Mantis conda env
+    for i in ${DIR}/conda/*.yaml; do
+      env_name=$(head -n 1 ${i} | cut -d' ' -f2)
+      if [[ ${env_name} == 'mantis_env' ]]; then
+        mantis_env=$(basename -s .yaml ${i})
+      fi
+    done
+    echo "Setting up Mantis with the CheckM databases"
+    conda activate ${DIR}/conda/${mantis_env}
+    # Make sure a compiler for cython is available
+    if ! [ -x "$(command -v gcc)" ]; then
+      conda install -c conda-forge gcc_linux-64 --yes
+      $CONDA_PREFIX/etc/conda/activate.d/activate-binutils_linux-64.sh
+      $CONDA_PREFIX/etc/conda/activate.d/activate-gcc_linux-64.sh
+    fi
+    python ${DIR}/workflow/bin/mantis/ setup_databases --chunk_size 1200
+    python ${DIR}/workflow/bin/mantis/ check_installation
+    conda deactivate
 elif [ "$CLUSTER" = true ]; then
     if [ -z "$THREADS" ]; then
         THREADS=$MAX_THREADS
