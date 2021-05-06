@@ -44,6 +44,7 @@ if ! [ -x "$(command -v unzip)" ]; then
   mamba create --prefix $PWD/conda/snakemake_env snakemake unzip -c conda-forge -c bioconda
 else
   mamba create --prefix $PWD/conda/snakemake_env snakemake -c conda-forge -c bioconda
+fi
 ```
 
 5) **optional**: Set permissions / PATH:
