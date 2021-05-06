@@ -219,7 +219,7 @@ rule annotate:
         "intermediary/prokka.fsa",
     threads: workflow.cores
     resources:
-        runtime = "8:00:00",
+        runtime = "120:00:00",
         mem = MEMCORE
     log: "logs/analysis_annotate.log"
     benchmark: "logs/analysis_annotate_benchmark.txt"
