@@ -65,6 +65,15 @@ if config['mem']['big_mem_avail']:
 else:
     BIGMEMCORE = False
 
+def getThreads(max):
+    if workflow.cores:
+        realThreads = max if max <= workflow.cores else workflow.cores
+    elif workflow.nodes:
+        realThreads = max if max <= workflow.nodes else workflow.nodes
+    else:
+        realThreads = max
+    return realThreads
+
 SAMPLE = config['sample']
 if SAMPLE == "":
     SAMPLE = "_".join(OUTPUTDIR.split("/")[-2:])
@@ -190,7 +199,7 @@ if not CONTIG_DEPTH:
         resources:
             runtime = "4:00:00",
             mem = BIGMEMCORE if BIGMEMCORE else MEMCORE
-        threads: workflow.cores
+        threads: getThreads(2) if BIGMEMCORE else getThreads(8)
         conda: ENVDIR + "/IMP_mapping.yaml"
         log: "logs/analysis_call_contig_depth.log"
         message: "call_contig_depth: Getting data on assembly coverage with mg reads."
@@ -217,7 +226,7 @@ rule annotate:
         "intermediary/prokka.fna",
         "intermediary/prokka.ffn",
         "intermediary/prokka.fsa",
-    threads: workflow.cores
+    threads: getThreads(20)
     resources:
         runtime = "120:00:00",
         mem = MEMCORE
@@ -257,7 +266,7 @@ rule mantis_checkm_marker_sets:
         runtime = "48:00:00",
         mem = MEMCORE
     conda: BINDIR + "/mantis/mantis_env.yml"
-    threads: workflow.cores
+    threads: getThreads(20)
     log: "logs/analysis_checkm_markers.log"
     benchmark: "logs/analysis_checkm_markers_benchmark.txt"
     message: "MANTIS: Running MANTIS with CheckM marker sets."
@@ -294,7 +303,7 @@ rule binny:
     resources:
         runtime = "12:00:00",
         mem = BIGMEMCORE if BIGMEMCORE else MEMCORE
-    threads: workflow.cores
+    threads: getThreads(2) if BIGMEMCORE else getThreads(20)
     conda: ENVDIR + "/py_binny_linux.yaml"
     log: "logs/binning_binny.log"
     benchmark: "logs/binning_binny_benchmark.txt"
