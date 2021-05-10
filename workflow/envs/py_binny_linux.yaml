@@ -130,6 +130,7 @@ dependencies:
   - six=1.15.0=pyh9f0ad1d_0
   - sqlite=3.35.3=h74cdb3f_0
   - statsmodels=0.12.2=py38h5c078b8_0
+  - tar=1.34=ha1f6473_0
   - tbb=2020.2=h4bd325d_4
   - threadpoolctl=2.1.0=pyh5ca1d4c_0
   - tk=8.6.10=h21135ba_1
@@ -147,4 +148,3 @@ dependencies:
   - zstd=1.4.9=ha95c52a_0
   - pip:
     - unidip==0.1.1
-prefix: /home/users/ohickl/anaconda3/envs/py_binny_linux
