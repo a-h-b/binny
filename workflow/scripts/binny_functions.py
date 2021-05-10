@@ -1726,8 +1726,8 @@ def checkm_hmmer_search2prokka_gff_v2(hmm_checkm_marker_out, prokka_gff, tigrfam
                 line_annots = line.split('\t')[-1].split(';')
                 line_gene = line_annots[0].replace('ID=', '')
                 if checkm_marker_dict.get(line_gene):
-                    pcg.write(line + ';checkm_marker=' + ','.join([marker[0] for marker in checkm_marker_dict[line_gene]]) + '\n')  # for domtblout
-                    # pcg.write(line + ';checkm_marker=' + ','.join(checkm_marker_dict[line_gene]) + '\n')
+                    #pcg.write(line + ';checkm_marker=' + ','.join([marker[0] for marker in checkm_marker_dict[line_gene]]) + '\n')  # for domtblout
+                     pcg.write(line + ';checkm_marker=' + ','.join(checkm_marker_dict[line_gene]) + '\n')
                 else:
                     pcg.write(line + '\n')
 

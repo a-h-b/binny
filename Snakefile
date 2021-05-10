@@ -152,8 +152,7 @@ rule ALL:
         # "final_contigs2clusters.tsv",
         # "final_scatter_plot.pdf",
         "bins/",
-        "assembly.fa.zip",
-        "intermediary.zip"
+        "intermediary.tar.gz"
 
 yaml.add_representer(OrderedDict, lambda dumper, data: dumper.represent_mapping('tag:yaml.org,2002:map', data.items()))
 yaml.add_representer(tuple, lambda dumper, data: dumper.represent_sequence('tag:yaml.org,2002:seq', data))
@@ -316,12 +315,12 @@ rule zip_output:
         'assembly.fa',
         'bins'
     output:
-        "assembly.fa.zip",
-        "intermediary.zip"
+        "intermediary.tar.gz"
     threads: 1
     resources:
         runtime = "8:00:00",
         mem = MEMCORE
+    conda: ENVDIR + "/py_binny_linux.yaml"
     params:
         intermediary = "intermediary/"
     log: "logs/zip_output.log"
@@ -329,6 +328,6 @@ rule zip_output:
     message: "Compressing Binny output."
     shell:
        """
-       zip -m {output[0]} {input[0]} >> {log} 2>&1
-       zip -rm {output[1]} {params.intermediary} >> {log} 2>&1
+       rm {input[0]} >> {log} 2>&1
+       tar cvzf {output} {params.intermediary} >> {log} 2>&1
        """
