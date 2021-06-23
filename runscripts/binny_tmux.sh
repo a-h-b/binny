@@ -133,7 +133,7 @@ elif [ "$INITIAL" = true ]; then
            -e "s|\#tigrfam_hmm_folder\=|tigrfam_hmm_folder=NA|g" \
            -e "s|\#ncbi_hmm_folder\=|ncbi_hmm_folder=NA|g" \
            -e "s|\#ncbi_dmp_path_folder\=|ncbi_dmp_path_folder=NA|g" \
-           -e "s|\#custom_hmm\=path\/to\/hmm/custom1\.hmm|custom_hmm=${DB_PATH}/hmms/checkm_tf/checkm_filtered_tf.hmm\ncheckm_filtered_tf_weight=0.5\ncustom_hmm=${DB_PATH}/hmms/checkm_pf/checkm_filtered_pf.hmm\ncheckm_filtered_pf_weight=1|g" \
+           -e "s|\#custom_ref\=path\/to\/hmm/custom1\.hmm|custom_hmm=${DB_PATH}/hmms/checkm_tf/checkm_filtered_tf.hmm\ncheckm_filtered_tf_weight=0.5\ncustom_hmm=${DB_PATH}/hmms/checkm_pf/checkm_filtered_pf.hmm\ncheckm_filtered_pf_weight=1|g" \
            ${DIR}/workflow/bin/mantis/MANTIS.config
     # If Mantis is supposed to run with the default -domE param for hmmsearch comment the following
     sed -i -e "s|threshold_type \= \'\-\-domE\'|threshold_type = '--cut_tc'|g" \
