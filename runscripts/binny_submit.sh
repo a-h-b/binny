@@ -133,13 +133,9 @@ elif [ "$INITIAL" = true ]; then
            -e "s|\#tigrfam_hmm_folder\=|tigrfam_hmm_folder=NA|g" \
            -e "s|\#ncbi_hmm_folder\=|ncbi_hmm_folder=NA|g" \
            -e "s|\#ncbi_dmp_path_folder\=|ncbi_dmp_path_folder=NA|g" \
-           -e "s|\#custom_ref\=path\/to\/hmm/custom1\.hmm|custom_hmm=${DB_PATH}/hmms/checkm_tf/checkm_filtered_tf.hmm\ncheckm_filtered_tf_weight=0.5\ncustom_hmm=${DB_PATH}/hmms/checkm_pf/checkm_filtered_pf.hmm\ncheckm_filtered_pf_weight=1|g" \
+           -e "s|\#tcdb_seq_folder\=|tcdb_seq_folder=NA|g" \
+           -e "s|\#custom_ref\=path\/to\/hmm/custom1\.hmm|custom_ref=${DIR}/database/hmms/checkm_tf/checkm_filtered_tf.hmm\ncheckm_filtered_tf_weight=0.5\ncustom_ref=${DIR}/database/hmms/checkm_pf/checkm_filtered_pf.hmm\ncheckm_filtered_pf_weight=1|g" \
            ${DIR}/workflow/bin/mantis/MANTIS.config
-    # If Mantis is supposed to run with the default -domE param for hmmsearch comment the following
-    sed -i -e "s|threshold_type \= \'\-\-domE\'|threshold_type = '--cut_tc'|g" \
-           -e "s|command \+\= f\' \{threshold_type\} \{self\.evalue\_threshold \* 10}\'|command += f' {threshold_type}'|g" \
-           ${DIR}/workflow/bin/mantis/source/MANTIS_MP.py
-    # Find Mantis conda env
     for i in ${DIR}/conda/*.yaml; do
       env_name=$(head -n 1 ${i} | cut -d' ' -f2)
       if [[ ${env_name} == 'mantis_env' ]]; then
@@ -155,8 +151,12 @@ elif [ "$INITIAL" = true ]; then
       $CONDA_PREFIX/etc/conda/activate.d/activate-gcc_linux-64.sh
     fi
     python ${DIR}/workflow/bin/mantis/ setup_databases --chunk_size 1200
+    hmmpress database/hmms/checkm_tf/checkm_filtered_tf.hmm
+    hmmpress database/hmms/checkm_pf/checkm_filtered_pf.hmm
     python ${DIR}/workflow/bin/mantis/ check_installation
     conda deactivate
+    echo "Done."
+    exit 0
 elif [ "$CLUSTER" = true ]; then
     if [ -z "$THREADS" ]; then
         THREADS=$MAX_THREADS
