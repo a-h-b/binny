@@ -1,6 +1,6 @@
 mem:
   big_mem_avail: TRUE
-  normal_mem_per_core_gb: 4
+  normal_mem_per_core_gb: 8
   big_mem_per_core_gb: 36
 tmp_dir: tmp
 raws:
