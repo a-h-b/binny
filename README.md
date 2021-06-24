@@ -46,6 +46,7 @@ else
   mamba create --prefix $PWD/conda/snakemake_env snakemake -c conda-forge -c bioconda
 fi
 ```
+*Note*: binny will not work with snakemake version 6.3.0 .
 
 5) **optional**: Set permissions / PATH:
 binny is meant to be used by multiple users. Set the permissions accordingly. I'd suggest:
@@ -56,11 +57,11 @@ binny is meant to be used by multiple users. Set the permissions accordingly. I'
 * It can also be useful to make the VARIABLE_CONFIG file not-writable, because you will always need it. The same goes for config.default.yaml once you've set the paths to the databases you want to use (see below).
 
 6) Initialize conda environments:
-This run sets up the conda environments that will be usable by all users and will download a database:
+This run sets up the conda environments, including [Mantis](https://academic.oup.com/gigascience/article/10/6/giab042/6291114), that will be usable by all users: 
 ```
 ./binny -i config/config.init.yaml 
 ```
-This step will take several minutes to an hour. It will create a folder with the name "database". It contains the database of unique genes from [CheckM](https://data.ace.uq.edu.au/public/CheckM_databases/checkm_data_2015_01_16.tar.gz). You can move this elsewhere and specify the path in the config, if you wish.
+This step will take several minutes to an hour. It will also create a folder with the name "database". It contains the database of unique genes from [CheckM](https://data.ace.uq.edu.au/public/CheckM_databases/checkm_data_2015_01_16.tar.gz). You can move this elsewhere and specify the path in the config, if you wish.
 
 7) **Optional** test run:
 You should be able to test run by 
