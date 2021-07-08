@@ -29,10 +29,12 @@ threads = snakemake.threads
 log = snakemake.log[0]
 
 starting_completeness = 90
+min_marker_cont_length = 0
 n_dim = 2
 
 import sys
 import logging
+import pickle
 sys.path.append(functions)
 from binny_functions import *
 
@@ -40,6 +42,10 @@ from binny_functions import *
 
 logging.basicConfig(filename=log, level=logging.DEBUG, format='%(asctime)s - %(message)s', datefmt='%d/%m/%Y %I:%M:%S %p',
                     filemode='w')
+
+numba_logger = logging.getLogger('numba')
+numba_logger.setLevel(logging.WARNING)
+
 logging.info('Starting Binny run for sample {0}.'.format(sample))
 
 # Load TIGRFAMs to PFAMs conversion table.
@@ -60,14 +66,12 @@ single_contig_bins = get_single_contig_bins(annot_df, all_good_bins, n_dim, taxo
                                             threads)
 logging.info('Found {0} single contig bins.'.format(len(single_contig_bins)))
 
-min_cont_size = 1000
-
-
 # Load assembly and mask rRNAs and CRISPR arrays
-contig_list = [[contig] + [seq] for contig, seq in assembly_dict.items() if (len(seq) >= min_cont_size or annot_dict.get(contig))
+contig_list = [[contig] + [seq] for contig, seq in assembly_dict.items() if (len(seq) >= min_contig_length
+                                                                       or (annot_dict.get(contig) and len(seq) >= min_marker_cont_length))
                                                                         and contig not in single_contig_bins]
 logging.info('{0} contigs match length threshold of {1} or contain marker genes and will be used for binning'.format(len(contig_list),
-                                                                                                              min_cont_size))
+                                                                                                              min_contig_length))
 contig_rrna_crispr_region_dict = gff2low_comp_feature_dict(annot_file)
 mask_rep_featrues(contig_rrna_crispr_region_dict, contig_list)
 
@@ -103,6 +107,14 @@ if len(all_contigs) != len(set(all_contigs)):
 # Write bin fastas.
 write_bins(all_good_bins, assembly, min_comp=int(min_completeness), min_pur=int(min_purity),
            bin_dir='bins')
+
+all_cont_data_dict = {}
+
+for contig, k_freq in main_contig_data_dict.items():
+    all_cont_data_dict[contig] = {'k-mer_freqs': list(k_freq), 'depths': list(depth_dict.get(contig))}
+
+with open("contig_data_dict.pickle", "wb") as of:
+    pickle.dump(all_cont_data_dict, of, pickle.HIGHEST_PROTOCOL)
 
 logging.info('Run finished.')
 # sys.stdout.close()
