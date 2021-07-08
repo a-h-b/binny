@@ -232,15 +232,15 @@ rule annotate:
     log: "logs/analysis_annotate.log"
     benchmark: "logs/analysis_annotate_benchmark.txt"
     conda: ENVDIR + "/IMP_annotation.yaml"
-    message: "annotate: Running prokkaC."
+    message: "annotate: Running prokkaP."
     shell:
         """
         export PERL5LIB=$CONDA_PREFIX/lib/site_perl/5.26.2
         export LC_ALL=en_US.utf-8
         if [ ! -f $CONDA_PREFIX/db/hmm/HAMAP.hmm.h3m ]; then
-          {BINDIR}/prokkaC --dbdir $CONDA_PREFIX/db --setupdb
+          {BINDIR}/prokkaP --dbdir $CONDA_PREFIX/db --setupdb
         fi
-	    {BINDIR}/prokkaC --dbdir $CONDA_PREFIX/db --force --outdir intermediary/ --prefix prokka --noanno --cpus {threads} --metagenome {input[0]} >> {log} 2>&1
+	    {BINDIR}/prokkaP --dbdir $CONDA_PREFIX/db --force --outdir intermediary/ --prefix prokka --noanno --cpus {threads} --metagenome {input[0]} >> {log} 2>&1
         # --mincontiglen {config[binning][binny][cutoff]}    
         
 	    # Prokka gives a gff file with a long header and with all the contigs at the bottom.  The command below removes the
