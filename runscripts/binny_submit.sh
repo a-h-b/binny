@@ -1,29 +1,30 @@
 #! /bin/bash -i
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-DIR="${DIR%/*}"
+#DIR="${DIR%/*}"
 VARCONFIG=$DIR/VARIABLE_CONFIG
 
-while read var val; do unset $var ; declare $var="$val" ; done < $VARCONFIG
+while IFS=$'\t' read var val; do unset $var ; declare $var="$val" ; done < $VARCONFIG
 
 if [ -z "$MAX_THREADS" ]; then
     MAX_THREADS=50
 fi
 
 usage() {
-    echo "Usage: $0 [-u|d|c|l|i] [-t number] [-r] [-n name] /absolute_path/to/config_file " 1>&2
+    echo "Usage: $0 [-u|d|c|l|i] [-b node] [-t number] [-r] [-n name] /absolute_path/to/config_file " 1>&2
     echo "       -n <name for main job>, only works with -c and -f" 1>&2
-    echo "       -r if set, a report is generated (it's recommended to run -c, -f and -l with -r)" 1>&2
+    echo "       -r if set, a report is generated (it's recommended to run -c and -l with -r)" 1>&2
     echo "       -d if set, a dryrun is performed" 1>&2
     echo "       -c if set, the whole thing is submitted to the cluster" 1>&2
+    echo "       -b if -c is set, -b gives the node name to submit the main instance to" 1>&2
     echo "       -i if set, only the conda environments will be installed, if they don't exist" 1>&2
     echo "       -u if set, the working directory will be unlocked (only necessary for crash/kill recovery)" 1>&2
     echo "       -l if set, the main snakemake thread and indivdual rules are run in the current terminal session" 1>&2
-    echo "       -t <max_threads> maximum number of cpus to use for all rules at a time. Defaults to $MAX_THREADS for -c, and to 1 for -l and -f. No effect on -r, -d or -u only." 1>&2
+    echo "       -t <max_threads> maximum number of cpus to use for all rules at a time. Defaults to $MAX_THREADS for -c, and to 1 for -l. No effect on -r, -d or -u only." 1>&2
 
 }
 
-while getopts n:t:udflcrhi flag
+while getopts n:t:udlcb:rhi flag
 do
     case $flag in
         i)
@@ -38,8 +39,8 @@ do
             JNAME=$OPTARG;;
         r)
             REPORT=true;;
-        f)
-            FRONTEND=true;;
+        b)
+            NNAME=$OPTARG;;
         l)
             LAPTOP=true;;
         t)
@@ -83,11 +84,9 @@ fi
 if [ "$SNAKEMAKE_VIA_CONDA" = true ]; then
    CONDA_START="conda activate $DIR/conda/snakemake_env"
    CONDA_END="conda deactivate"
-   CONDA_END_t="conda deactivate;"
 else
    CONDA_START=""
    CONDA_END=""
-   CONDA_END_t=""
 fi
 
 START_TIME=`date +%s`
@@ -102,13 +101,13 @@ if [ "$UNLOCK" = true ]; then
     echo "Unlocking working directory."
     eval $LOADING_MODULES
     eval $CONDA_START
-    snakemake --cores 1 -s $DIR/Snakefile --unlock --configfile $CONFIGFILE
+    snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores 1 -s $DIR/Snakefile --unlock --configfile $CONFIGFILE
     eval $CONDA_END
 elif [ "$DRYRUN" = true ]; then
     echo "Dryrun."
     eval $LOADING_MODULES
     eval $CONDA_START
-    snakemake --cores 1 -s $DIR/Snakefile --dryrun --config sessionName=$JNAME --configfile $CONFIGFILE
+    snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores 1 -s $DIR/Snakefile --dryrun --config sessionName=$JNAME --configfile $CONFIGFILE
     eval $CONDA_END
 elif [ "$INITIAL" = true ]; then
     eval $LOADING_MODULES
@@ -118,7 +117,7 @@ elif [ "$INITIAL" = true ]; then
     # git clone https://github.com/PedroMTQ/mantis.git ${DIR}/workflow/bin/mantis
     curl -L https://github.com/PedroMTQ/mantis/archive/master.zip --output $DIR/workflow/bin/mantis.zip
     unzip -q $DIR/workflow/bin/mantis.zip -d $DIR/workflow/bin/ && mv $DIR/workflow/bin/mantis-master $DIR/workflow/bin/mantis && rm $DIR/workflow/bin/mantis.zip
-    snakemake --verbose --cores 1 -s $DIR/Snakefile --conda-create-envs-only --use-conda --conda-prefix $DIR/conda --local-cores 1 --configfile $CONFIGFILE
+    snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --verbose --cores 1 -s $DIR/Snakefile --conda-create-envs-only --use-conda --conda-prefix $DIR/conda --local-cores 1 --configfile $CONFIGFILE
     DB_PATH=`grep "db_path:" $CONFIGFILE | cut -f 2 -d " "`
     temp="${DB_PATH%\"}"
     DB_PATH="${temp#\"}"
@@ -162,11 +161,14 @@ elif [ "$CLUSTER" = true ]; then
     if [ -z "$THREADS" ]; then
         THREADS=$MAX_THREADS
     fi
+    if [ -z "$NNAME" ]; then
+        NNAME=""
+    fi
     echo "Submitting workflow to cluster."
     if [ "$REPORT" = true ]; then
-        eval "${SUBMIT_COMMAND} $DIR/submit_scripts/runBinny_withReport.sh $CONFIGFILE $VARCONFIG $JNAME $THREADS"
+        eval "${SUBMIT_COMMAND}$NNAME $DIR/submit_scripts/runBinny_withReport.sh $CONFIGFILE $VARCONFIG $JNAME $THREADS"
     else
-        eval "${SUBMIT_COMMAND} $DIR/submit_scripts/runBinny_withoutReport.sh $CONFIGFILE $VARCONFIG $JNAME $THREADS"
+        eval "${SUBMIT_COMMAND}$NNAME $DIR/submit_scripts/runBinny_withoutReport.sh $CONFIGFILE $VARCONFIG $JNAME $THREADS"
     fi
 elif [ "$LAPTOP" = true ]; then
     echo "Running workflow in current session - don't use this setting except with small datasets and databases."
@@ -177,21 +179,21 @@ elif [ "$LAPTOP" = true ]; then
     eval $LOADING_MODULES
     eval $CONDA_START
     if [ "$REPORT" = true ]; then
-        snakemake --cores $THREADS -s $DIR/Snakefile --keep-going --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda 
-        snakemake --cores $THREADS -s $DIR/Snakefile --configfile $CONFIGFILE --use-conda --conda-prefix $DIR/conda --report report.html 
+        snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS -s $DIR/Snakefile --keep-going --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda 
+        snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS -s $DIR/Snakefile --configfile $CONFIGFILE --use-conda --conda-prefix $DIR/conda --report report.html 
         eval $CONDA_END
     else
-        snakemake --cores $THREADS -s $DIR/Snakefile --keep-going --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda 
+        snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS -s $DIR/Snakefile --keep-going --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda 
         eval $CONDA_END
     fi    
 elif [ "$REPORT" = true ]; then
     echo "Writing report."
     eval $LOADING_MODULES
     eval $CONDA_START
-    snakemake --cores 1 -s $DIR/Snakefile --report report.html --configfile $CONFIGFILE --use-conda --conda-prefix $DIR/conda
+    snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores 1 -s $DIR/Snakefile --report report.html --configfile $CONFIGFILE --use-conda --conda-prefix $DIR/conda
     eval $CONDA_END
 else
-    echo "Nothing was done, please give -u, -d, -r, -c, -f, -i, or -l to start anything."
+    echo "Nothing was done, please give -u, -d, -r, -c, -i, or -l to start anything."
 fi
 
 

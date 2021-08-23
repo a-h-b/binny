@@ -3,7 +3,7 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 VARCONFIG=$DIR/VARIABLE_CONFIG
 
-while read var val; do unset $var ; declare $var="$val" ; done < $VARCONFIG
+while IFS=$'\t' read var val; do unset $var ; declare $var="$val" ; done < $VARCONFIG
 
 if [ -z "$MAX_THREADS" ]; then
     MAX_THREADS=50
@@ -102,13 +102,13 @@ if [ "$UNLOCK" = true ]; then
     echo "Unlocking working directory."
     eval $LOADING_MODULES
     eval $CONDA_START
-    snakemake --cores 1 -s $DIR/Snakefile --unlock --configfile $CONFIGFILE
+    snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores 1 -s $DIR/Snakefile --unlock --configfile $CONFIGFILE
     eval $CONDA_END
 elif [ "$DRYRUN" = true ]; then
     echo "Dryrun."
     eval $LOADING_MODULES
     eval $CONDA_START
-    snakemake --cores 1 -s $DIR/Snakefile --dryrun --config sessionName=$JNAME --configfile $CONFIGFILE
+    snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores 1 -s $DIR/Snakefile --dryrun --config sessionName=$JNAME --configfile $CONFIGFILE
     eval $CONDA_END
 elif [ "$INITIAL" = true ]; then
     eval $LOADING_MODULES
@@ -118,7 +118,7 @@ elif [ "$INITIAL" = true ]; then
     # git clone https://github.com/PedroMTQ/mantis.git ${DIR}/workflow/bin/mantis
     curl -L https://github.com/PedroMTQ/mantis/archive/master.zip --output $DIR/workflow/bin/mantis.zip
     unzip -q $DIR/workflow/bin/mantis.zip -d $DIR/workflow/bin/ && mv $DIR/workflow/bin/mantis-master $DIR/workflow/bin/mantis && rm $DIR/workflow/bin/mantis.zip
-    snakemake --verbose --cores 1 -s $DIR/Snakefile --conda-create-envs-only --use-conda --conda-prefix $DIR/conda --local-cores 1 --configfile $CONFIGFILE
+    snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --verbose --cores 1 -s $DIR/Snakefile --conda-create-envs-only --use-conda --conda-prefix $DIR/conda --local-cores 1 --configfile $CONFIGFILE
     DB_PATH=`grep "db_path:" $CONFIGFILE | cut -f 2 -d " "`
     temp="${DB_PATH%\"}"
     DB_PATH="${temp#\"}"
@@ -165,9 +165,9 @@ elif [ "$CLUSTER" = true ]; then
     tmux send-keys -t $JNAME "$LOADING_MODULES >> $JNAME.stdout 2>> $JNAME.stderr" C-m
     tmux send-keys -t $JNAME "$CONDA_START >> $JNAME.stdout 2>> $JNAME.stderr" C-m
     if [ "$REPORT" = true ]; then
-    tmux send-keys -t $JNAME "snakemake --cores $THREADS -s $DIR/Snakefile --keep-going --local-cores 1 --cluster-config $DIR/config/$SCHEDULER.config.yaml --cluster \"{cluster.call} {cluster.runtime}{resources.runtime} {cluster.mem_per_cpu}{resources.mem} {cluster.nodes} {cluster.qos} {cluster.threads}{threads} {cluster.partition} {cluster.stdout}\" --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda >> $JNAME.stdout 2>> $JNAME.stderr; snakemake --cores 1 -s $DIR/Snakefile --configfile $CONFIGFILE --use-conda --conda-prefix $DIR/conda --report report.html >> $JNAME.stdout 2>> $JNAME.stderr; $CONDA_END_t tmux kill-session" C-m
+    tmux send-keys -t $JNAME "snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS --jobs $THREADS -s $DIR/Snakefile --keep-going --local-cores 1 --cluster-config $DIR/config/$SCHEDULER.config.yaml --cluster \"{cluster.call} {cluster.runtime}{resources.runtime} {cluster.mem_per_cpu}{resources.mem} {cluster.nodes} {cluster.qos} {cluster.threads}{threads} {cluster.partition} {cluster.stdout}\" --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda >> $JNAME.stdout 2>> $JNAME.stderr; snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores 1 -s $DIR/Snakefile --configfile $CONFIGFILE --use-conda --conda-prefix $DIR/conda --report report.html >> $JNAME.stdout 2>> $JNAME.stderr; $CONDA_END_t tmux kill-session" C-m
     else
-    tmux send-keys -t $JNAME "snakemake --cores $THREADS -s $DIR/Snakefile --keep-going --local-cores 1 --cluster-config $DIR/config/$SCHEDULER.config.yaml --cluster \"{cluster.call} {cluster.runtime}{resources.runtime} {cluster.mem_per_cpu}{resources.mem} {cluster.threads}{threads} {cluster.nodes} {cluster.qos} {cluster.partition} {cluster.stdout}\" --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda >> $JNAME.stdout 2>> $JNAME.stderr; $CONDA_END_t tmux kill-session" C-m
+    tmux send-keys -t $JNAME "snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS --jobs $THREADS -s $DIR/Snakefile --keep-going --local-cores 1 --cluster-config $DIR/config/$SCHEDULER.config.yaml --cluster \"{cluster.call} {cluster.runtime}{resources.runtime} {cluster.mem_per_cpu}{resources.mem} {cluster.threads}{threads} {cluster.nodes} {cluster.qos} {cluster.partition} {cluster.stdout}\" --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda >> $JNAME.stdout 2>> $JNAME.stderr; $CONDA_END_t tmux kill-session" C-m
     fi
 elif [ "$FRONTEND" = true ]; then
     echo "Running workflow on frontend - don't use this setting except with small datasets and with no more than one run at a time."
@@ -178,9 +178,9 @@ elif [ "$FRONTEND" = true ]; then
     tmux send-keys -t $JNAME "$LOADING_MODULES >> $JNAME.stdout 2>> $JNAME.stderr" C-m
     tmux send-keys -t $JNAME "$CONDA_START >> $JNAME.stdout 2>> $JNAME.stderr" C-m
     if [ "$REPORT" = true ]; then
-        tmux send-keys -t $JNAME "snakemake --cores $THREADS -s $DIR/Snakefile --keep-going --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda >> $JNAME.stdout 2>> $JNAME.stderr; snakemake --cores 1 -s $DIR/Snakefile --configfile $CONFIGFILE --use-conda --conda-prefix $DIR/conda --report report.html >> $JNAME.stdout 2>> $JNAME.stderr; $CONDA_END_t tmux kill-session" C-m
+        tmux send-keys -t $JNAME "snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS -s $DIR/Snakefile --keep-going --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda >> $JNAME.stdout 2>> $JNAME.stderr; snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores 1 -s $DIR/Snakefile --configfile $CONFIGFILE --use-conda --conda-prefix $DIR/conda --report report.html >> $JNAME.stdout 2>> $JNAME.stderr; $CONDA_END_t tmux kill-session" C-m
     else
-        tmux send-keys -t $JNAME "snakemake --cores $THREADS -s $DIR/Snakefile --keep-going --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda >> $JNAME.stdout 2>> $JNAME.stderr; $CONDA_END_t tmux kill-session" C-m
+        tmux send-keys -t $JNAME "snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS -s $DIR/Snakefile --keep-going --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda >> $JNAME.stdout 2>> $JNAME.stderr; $CONDA_END_t tmux kill-session" C-m
     fi
 elif [ "$LAPTOP" = true ]; then
     echo "Running workflow in current session - don't use this setting except with small datasets and databases."
@@ -191,18 +191,18 @@ elif [ "$LAPTOP" = true ]; then
     eval $LOADING_MODULES
     eval $CONDA_START
     if [ "$REPORT" = true ]; then
-        snakemake --cores $THREADS -s $DIR/Snakefile --keep-going --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda 
-        snakemake --cores $THREADS -s $DIR/Snakefile --configfile $CONFIGFILE --use-conda --conda-prefix $DIR/conda --report report.html 
+        snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS -s $DIR/Snakefile --keep-going --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda 
+        snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS -s $DIR/Snakefile --configfile $CONFIGFILE --use-conda --conda-prefix $DIR/conda --report report.html 
         eval $CONDA_END
     else
-        snakemake --cores $THREADS -s $DIR/Snakefile --keep-going --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda 
+        snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS -s $DIR/Snakefile --keep-going --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda 
         eval $CONDA_END
     fi    
 elif [ "$REPORT" = true ]; then
     echo "Writing report."
     eval $LOADING_MODULES
     eval $CONDA_START
-    snakemake --cores 1 -s $DIR/Snakefile --report report.html --configfile $CONFIGFILE --use-conda --conda-prefix $DIR/conda
+    snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores 1 -s $DIR/Snakefile --report report.html --configfile $CONFIGFILE --use-conda --conda-prefix $DIR/conda
     eval $CONDA_END
 else
     echo "Nothing was done, please give -u, -d, -r, -c, -f, -i, or -l to start anything."
