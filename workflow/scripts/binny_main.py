@@ -113,7 +113,7 @@ all_cont_data_dict = {}
 for contig, k_freq in main_contig_data_dict.items():
     all_cont_data_dict[contig] = {'k-mer_freqs': list(k_freq), 'depths': list(depth_dict.get(contig))}
 
-with open("contig_data_dict.pickle", "wb") as of:
+with open("intermediary/contig_data_dict.pickle", "wb") as of:
     pickle.dump(all_cont_data_dict, of, pickle.HIGHEST_PROTOCOL)
 
 logging.info('Run finished.')

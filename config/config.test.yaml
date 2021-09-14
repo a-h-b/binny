@@ -8,7 +8,7 @@ raws:
   Alignment_metagenomics: "test/reads_3bins.bam"
   Contig_depth: ""
 sample: test
-outputdir: "test_must"
+outputdir: "test_output"
 db_path: "database"
 binning:
   binny:

@@ -2,7 +2,6 @@ import os
 import sys
 import shutil
 import gzip
-#import json
 import yaml
 import bz2
 import re
@@ -74,6 +73,7 @@ def getThreads(max):
         realThreads = max
     return realThreads
 
+
 SAMPLE = config['sample']
 if SAMPLE == "":
     SAMPLE = "_".join(OUTPUTDIR.split("/")[-2:])
@@ -116,6 +116,9 @@ if not os.path.exists(TMPDIR):
 workdir:
     OUTPUTDIR
 
+onsuccess:
+		shell("mkdir -p job.errs.outs &>> logs/cleanup.log; ( mv dadasnake* job.errs.outs || touch job.errs.outs ) &>> logs/cleanup.log; ( mv *stdout job.errs.outs || touch job.errs.outs ) &>> logs/cleanup.log; ( mv *log job.errs.outs || touch job.errs.outs ) &>> logs/cleanup.log; ( mv *logfile job.errs.outs || touch job.errs.outs ) &>> logs/cleanup.log; tar cvzf intermediary.tar.gz --remove-files intermediary &>> logs/cleanup.log")
+
 
 def prepare_input_files(inputs, outputs):
     """
@@ -149,10 +152,7 @@ localrules: prepare_input_data, ALL
 
 rule ALL:
     input:
-        # "final_contigs2clusters.tsv",
-        # "final_scatter_plot.pdf",
-        "bins/",
-        "intermediary.tar.gz"
+        "bins/"
 
 yaml.add_representer(OrderedDict, lambda dumper, data: dumper.represent_mapping('tag:yaml.org,2002:map', data.items()))
 yaml.add_representer(tuple, lambda dumper, data: dumper.represent_sequence('tag:yaml.org,2002:seq', data))
@@ -164,7 +164,7 @@ rule prepare_input_data:
         CONTIG_DEPTH if CONTIG_DEPTH else MGaln
     output:
         "intermediary/assembly.fa",
-        "intermediary/assembly.contig_depth.txt" if CONTIG_DEPTH else "reads.sorted.bam"
+        "intermediary/assembly.contig_depth.txt" if CONTIG_DEPTH else "intermediary/reads.sorted.bam"
     threads: 1
     resources:
         runtime = "4:00:00",
@@ -177,7 +177,7 @@ rule format_assembly:
     input:
         "intermediary/assembly.fa"
     output:
-        "assembly.fa"
+        "intermediary/assembly.formatted.fa"
     threads: 1
     resources:
         runtime = "2:00:00",
@@ -191,8 +191,8 @@ rule format_assembly:
 if not CONTIG_DEPTH:
     rule call_contig_depth:
         input:
-            "reads.sorted.bam",
-            "assembly.fa"
+            "intermediary/reads.sorted.bam",
+            "intermediary/assembly.formatted.fa"
         output:
             "intermediary/assembly.contig_depth.txt"
         resources:
@@ -218,7 +218,7 @@ if not CONTIG_DEPTH:
 #gene calling
 rule annotate:
     input:
-        'assembly.fa'
+        'intermediary/assembly.formatted.fa'
     output:
         "intermediary/annotation.filt.gff",
         "intermediary/prokka.faa",
@@ -241,7 +241,6 @@ rule annotate:
           {BINDIR}/prokkaP --dbdir $CONDA_PREFIX/db --setupdb
         fi
 	    {BINDIR}/prokkaP --dbdir $CONDA_PREFIX/db --force --outdir intermediary/ --prefix prokka --noanno --cpus {threads} --metagenome {input[0]} >> {log} 2>&1
-        # --mincontiglen {config[binning][binny][cutoff]}    
         
 	    # Prokka gives a gff file with a long header and with all the contigs at the bottom.  The command below removes the
         # And keeps only the gff table.
@@ -257,7 +256,6 @@ rule mantis_checkm_marker_sets:
     input:
         "intermediary/prokka.faa"
     output:
-        # "intermediary/prokka.faa.markers.hmmscan"
         "intermediary/mantis_out/output_annotation.tsv",
         "intermediary/mantis_out/integrated_annotation.tsv",
         "intermediary/mantis_out/consensus_annotation.tsv"
@@ -280,14 +278,9 @@ rule binny:
     input:
         mgdepth='intermediary/assembly.contig_depth.txt',
         raw_gff='intermediary/annotation.filt.gff',
-        assembly="assembly.fa",
-        # hmm_markers="intermediary/prokka.faa.markers.hmmscan"
+        assembly="intermediary/assembly.formatted.fa",
         hmm_markers="intermediary/mantis_out/consensus_annotation.tsv"
     output:
-        # "intermediary/contig_coordinates.tsv",
-        # "intermediary/contig_data.tsv",
-        # "final_contigs2clusters.tsv",
-        # "final_scatter_plot.pdf",
         directory("bins")
     params:
         sample=SAMPLE,
@@ -311,24 +304,3 @@ rule binny:
     script:
         SRCDIR + "/binny_main.py"
 
-rule zip_output:
-    input:
-        'assembly.fa',
-        'bins'
-    output:
-        "intermediary.tar.gz"
-    threads: 1
-    resources:
-        runtime = "8:00:00",
-        mem = MEMCORE
-    conda: ENVDIR + "/py_binny_linux.yaml"
-    params:
-        intermediary = "intermediary/"
-    log: "logs/zip_output.log"
-    benchmark: "logs/zip_output_benchmark.txt"
-    message: "Compressing Binny output."
-    shell:
-       """
-       rm {input[0]} >> {log} 2>&1
-       tar cvzf {output} {params.intermediary} >> {log} 2>&1
-       """
