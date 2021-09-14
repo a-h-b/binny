@@ -4,8 +4,8 @@ mem:
   big_mem_per_core_gb: 26
 tmp_dir: tmp
 raws:
-  Contigs: "test/assembly.fasta"
-  Alignment_metagenomics: "test/mg.reads.sorted.bam"
+  Contigs: "test/contigs_3bins.fa"
+  Alignment_metagenomics: "test/reads_3bins.bam"
   Contig_depth: ""
 sample: test
 outputdir: "binny_initialized"

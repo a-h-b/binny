@@ -54,7 +54,7 @@ fi
 5) **optional**: Set permissions / PATH:
 binny is meant to be used by multiple users. Set the permissions accordingly. I'd suggest:
 * to have read access for all files for the users plus 
-* execution rights for the binny file and the .sh scripts in the subfolder submit_scripts
+* execution rights for the binny file and the .sh scripts in the subfolder runscripts
 * read, write and execution rights for the conda subfolder 
 * to add the binny directory to your path. 
 * It can also be useful to make the VARIABLE_CONFIG file not-writable, because you will always need it. The same goes for config.default.yaml once you've set the paths to the databases you want to use (see below).

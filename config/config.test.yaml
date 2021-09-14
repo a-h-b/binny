@@ -1,14 +1,14 @@
 mem:
-  big_mem_avail: TRUE
+  big_mem_avail: FALSE
   normal_mem_per_core_gb: 8
   big_mem_per_core_gb: 36
 tmp_dir: tmp
 raws:
-  Contigs: "test/assembly.fasta"
-  Alignment_metagenomics: "test/mg.reads.sorted.bam"
+  Contigs: "test/contigs_3bins.fa"
+  Alignment_metagenomics: "test/reads_3bins.bam"
   Contig_depth: ""
 sample: test
-outputdir: "test_output4"
+outputdir: "test_must"
 db_path: "database"
 binning:
   binny:

@@ -12,20 +12,20 @@ from joblib import parallel_backend, Parallel, delayed
 import numpy as np
 import pandas as pd
 import seaborn as sns
+# import khmer
+import itertools
+import re
+from timeit import default_timer as timer
+
 from sklearn.neighbors import KNeighborsClassifier
 # from sklearn.cluster import DBSCAN
 # from sklearn.cluster import OPTICS
 # from unidip import UniDip
-from timeit import default_timer as timer
-
-# import khmer
-import itertools
-import re
-
 # from sklearn.manifold import TSNE
 from sklearn.preprocessing import RobustScaler, StandardScaler
-
 from sklearn.decomposition import PCA
+from sklearn.metrics.cluster import normalized_mutual_info_score as nmi
+
 from openTSNE import TSNE, TSNEEmbedding, affinity, initialization
 from openTSNE import initialization
 from openTSNE.callbacks import ErrorLogger
@@ -39,8 +39,6 @@ import hdbscan
 from skbio.stats.composition import clr, multiplicative_replacement
 
 import networkx as nx
-
-from sklearn.metrics.cluster import normalized_mutual_info_score as nmi
 
 
 def unify_multi_model_genes(gene, markers='essential'):
@@ -2025,5 +2023,7 @@ def iterative_embedding(x, x_contigs, depth_dict, all_good_bins, starting_comple
             logging.warning('WARNING: {0} duplicate contigs in bins found! Exiting.'.format(len(all_contigs) - len(set(all_contigs))))
             raise Exception
         logging.info('Good bins so far: {0}.'.format(len(all_good_bins.keys())))
+        if len(round_leftovers.index) == 0:
+            break
     return all_good_bins, contig_data_df_org
 

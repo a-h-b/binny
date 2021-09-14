@@ -271,6 +271,7 @@ rule mantis_checkm_marker_sets:
     message: "MANTIS: Running MANTIS with CheckM marker sets."
     shell:
         """
+        if [ -d intermediary/mantis_out ]; then rm intermediary/mantis_out/* ; fi
         python {BINDIR}/mantis/ run_mantis -t {input[0]} -da dfs -mc {BINDIR}/mantis/MANTIS.config \
                                            -o intermediary/mantis_out -c {threads} -et 1e-10 >> {log} 2>&1
         """

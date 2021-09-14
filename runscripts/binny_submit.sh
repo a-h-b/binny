@@ -166,9 +166,9 @@ elif [ "$CLUSTER" = true ]; then
     fi
     echo "Submitting workflow to cluster."
     if [ "$REPORT" = true ]; then
-        eval "${SUBMIT_COMMAND}$NNAME $DIR/submit_scripts/runBinny_withReport.sh $CONFIGFILE $VARCONFIG $JNAME $THREADS"
+        eval "${SUBMIT_COMMAND}$NNAME $DIR/runscripts/runBinny_withReport.sh $CONFIGFILE $VARCONFIG $JNAME $THREADS"
     else
-        eval "${SUBMIT_COMMAND}$NNAME $DIR/submit_scripts/runBinny_withoutReport.sh $CONFIGFILE $VARCONFIG $JNAME $THREADS"
+        eval "${SUBMIT_COMMAND}$NNAME $DIR/runscripts/runBinny_withoutReport.sh $CONFIGFILE $VARCONFIG $JNAME $THREADS"
     fi
 elif [ "$LAPTOP" = true ]; then
     echo "Running workflow in current session - don't use this setting except with small datasets and databases."
