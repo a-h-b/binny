@@ -807,9 +807,21 @@ if ($tools{signalp}->{HAVE}) {
           $cds{++$count} = $f;
           ## AHB: adapted for non-complete:
           #my $seq = $f->seq->translate(-codontable_id=>$gcode, -complete=>1);
+          #my $seq = $f->seq->translate(-codontable_id=>$gcode);
+	  #$seq->display_id($count);
+          #$spout->write_seq($seq);
           my $seq = $f->seq->translate(-codontable_id=>$gcode);
-	  $seq->display_id($count);
-          $spout->write_seq($seq);
+          my $testseq1 = $seq->seq();
+          if ($testseq1 =~ m/[*][A-Z*]/){
+              $seq = $f->seq->translate(-codontable_id=>4);
+              my $testseq2 = $seq->seq();
+              if ($testseq2 !~ m/[*][A-Z*]/){
+                  $seq->display_id($count);
+                  $spout->write_seq($seq);
+              }else{
+                  msg("non-opal stop codon in $sid");
+              }
+          }
         }
       }
 
@@ -1051,7 +1063,18 @@ else {
 	print $faa ">$count\n",
         # AHB: adapted for non-complete:
 	#  $f->seq->translate(-codontable_id=>$gcode, -complete=>1)->seq,"\n";
-	$f->seq->translate(-codontable_id=>$gcode)->seq,"\n";
+	# $f->seq->translate(-codontable_id=>$gcode)->seq,"\n";
+        my $seq = $f->seq->translate(-codontable_id=>$gcode);
+        my $testseq1 = $seq->seq();
+        if ($testseq1 =~ m/[*][A-Z*]/){
+            $seq = $f->seq->translate(-codontable_id=>4);
+            my $testseq2 = $seq->seq();
+            if ($testseq2 !~ m/[*][A-Z*]/){
+              print $testseq2, "\n";
+            }else{
+               msg("non-opal stop codon in $sid");
+            }
+        }
       }
     }
     close $faa;
@@ -1317,7 +1340,18 @@ for my $sid (@seq) {
     if ($f->primary_tag eq 'CDS') {
       ## AHB: adapted for not complete:
       #$faa_fh->write_seq( $p->translate(-codontable_id=>$gcode, -complete=>1) ); 
-      $faa_fh->write_seq( $p->translate(-codontable_id=>$gcode) );
+      #$faa_fh->write_seq( $p->translate(-codontable_id=>$gcode) );
+       my $seq = $p->translate(-codontable_id=>$gcode);
+       my $testseq1 = $seq->seq();
+         if ($testseq1 =~ m/[*][A-Z*]/){
+            $seq = $p->translate(-codontable_id=>4);
+            my $testseq2 = $seq->seq();
+            if ($testseq2 !~ m/[*][A-Z*]/){
+               $faa_fh->write_seq($seq);
+            }else{
+               msg("non-opal stop codon in $sid");
+            }
+         }
     }
     if ($f->primary_tag =~ m/^(CDS|rRNA|tmRNA|tRNA|misc_RNA)$/) {
       $ffn_fh->write_seq($p);
