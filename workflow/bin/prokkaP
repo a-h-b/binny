@@ -52,8 +52,9 @@ my $URL = 'https://github.com/tseemann/prokka';
 my $PROKKA_PMID = '24642063';
 my $PROKKA_DOI = '10.1093/bioinformatics/btu153';
 my $HYPO = 'hypothetical protein';
-#AHBmy $UNANN = 'unannotated protein';
-my $UNANN = 'predicted protein';
+#AHB
+my $UNANN = 'unannotated protein';
+#my $UNANN = 'predicted protein';
 my $MAXCONTIGIDLEN = 37;  # Genbank rule
 my $SIGNALP_MAXSEQ = 10_000;  # maximum allowed input for signalp
 my @LOG; # buffer up log lines before we have log file ready
@@ -228,7 +229,7 @@ sub check_all_tools {
 # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 # command line options
 
-my(@Options, $quiet, $debug, $kingdom, $fast, $force, $outdir, $prefix, $cpus, $dbdir,
+my(@Options, $quiet, $debug, $kingdom, $fast, $force, $outdir, $tmpdir, $prefix, $cpus, $dbdir,
              $addgenes, $addmrna, $cds_rna_olap,
              $gcode, $gram, $gffver, $locustag, $increment, $mincontiglen, $evalue, $coverage,
              $genus, $species, $strain, $plasmid, $prodigaltf,
@@ -325,7 +326,8 @@ msg("Annotating as >>> $kingdom <<<");
 # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 # check if --setupdb has been run
 
-if ( !  -r "$dbdir/kingdom/$kingdom/sprot.pin" or ! "$dbdir/hmm/HAMAP.hmm.h3i") {
+# AHB remove hmm dependency, if no annotation is done
+if ( ! $noanno and (!  -r "$dbdir/kingdom/$kingdom/sprot.pin" or ! "$dbdir/hmm/HAMAP.hmm.h3i")) {
   err("The sequence databases have not been indexed. Please run 'prokka --setupdb' first.");
 }
 
@@ -351,6 +353,7 @@ $increment >= 1 or err("Invalid --increment, must be >= 1");
 # http://www.ncbi.nlm.nih.gov/genomes/static/Annotation_pipeline_README.txt
 $prefix ||= 'PROKKA_'.(localtime->mdy('')); # NCBI wants US format, ech.
 $outdir ||= $prefix;
+$tmpdir ||= $outdir; #AHB put input for parallel into temporary directory
 if (-d $outdir) {
   if ($force) {
     msg("Re-using existing --outdir $outdir")
@@ -362,6 +365,9 @@ if (-d $outdir) {
 else {
   msg("Creating new output folder: $outdir");
   runcmd("mkdir -p \Q$outdir\E");
+}
+if ( ! -d $tmpdir) {
+  runcmd("mkdir -p \Q$tmpdir\E");
 }
 msg("Using filename prefix: $prefix.XXX");
 # canonical names
@@ -752,11 +758,11 @@ if ($prodigal_mode eq 'meta') {
   }
   close(SEQ);
   my $threshold=int($nseqs/$cpus);
-  my $name="$outdir/$prefix.fna";
+  my $name="$outdir"."/"."$prefix".".fna";
   open(SEQ,"$name") or die $!;
-  my $newname="$name"."_".$ct_seq.".fasta";
+  my $newname="$tmpdir"."/"."$prefix"."_".$ct_seq.".fasta";
   my $cur="";
-  open(FILES,">$outdir/filenumbers") or die $!;
+  open(FILES,">$tmpdir/filenumbers") or die $!;
   print FILES "$ct_seq\n";
   open(NEW,">$newname") or $!;
   while(my $str=<SEQ>){
@@ -767,7 +773,7 @@ if ($prodigal_mode eq 'meta') {
 		if($ct>=$threshold){
 			close(NEW);
 			$ct_seq++;
-			$newname="$name"."_".$ct_seq.".fasta";
+			$newname="$tmpdir"."/"."$prefix"."_".$ct_seq.".fasta";
 			print FILES "$ct_seq\n";
                         open(NEW,">$newname") or $!;
 			$ct=0;
@@ -779,12 +785,12 @@ if ($prodigal_mode eq 'meta') {
   close(NEW);
   close(SEQ);
 
-  my $cmd= "prodigal -i $outdir/$prefix.fna_{}.fasta  -m -g $gcode -p $prodigal_mode -f gff -q";
+  my $cmd= "prodigal -i $tmpdir/$prefix.fna_{}.fasta  -m -g $gcode -p $prodigal_mode -f gff -q";
   my $fsize = -s "$outdir/$prefix.fna";
   my $bsize = int($fsize / $cpus / 2);
   my $prlopts = $cpus > 0 ? " -j $cpus" : "";
   #my $prlcmd = "${PARALLELCMD}$prlopts --block $bsize --recstart '>' --pipe ";
-  my $prlcmd = "cat $outdir/filenumbers |  ${PARALLELCMD}$prlopts  ";
+  my $prlcmd = "cat $tmpdir/filenumbers |  ${PARALLELCMD}$prlopts  ";
   $cmd = $prlcmd . $cmd;
   print STDERR "# fsize: $fsize bsize: $bsize prlopts: $prlopts cmd: $cmd\n";
 }
@@ -904,6 +910,9 @@ if ($tools{signalp}->{HAVE}) {
               }else{
                   msg("non-opal stop codon in $sid");
               }
+          }else{
+              $seq->display_id($count);
+              $spout->write_seq($seq);
           }
         }
       }
@@ -1192,6 +1201,8 @@ else {
           }else{
              msg("non-opal stop codon in $sid");
           }
+        }else{
+          print $testseq1, "\n";
         }
       }
     }
@@ -1467,6 +1478,8 @@ for my $sid (@seq) {
         }else{
           msg("non-opal stop codon in $sid");
         }
+      }else{
+        $faa_fh->write_seq($seq);
       } 
     }
     if ($f->primary_tag =~ m/^(CDS|rRNA|tmRNA|tRNA|misc_RNA)$/) {
@@ -1913,6 +1926,8 @@ sub setOptions {
     {OPT=>"rnammer!",  VAR=>\$rnammer, DEFAULT=>0, DESC=>"Prefer RNAmmer over Barrnap for rRNA prediction"},
     #AHB{OPT=>"prodigalraw!",  VAR=>\$prodigalraw, DEFAULT=>0, DESC=>"Save raw prodigal output (runs prodigal again)"},
     {OPT=>"enforceNameLength!",  VAR=>\$enforceLength, DEFAULT=>0, DESC=>"Enforce 37 character ID length"}, # added by AHB to allow longer contig names  
+    {OPT=>"tmpdir=s",  VAR=>\$tmpdir, DEFAULT=>'', DESC=>"Temporaty folder for parallelization [auto]"},
+# added by AHB to remove clutter from intermediary
 );
 
   (!@ARGV) && (usage(1));

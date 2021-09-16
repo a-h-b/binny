@@ -37,25 +37,25 @@ if SRCDIR not in sys.path:
 if os.path.isabs(os.path.expandvars(config['outputdir'])):
     OUTPUTDIR = os.path.expandvars(config['outputdir'])
 else:
-    OUTPUTDIR = os.getcwd() + "/" + os.path.expandvars(config['outputdir'])
+    OUTPUTDIR = os.path.join(os.getcwd() , os.path.expandvars(config['outputdir']))
 
 # input
 if os.path.isabs(os.path.expandvars(config['raws']['Contigs'])):
     CONTIGS = os.path.expandvars(config['raws']['Contigs'])
 else:
-    CONTIGS = os.getcwd() + "/" + os.path.expandvars(config['raws']['Contigs'])
+    CONTIGS = os.path.join(os.getcwd(), os.path.expandvars(config['raws']['Contigs']))
 # Added depth file par to us instead of alignment
 if config['raws']['Contig_depth']:
     if os.path.isabs(os.path.expandvars(config['raws']['Contig_depth'])):
         CONTIG_DEPTH = os.path.expandvars(config['raws']['Contig_depth'])
     else:
-        CONTIG_DEPTH = os.getcwd() + "/" + os.path.expandvars(config['raws']['Contig_depth'])
+        CONTIG_DEPTH = os.path.join(os.getcwd(), os.path.expandvars(config['raws']['Contig_depth']))
 else:
     CONTIG_DEPTH = None
     if os.path.isabs(os.path.expandvars(config['raws']['Alignment_metagenomics'])):
         MGaln = os.path.expandvars(config['raws']['Alignment_metagenomics'])
     else:
-        MGaln = os.getcwd() + "/" + os.path.expandvars(config['raws']['Alignment_metagenomics'])
+        MGaln = os.path.join(os.getcwd(), os.path.expandvars(config['raws']['Alignment_metagenomics']))
 
 # hardware parameters
 MEMCORE = str(config['mem']['normal_mem_per_core_gb']) + "G"
@@ -80,25 +80,25 @@ if SAMPLE == "":
 SAMPLE = re.sub("_+","_",re.sub("[;|.-]","_",SAMPLE))
 DBPATH = os.path.expandvars(config['db_path'])
 if not os.path.isabs(DBPATH):
-    DBPATH = os.getcwd() + "/" + DBPATH
+    DBPATH = os.path.join(os.getcwd(), DBPATH)
 if not os.path.exists(DBPATH):
     print("Setting up marker database")
     os.makedirs(DBPATH)
     urllib.request.urlretrieve("https://data.ace.uq.edu.au/public/CheckM_databases/checkm_data_2015_01_16.tar.gz", DBPATH + "/checkm_data_2015_01_16.tar.gz")
-    checkm_tar = tarfile.open( DBPATH + "/checkm_data_2015_01_16.tar.gz")
+    checkm_tar = tarfile.open(os.path.join( DBPATH, "/checkm_data_2015_01_16.tar.gz"))
     checkm_tar.extract("./taxon_marker_sets.tsv",DBPATH)
     checkm_tar.extract("./pfam/tigrfam2pfam.tsv",DBPATH)
     checkm_tar.extract("./hmms/checkm.hmm",DBPATH)
-    markers_df = pd.read_csv(DBPATH + '/taxon_marker_sets.tsv', sep='\t', skipinitialspace=True, header=None)
+    markers_df = pd.read_csv(os.path.join(DBPATH, 'taxon_marker_sets.tsv'), sep='\t', skipinitialspace=True, header=None)
     markers_df = markers_df.sort_values(markers_df.columns[2])
-    markers_df.to_csv(DBPATH + "/taxon_marker_sets_lineage_sorted.tsv", header=None, index=None, sep="\t")
-    prepCheckM.remove_unused_checkm_hmm_profiles(DBPATH + "/hmms/checkm.hmm", DBPATH + '/taxon_marker_sets.tsv', DBPATH + "/pfam/tigrfam2pfam.tsv", DBPATH + "/hmms")
-    if os.path.exists(DBPATH + "/checkm_data_2015_01_16.tar.gz"):
-        os.remove(DBPATH + "/checkm_data_2015_01_16.tar.gz")
-    if os.path.exists(DBPATH + "/hmms/checkm.hmm"):
-        os.remove(DBPATH + "/hmms/checkm.hmm")
-    if os.path.exists(DBPATH + "/taxon_marker_sets.tsv") and os.path.exists(DBPATH + "/taxon_marker_sets_lineage_sorted.tsv"):
-        os.remove(DBPATH + "/taxon_marker_sets.tsv")
+    markers_df.to_csv(os.path.join(DBPATH, "taxon_marker_sets_lineage_sorted.tsv"), header=None, index=None, sep="\t")
+    prepCheckM.remove_unused_checkm_hmm_profiles(os.path.join(DBPATH, "hmms/checkm.hmm"), os.path.join(DBPATH, 'taxon_marker_sets.tsv'), os.path.join(DBPATH, "pfam/tigrfam2pfam.tsv"), os.path.join(DBPATH, "hmms"))
+    if os.path.exists(os.path.join(DBPATH, "checkm_data_2015_01_16.tar.gz")):
+        os.remove(os.path.join(DBPATH, "checkm_data_2015_01_16.tar.gz"))
+    if os.path.exists(os.path.join(DBPATH, "hmms/checkm.hmm")):
+        os.remove(os.path.join(DBPATH, "hmms/checkm.hmm"))
+    if os.path.exists(os.path.join(DBPATH, "taxon_marker_sets.tsv")) and os.path.exists(os.path.join(DBPATH, "taxon_marker_sets_lineage_sorted.tsv")):
+        os.remove(os.path.join(DBPATH, "taxon_marker_sets.tsv"))
 
 # Filer thresholds
 COMPLETENESS = str(config["binning"]["filtering"]["completeness"])
@@ -183,7 +183,8 @@ rule format_assembly:
         runtime = "2:00:00",
         mem = MEMCORE
     message: "Preparing assembly."
-    conda: ENVDIR + "/IMP_fasta_no_v.yaml"
+    conda: 
+       os.path.join(ENVDIR, "IMP_fasta_no_v.yaml")
     shell:
        "fasta_formatter -i {input} -o {output} -w 80"
 
@@ -198,8 +199,10 @@ if not CONTIG_DEPTH:
         resources:
             runtime = "4:00:00",
             mem = BIGMEMCORE if BIGMEMCORE else MEMCORE
-        threads: getThreads(2) if BIGMEMCORE else getThreads(8)
-        conda: ENVDIR + "/IMP_mapping.yaml"
+        threads: 
+            getThreads(2) if BIGMEMCORE else getThreads(8)
+        conda: 
+            os.path.join(ENVDIR, "IMP_mapping.yaml")
         log: "logs/analysis_call_contig_depth.log"
         message: "call_contig_depth: Getting data on assembly coverage with mg reads."
         shell:
@@ -225,25 +228,23 @@ rule annotate:
         "intermediary/prokka.fna",
         "intermediary/prokka.ffn",
         "intermediary/prokka.fsa",
-    threads: getThreads(20)
+    threads: 
+        getThreads(20)
     resources:
         runtime = "120:00:00",
         mem = MEMCORE
     log: "logs/analysis_annotate.log"
-    benchmark: "logs/analysis_annotate_benchmark.txt"
-    conda: ENVDIR + "/IMP_annotation.yaml"
+    #benchmark: "logs/analysis_annotate_benchmark.txt"
+    conda: 
+        os.path.join(ENVDIR, "IMP_annotation.yaml")
     message: "annotate: Running prokkaP."
     shell:
         """
         export PERL5LIB=$CONDA_PREFIX/lib/site_perl/5.26.2
         export LC_ALL=en_US.utf-8
-        if [ ! -f $CONDA_PREFIX/db/hmm/HAMAP.hmm.h3m ]; then
-          {BINDIR}/prokkaP --dbdir $CONDA_PREFIX/db --setupdb
-        fi
-	    {BINDIR}/prokkaP --dbdir $CONDA_PREFIX/db --force --outdir intermediary/ --prefix prokka --noanno --cpus {threads} --metagenome {input[0]} >> {log} 2>&1
+	{BINDIR}/prokkaP --dbdir $CONDA_PREFIX/db --force --outdir intermediary/ --tmpdir {TMPDIR} --prefix prokka --noanno --cpus {threads} --metagenome {input[0]} >> {log} 2>&1
         
-	    # Prokka gives a gff file with a long header and with all the contigs at the bottom.  The command below removes the
-        # And keeps only the gff table.
+	# Prokka gives a gff file with a long header and with all the contigs at the bottom.  The command below keeps only the gff table.
 
         LN=`grep -Hn "^>" intermediary/prokka.gff | head -n1 | cut -f2 -d ":" || if [[ $? -eq 141 ]]; then true; else exit $?; fi`
         LN1=1
@@ -262,8 +263,10 @@ rule mantis_checkm_marker_sets:
     resources:
         runtime = "48:00:00",
         mem = MEMCORE
-    conda: BINDIR + "/mantis/mantis_env.yml"
-    threads: getThreads(20)
+    conda: 
+        os.path.join(BINDIR, "mantis/mantis_env.yml")
+    threads: 
+        getThreads(20)
     log: "logs/analysis_checkm_markers.log"
     benchmark: "logs/analysis_checkm_markers_benchmark.txt"
     message: "MANTIS: Running MANTIS with CheckM marker sets."
@@ -296,11 +299,13 @@ rule binny:
     resources:
         runtime = "12:00:00",
         mem = BIGMEMCORE if BIGMEMCORE else MEMCORE
-    threads: getThreads(2) if BIGMEMCORE else getThreads(20)
-    conda: ENVDIR + "/py_binny_linux.yaml"
+    threads: 
+        getThreads(2) if BIGMEMCORE else getThreads(20)
+    conda: 
+        os.path.join(ENVDIR, "py_binny_linux.yaml")
     log: "logs/binning_binny.log"
-    benchmark: "logs/binning_binny_benchmark.txt"
+    #benchmark: "logs/binning_binny_benchmark.txt"
     message: "binny: Running Python Binny."
     script:
-        SRCDIR + "/binny_main.py"
+        os.path.join(SRCDIR, "binny_main.py")
 
