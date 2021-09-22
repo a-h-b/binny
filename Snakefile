@@ -84,8 +84,8 @@ if not os.path.isabs(DBPATH):
 if not os.path.exists(DBPATH):
     print("Setting up marker database")
     os.makedirs(DBPATH)
-    urllib.request.urlretrieve("https://data.ace.uq.edu.au/public/CheckM_databases/checkm_data_2015_01_16.tar.gz", DBPATH + "/checkm_data_2015_01_16.tar.gz")
-    checkm_tar = tarfile.open(os.path.join( DBPATH, "/checkm_data_2015_01_16.tar.gz"))
+    urllib.request.urlretrieve("https://data.ace.uq.edu.au/public/CheckM_databases/checkm_data_2015_01_16.tar.gz", os.path.join(DBPATH, "checkm_data_2015_01_16.tar.gz"))
+    checkm_tar = tarfile.open(os.path.join( DBPATH, "checkm_data_2015_01_16.tar.gz"))
     checkm_tar.extract("./taxon_marker_sets.tsv",DBPATH)
     checkm_tar.extract("./pfam/tigrfam2pfam.tsv",DBPATH)
     checkm_tar.extract("./hmms/checkm.hmm",DBPATH)
