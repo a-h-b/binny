@@ -1142,10 +1142,7 @@ def rec_comp(kmer):
 
 def kmer_is_canonical(kmer):
     rc_kmer = rec_comp(kmer)
-    if kmer < rc_kmer:
-        canonical_kmer = kmer
-        is_canonical = True
-    elif kmer == rc_kmer and kmer < "".join(base for base in reversed(kmer)):
+    if kmer <= rc_kmer:
         canonical_kmer = kmer
         is_canonical = True
     else:
