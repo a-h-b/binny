@@ -291,7 +291,7 @@ rule binny:
         cutoff=config["binning"]["binny"]["cutoff"],
         cutoff_marker=config["binning"]["binny"]["cutoff_marker"],
         distance_metric=config["binning"]["binny"]["distance_metric"],
-        max_embedding_tries=config["binning"]["binny"]["embedding"]["max_embedding_tries"],
+        max_embedding_tries=config["binning"]["binny"]["embedding"]["max_iterations"],
         tsne_early_exag_iterations=config["binning"]["embedding"]["tsne_early_exag_iterations"],
         tsne_main_iterations=config["binning"]["embedding"]["tsne_main_iterations"],
         include_depth_initial=config["binning"]["clustering"]["include_depth_initial"],
