@@ -1,7 +1,7 @@
 #! /bin/bash -i
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-#DIR="${DIR%/*}"
+DIR="${DIR%/*}"
 VARCONFIG=$DIR/VARIABLE_CONFIG
 
 while IFS=$'\t' read var val; do unset $var ; declare $var="$val" ; done < $VARCONFIG
@@ -130,7 +130,6 @@ elif [ "$INITIAL" = true ]; then
     sed -i -e "s|\#nog_hmm_folder\=|nog_hmm_folder=NA|g" \
            -e "s|\#pfam_hmm_folder\=|pfam_hmm_folder=NA|g" \
            -e "s|\#kofam_hmm_folder\=|kofam_hmm_folder=NA|g" \
-           -e "s|\#tigrfam_hmm_folder\=|tigrfam_hmm_folder=NA|g" \
            -e "s|\#ncbi_hmm_folder\=|ncbi_hmm_folder=NA|g" \
            -e "s|\#ncbi_dmp_path_folder\=|ncbi_dmp_path_folder=NA|g" \
            -e "s|\#tcdb_seq_folder\=|tcdb_seq_folder=NA|g" \
