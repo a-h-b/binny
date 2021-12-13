@@ -48,12 +48,12 @@ do
         h)
             usage
             exit;;
-        *)  
-            echo "Unimplemented option: -$OPTARG" >&2 
+        *)
+            echo "Unimplemented option: -$OPTARG" >&2
             usage
             exit 1;;
-        :) 
-            echo "Missing option argument for -$OPTARG" >&2 
+        :)
+            echo "Missing option argument for -$OPTARG" >&2
             usage
             exit 1;;
         ?)
@@ -127,12 +127,12 @@ elif [ "$INITIAL" = true ]; then
       DB_PATH=${DIR}/$DB_PATH
     fi
     echo "Initializing conda environments."
-    sed -i -e "s|\#nog_hmm_folder\=|nog_hmm_folder=NA|g" \
-           -e "s|\#pfam_hmm_folder\=|pfam_hmm_folder=NA|g" \
-           -e "s|\#kofam_hmm_folder\=|kofam_hmm_folder=NA|g" \
-           -e "s|\#ncbi_hmm_folder\=|ncbi_hmm_folder=NA|g" \
+    sed -i -e "s|\#nog_ref_folder\=|nog_ref_folder=NA|g" \
+           -e "s|\#pfam_ref_folder\=|pfam_ref_folder=NA|g" \
+           -e "s|\#kofam_ref_folder\=|kofam_ref_folder=NA|g" \
+           -e "s|\#ncbi_ref_folder\=|ncbi_ref_folder=NA|g" \
            -e "s|\#ncbi_dmp_path_folder\=|ncbi_dmp_path_folder=NA|g" \
-           -e "s|\#tcdb_seq_folder\=|tcdb_seq_folder=NA|g" \
+           -e "s|\#tcdb_ref_folder\=|tcdb_ref_folder=NA|g" \
            -e "s|\#custom_ref\=path\/to\/hmm/custom1\.hmm|custom_ref=${DIR}/database/hmms/checkm_tf/checkm_filtered_tf.hmm\ncheckm_filtered_tf_weight=0.5\ncustom_ref=${DIR}/database/hmms/checkm_pf/checkm_filtered_pf.hmm\ncheckm_filtered_pf_weight=1|g" \
            ${DIR}/workflow/bin/mantis/MANTIS.config
     for i in ${DIR}/conda/*.yaml; do
@@ -178,13 +178,13 @@ elif [ "$LAPTOP" = true ]; then
     eval $LOADING_MODULES
     eval $CONDA_START
     if [ "$REPORT" = true ]; then
-        snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS -s $DIR/Snakefile --keep-going --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda 
-        snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS -s $DIR/Snakefile --configfile $CONFIGFILE --use-conda --conda-prefix $DIR/conda --report report.html 
+        snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS -s $DIR/Snakefile --keep-going --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda
+        snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS -s $DIR/Snakefile --configfile $CONFIGFILE --use-conda --conda-prefix $DIR/conda --report report.html
         eval $CONDA_END
     else
-        snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS -s $DIR/Snakefile --keep-going --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda 
+        snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS -s $DIR/Snakefile --keep-going --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda
         eval $CONDA_END
-    fi    
+    fi
 elif [ "$REPORT" = true ]; then
     echo "Writing report."
     eval $LOADING_MODULES
@@ -194,5 +194,3 @@ elif [ "$REPORT" = true ]; then
 else
     echo "Nothing was done, please give -u, -d, -r, -c, -i, or -l to start anything."
 fi
-
-
