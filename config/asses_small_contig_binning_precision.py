@@ -70,7 +70,7 @@ binny_contig_data = load_gsa_mappings(binner_mapping)
 bin_stat_data = load_binner_bin_metrics(bin_stats)
 
 # max_length = 1000
-for max_length in [1000000, 3000, 2000, 1000, 500]:
+for max_length in [1000]:  # [1000000, 3000, 2000, 1000, 500]
     df_rows = []
     # small_contigs = 0
     # correctly_assigned_contigs = 0
@@ -116,7 +116,7 @@ for max_length in [1000000, 3000, 2000, 1000, 500]:
                                      sep='\t', index=False)
 
     # Get stats for bins, where small contigs make up more than X % of bin size in bp.
-    for perc in ['00', '01', '05', '10', '25']:
+    for perc in ['025']:  # ['00', '01', '05', '10', '25']
         short_contigs_precison_df.query('`Fraction small contigs[bp]` > 0.{0}'
                                         .format(perc)).describe().to_csv('/Users/oskar.hickl/binny_bench/amber_data/{0}/'
                                                                  '{1}_cami_contigs_smaller_{2}_precision_more_than_{3}_perc_share'

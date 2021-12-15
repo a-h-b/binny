@@ -115,8 +115,8 @@ elif [ "$INITIAL" = true ]; then
     echo 'Getting MANTIS'
     # mkdir -r ${DIR}/workflow/bin/mantis
     # git clone https://github.com/PedroMTQ/mantis.git ${DIR}/workflow/bin/mantis
-    curl -L https://github.com/PedroMTQ/mantis/archive/master.zip --output $DIR/workflow/bin/mantis.zip
-    unzip -q $DIR/workflow/bin/mantis.zip -d $DIR/workflow/bin/ && mv $DIR/workflow/bin/mantis-master $DIR/workflow/bin/mantis && rm $DIR/workflow/bin/mantis.zip
+    curl -L https://github.com/PedroMTQ/mantis/archive/refs/tags/1.2.3.zip --output $DIR/workflow/bin/mantis.zip
+    unzip -q $DIR/workflow/bin/mantis.zip -d $DIR/workflow/bin/ && mv $DIR/workflow/bin/mantis-1.2.3 $DIR/workflow/bin/mantis && rm $DIR/workflow/bin/mantis.zip
     snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --verbose --cores 1 -s $DIR/Snakefile --conda-create-envs-only --use-conda --conda-prefix $DIR/conda --local-cores 1 --configfile $CONFIGFILE
     DB_PATH=`grep "db_path:" $CONFIGFILE | cut -f 2 -d " "`
     temp="${DB_PATH%\"}"
