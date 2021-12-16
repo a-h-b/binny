@@ -911,7 +911,7 @@ def load_checkm_markers(marker_file):
             # or 'Enterobacteriales' in line[2]
             or 'Rickettsiales' in line[2]
             or 'Chlamydiae' in line[2]):
-                print('Skipping loading of markers from', line[1])
+                logging.info('Skipping loading of markers from {0}.'.format(line[1]))
                 continue
             marker_sets = line[-1].replace(']), set([', ';')
             for char in '[](\'() \"':
