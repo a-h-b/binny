@@ -699,7 +699,7 @@ def get_contig_kmer_matrix(contig_list, ksize_list, n_jobs=1):
             contig_kmer_freq_matrix[0] = contig_kmer_freq_matrix[0] + kmer_list_can
         with parallel_backend("loky"):
             contig_kmer_freq_matrix_chunks = Parallel(n_jobs=n_jobs)\
-                                                     (delayed(get_contig_kmer_freq)(ksize, kmer_list_can, chunks)
+                                                     (delayed(get_contig_kmer_freq)(kmer_list_can, chunks)
                                                       for chunks in chunks_to_process)
         contig_counter = 0
         for chunk in contig_kmer_freq_matrix_chunks:
