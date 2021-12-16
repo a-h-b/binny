@@ -290,6 +290,7 @@ rule binny:
         kmers=config["binning"]["binny"]["kmers"],
         cutoff=config["binning"]["binny"]["cutoff"],
         cutoff_marker=config["binning"]["binny"]["cutoff_marker"],
+        max_n_contigs=config["binning"]["binny"]["max_n_contigs"],
         distance_metric=config["binning"]["binny"]["distance_metric"],
         max_embedding_tries=config["binning"]["binny"]["embedding"]["max_iterations"],
         tsne_early_exag_iterations=config["binning"]["binny"]["embedding"]["tsne_early_exag_iterations"],

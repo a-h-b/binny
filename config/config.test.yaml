@@ -16,7 +16,7 @@ raws:
   # Path to an average depth per contig tsv file. Leave empty for initialization.
   contig_depth: ""
 # Sample name
-sample: test
+sample: "test"
 # Path to desired output dir binny should create and store results in.
 outputdir: "test_output"
 # Path to binny dbs, leave at default if you performed the defaulty install.
@@ -29,6 +29,10 @@ binning:
     cutoff: 500
     # Minimum length of contigs containing CheckM markers.
     cutoff_marker: 0
+    # Maximum number of contigs binny uses. If the number of available contigs after minimum size filtering exceeds this,
+    # binny will increase the minimum size threshold until the maximum is reached. Prevents use of excessive amounts of
+    # memory on large assemblies. Default should ensure adequate performance, adjust e.g. according to available memory.
+    max_n_contigs: 3.5e5
     # Distance metric for opentSNE and HDBSCAN.
     distance_metric: 'manhattan'
     embedding:

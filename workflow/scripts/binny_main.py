@@ -22,7 +22,8 @@ min_purity = int(snakemake.params['purity'])
 min_completeness = int(snakemake.params['completeness'])
 kmers = snakemake.params['kmers']
 min_contig_length = int(snakemake.params['cutoff'])
-min_marker_cont_length = int(snakemake.params['cutoff_marker'])
+min_marker_contig_length = int(snakemake.params['cutoff_marker'])
+max_contig_threshold = int(snakemake.params['max_n_contigs'])
 max_embedding_tries = int(snakemake.params['max_embedding_tries'])
 tsne_early_exag_iterations = int(snakemake.params['tsne_early_exag_iterations'])
 tsne_main_iterations = int(snakemake.params['tsne_main_iterations'])
@@ -30,14 +31,12 @@ include_depth_initial = snakemake.params['include_depth_initial']
 include_depth_main = snakemake.params['include_depth_main']
 hdbscan_epsilon = float(snakemake.params['hdbscan_epsilon'])
 hdbscan_min_samples = int(snakemake.params['hdbscan_min_samples'])
-dist_metri = snakemake.params['distance_metric']
+dist_metric = snakemake.params['distance_metric']
 
 threads = snakemake.threads
 log = snakemake.log[0]
 
 starting_completeness = 90
-min_marker_cont_length = 0
-min_contig_length = 500
 n_dim = 2
 
 
@@ -79,11 +78,11 @@ logging.info('Found {0} single contig bins.'.format(len(single_contig_bins)))
 # Load assembly and mask rRNAs and CRISPR arrays
 contig_list = [[contig] + [seq] for contig, seq in assembly_dict.items() if (len(seq) >= min_contig_length
                                                                              or (annot_dict.get(contig)
-                                                                             and len(seq) >= min_marker_cont_length))
+                                                                             and len(seq) >= min_marker_contig_length))
                                                                             and contig not in single_contig_bins]
 
 logging.info('{0} contigs match length threshold of {1}bp or contain marker genes and'
-             ' have a size of at least {2}bp'.format(len(contig_list), min_contig_length, min_marker_cont_length))
+             ' have a size of at least {2}bp'.format(len(contig_list), min_contig_length, min_marker_contig_length))
 
 contig_rrna_crispr_region_dict = gff2low_comp_feature_dict(annot_file)
 mask_rep_featrues(contig_rrna_crispr_region_dict, contig_list)  # Disabled for v016
@@ -110,10 +109,11 @@ all_good_bins, contig_data_df_org = iterative_embedding(x_contigs, depth_dict, a
                                                         min_purity, min_completeness, threads, n_dim, annot_file,
                                                         mg_depth_file, single_contig_bins, taxon_marker_sets,
                                                         tigrfam2pfam_data, main_contig_data_dict, assembly_dict,
-                                                        max_contig_threshold=3.5e5,
-                        tsne_early_exag_iterations=250, tsne_main_iterations=750, internal_min_marker_cont_size=0,
-                        include_depth_initial=False, max_embedding_tries=50, include_depth_main=True,
-                        hdbscan_epsilon=0.25, hdbscan_min_samples=2, dist_metric='manhattan')
+                                                        max_contig_threshold, tsne_early_exag_iterations,
+                                                        tsne_main_iterations, min_marker_contig_length,
+                                                        include_depth_initial, max_embedding_tries,
+                                                        include_depth_main, hdbscan_epsilon,
+                                                        hdbscan_min_samples, dist_metric)
 
 all_contigs = []
 for bin in all_good_bins:
