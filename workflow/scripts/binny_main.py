@@ -62,7 +62,7 @@ logging.info('Starting Binny run for sample {0}.'.format(sample))
 tigrfam2pfam_data = tigrfam2pfam_dict(tigrfam2pfam_file)
 
 # Merge Prokka gff with marker set data, load annotation df, and load assembly.
-checkm_hmmer_search2prokka_gff(prokka_checkm_marker_hmm_out, raw_annot, tigrfam2pfam_data)
+checkm_hmmer_search2prokka_gff(prokka_checkm_marker_hmm_out, raw_annot)
 annot_df, annot_dict = gff2ess_gene_df(annot_file, target_attribute='checkm_marker', get_dict=True)
 assembly_dict = load_fasta(assembly)
 
