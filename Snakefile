@@ -267,7 +267,7 @@ rule mantis_checkm_marker_sets:
     shell:
         """
         if [ -d intermediary/mantis_out ]; then rm intermediary/mantis_out/* || true ; fi >> {log} 2>&1
-        python {BINDIR}/mantis/ run_mantis -t {input[0]} -da heuristic -mc {BINDIR}/mantis/MANTIS.config \
+        python {BINDIR}/mantis/ run_mantis -i {input[0]} -da heuristic -mc {BINDIR}/mantis/MANTIS.config \
                                            -o intermediary/mantis_out -c {threads} -et 1e-3 >> {log} 2>&1
         """
 
