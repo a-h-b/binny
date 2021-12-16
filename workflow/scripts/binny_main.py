@@ -49,7 +49,7 @@ np.random.seed(0)
 
 # sys.stdout = open(log, 'w')
 
-logging.basicConfig(filename=log, level=logging.DEBUG, format='%(asctime)s - %(message)s',
+logging.basicConfig(filename=log, level=logging.INFO, format='%(asctime)s - %(message)s',
                     datefmt='%d/%m/%Y %I:%M:%S %p', filemode='w')
 
 numba_logger = logging.getLogger('numba')
