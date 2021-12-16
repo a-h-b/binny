@@ -3,7 +3,6 @@ channels:
   - bioconda
   - conda-forge
   - defaults
-  - ursky
 dependencies:
   - _libgcc_mutex=0.1=conda_forge
   - _openmp_mutex=4.5=1_gnu
@@ -137,7 +136,6 @@ dependencies:
   - toml=0.10.2=pyhd8ed1ab_0
   - tornado=6.1=py38h497a2fe_1
   - traitlets=5.0.5=py_0
-  - umap-learn=0.5.1=py38h578d9bd_0
   - urllib3=1.26.4=pyhd8ed1ab_0
   - wcwidth=0.2.5=pyh9f0ad1d_2
   - wheel=0.36.2=pyhd3deb0d_0
@@ -146,5 +144,3 @@ dependencies:
   - xz=5.2.5=h516909a_1
   - zlib=1.2.11=h516909a_1010
   - zstd=1.4.9=ha95c52a_0
-  - pip:
-    - unidip==0.1.1

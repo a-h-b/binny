@@ -1,16 +1,14 @@
-import os
-import sys
-import shutil
 import gzip
-import yaml
-import bz2
+import os
 import re
-from copy import deepcopy
-import subprocess
-import pandas as pd
-from pathlib import Path
-import urllib.request
+import shutil
+import sys
 import tarfile
+import urllib.request
+
+import pandas as pd
+import yaml
+
 
 def open_output(filename):
     return(open(OUTPUTDIR+'/'+filename, 'w+'))
@@ -40,22 +38,23 @@ else:
     OUTPUTDIR = os.path.join(os.getcwd() , os.path.expandvars(config['outputdir']))
 
 # input
-if os.path.isabs(os.path.expandvars(config['raws']['Contigs'])):
-    CONTIGS = os.path.expandvars(config['raws']['Contigs'])
+if os.path.isabs(os.path.expandvars(config['raws']['assembly'])):
+    CONTIGS = os.path.expandvars(config['raws']['assembly'])
 else:
-    CONTIGS = os.path.join(os.getcwd(), os.path.expandvars(config['raws']['Contigs']))
+    CONTIGS = os.path.join(os.getcwd(), os.path.expandvars(config['raws']['assembly']))
+    
 # Added depth file par to us instead of alignment
-if config['raws']['Contig_depth']:
-    if os.path.isabs(os.path.expandvars(config['raws']['Contig_depth'])):
-        CONTIG_DEPTH = os.path.expandvars(config['raws']['Contig_depth'])
+if config['raws']['contig_depth']:
+    if os.path.isabs(os.path.expandvars(config['raws']['contig_depth'])):
+        CONTIG_DEPTH = os.path.expandvars(config['raws']['contig_depth'])
     else:
-        CONTIG_DEPTH = os.path.join(os.getcwd(), os.path.expandvars(config['raws']['Contig_depth']))
+        CONTIG_DEPTH = os.path.join(os.getcwd(), os.path.expandvars(config['raws']['contig_depth']))
 else:
     CONTIG_DEPTH = None
-    if os.path.isabs(os.path.expandvars(config['raws']['Alignment_metagenomics'])):
-        MGaln = os.path.expandvars(config['raws']['Alignment_metagenomics'])
+    if os.path.isabs(os.path.expandvars(config['raws']['metagenomics_alignment'])):
+        MGaln = os.path.expandvars(config['raws']['metagenomics_alignment'])
     else:
-        MGaln = os.path.join(os.getcwd(), os.path.expandvars(config['raws']['Alignment_metagenomics']))
+        MGaln = os.path.join(os.getcwd(), os.path.expandvars(config['raws']['metagenomics_alignment']))
 
 # hardware parameters
 MEMCORE = str(config['mem']['normal_mem_per_core_gb']) + "G"
@@ -100,10 +99,6 @@ if not os.path.exists(DBPATH):
     if os.path.exists(os.path.join(DBPATH, "taxon_marker_sets.tsv")) and os.path.exists(os.path.join(DBPATH, "taxon_marker_sets_lineage_sorted.tsv")):
         os.remove(os.path.join(DBPATH, "taxon_marker_sets.tsv"))
 
-# Filer thresholds
-COMPLETENESS = str(config["binning"]["filtering"]["completeness"])
-PURITY = str(config["binning"]["filtering"]["purity"])
-
 # temporary directory will be stored inside the OUTPUTDIR directory
 # unless a absolute path is set
 TMPDIR = config['tmp_dir']
@@ -115,10 +110,6 @@ if not os.path.exists(TMPDIR):
 # set working directory and dump output
 workdir:
     OUTPUTDIR
-
-onsuccess:
-		shell("mkdir -p job.errs.outs &>> logs/cleanup.log; ( mv dadasnake* job.errs.outs || touch job.errs.outs ) &>> logs/cleanup.log; ( mv *stdout job.errs.outs || touch job.errs.outs ) &>> logs/cleanup.log; ( mv *log job.errs.outs || touch job.errs.outs ) &>> logs/cleanup.log; ( mv *logfile job.errs.outs || touch job.errs.outs ) &>> logs/cleanup.log; tar cvzf intermediary.tar.gz --remove-files intermediary &>> logs/cleanup.log")
-
 
 def prepare_input_files(inputs, outputs):
     """
@@ -135,7 +126,6 @@ def _process_file(fname, inp, outfilename):
     Write the input to the output. Handle raw, zip, or bzip input files.
     """
     print(inp, '=>', outfilename)
-    import bz2
     # ungunzip
     if os.path.splitext(fname)[-1] in ['.gz', '.gzip']:
         with open(outfilename, 'wb') as whandle, gzip.open(inp, 'rb') as rhandle:
@@ -229,12 +219,13 @@ rule annotate:
         "intermediary/prokka.ffn",
         "intermediary/prokka.fsa",
     threads: 
-        getThreads(20)
+        # getThreads(20)
+        workflow.cores
     resources:
         runtime = "120:00:00",
         mem = MEMCORE
     log: "logs/analysis_annotate.log"
-    #benchmark: "logs/analysis_annotate_benchmark.txt"
+    benchmark: "logs/analysis_annotate_benchmark.txt"
     conda: 
         os.path.join(ENVDIR, "IMP_annotation.yaml")
     message: "annotate: Running prokkaP."
@@ -266,15 +257,17 @@ rule mantis_checkm_marker_sets:
     conda: 
         os.path.join(BINDIR, "mantis/mantis_env.yml")
     threads: 
-        getThreads(20)
+        # getThreads(20)
+        # getThreads(14)
+        workflow.cores
     log: "logs/analysis_checkm_markers.log"
     benchmark: "logs/analysis_checkm_markers_benchmark.txt"
     message: "MANTIS: Running MANTIS with CheckM marker sets."
     shell:
         """
-        if [ -d intermediary/mantis_out ]; then rm -f intermediary/mantis_out/* ; fi
-        python {BINDIR}/mantis/ run_mantis -t {input[0]} -da dfs -mc {BINDIR}/mantis/MANTIS.config \
-                                           -o intermediary/mantis_out -c {threads} -et 1e-10 >> {log} 2>&1
+        if [ -d intermediary/mantis_out ]; then rm intermediary/mantis_out/* || true ; fi >> {log} 2>&1
+        python {BINDIR}/mantis/ run_mantis -i {input[0]} -da heuristic -mc {BINDIR}/mantis/MANTIS.config \
+                                           -o intermediary/mantis_out -c {threads} -et 1e-3 >> {log} 2>&1
         """
 
 rule binny:
@@ -291,20 +284,30 @@ rule binny:
         binnydir="intermediary/",
         t2p=DBPATH + "/pfam/tigrfam2pfam.tsv",
         marker_sets=DBPATH + "/taxon_marker_sets_lineage_sorted.tsv",
-        completeness=COMPLETENESS,
-        purity=PURITY,
+        completeness=config["binning"]["binny"]["bin_quality"]["completeness"],
+        purity=config["binning"]["binny"]["bin_quality"]["purity"],
         kmers=config["binning"]["binny"]["kmers"],
         cutoff=config["binning"]["binny"]["cutoff"],
+        cutoff_marker=config["binning"]["binny"]["cutoff_marker"],
+        distance_metric=config["binning"]["binny"]["distance_metric"],
+        max_embedding_tries=config["binning"]["binny"]["embedding"]["max_iterations"],
+        tsne_early_exag_iterations=config["binning"]["binny"]["embedding"]["tsne_early_exag_iterations"],
+        tsne_main_iterations=config["binning"]["binny"]["embedding"]["tsne_main_iterations"],
+        include_depth_initial=config["binning"]["binny"]["clustering"]["include_depth_initial"],
+        include_depth_main=config["binning"]["binny"]["clustering"]["include_depth_main"],
+        hdbscan_min_samples=config["binning"]["binny"]["clustering"]["hdbscan_min_samples"],
+        hdbscan_epsilon=config["binning"]["binny"]["clustering"]["hdbscan_epsilon"],
         gff="intermediary/annotation_CDS_RNA_hmms_checkm.gff",
     resources:
         runtime = "12:00:00",
         mem = BIGMEMCORE if BIGMEMCORE else MEMCORE
     threads: 
-        getThreads(2) if BIGMEMCORE else getThreads(20)
+        # getThreads(2) if BIGMEMCORE else getThreads(20)
+        workflow.cores
     conda: 
         os.path.join(ENVDIR, "py_binny_linux.yaml")
     log: "logs/binning_binny.log"
-    #benchmark: "logs/binning_binny_benchmark.txt"
+    benchmark: "logs/binning_binny_benchmark.txt"
     message: "binny: Running Python Binny."
     script:
         os.path.join(SRCDIR, "binny_main.py")
