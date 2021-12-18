@@ -6,13 +6,13 @@ mem:
   big_mem_per_core_gb: 26
   # Memory per core of your computing resource.
   normal_mem_per_core_gb: 4
-# Path to a temporary directoru to write to.
+# Path to a temporary directory to write to.
 tmp_dir: tmp
 raws:
   # Path to a assembly fasta.
   assembly: "path/to/assembly"
   # Path to a bam file to calculate depth from (single sample mode only atm).
-  # Leave empty if you have an average depth per contig file to supply to bnny.
+  # Leave empty if you have an average depth per contig file to supply to binny.
   metagenomics_alignment: ""
   # Path to an average depth per contig tsv file. Leave empty if you supply a
   # bam file for binny to calculate average contig depth from.
@@ -31,9 +31,12 @@ binning:
     cutoff: 500
     # Minimum length of contigs containing CheckM markers.
     cutoff_marker: 0
-    # Maximum number of contigs binny uses. If the number of available contigs after minimum size filtering exceeds this,
-    # binny will increase the minimum size threshold until the maximum is reached. Prevents use of excessive amounts of
-    # memory on large assemblies. Default should ensure adequate performance, adjust e.g. according to available memory.
+    # Maximum number of contigs binny uses. If the number of available
+    # contigs after minimum size filtering exceeds this, binny will
+    # increase the minimum size threshold until the maximum is reached.
+    # Prevents use of excessive amounts of memory on large assemblies.
+    # Default should ensure adequate performance, adjust e.g. according
+    # to available memory.
     max_n_contigs: 3.5e5
     # Distance metric for opentSNE and HDBSCAN.
     distance_metric: 'manhattan'
@@ -47,7 +50,7 @@ binning:
     clustering:
       # Increasing the HDBSCAN cluster selection epsilon beyond 0.5
       # is not advised as it might massively increase run time, but it might
-      # help recover genoems that would be missed with lower settings.
+      # help recover fragmented genomes that would be missed with lower settings.
       hdbscan_epsilon: 0.25
       # Adapted from the HDBSCAN manual: 'Measure of how conservative the
       # clustering should be. With larger values, more points will be declared
