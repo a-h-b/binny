@@ -1,7 +1,6 @@
 #! /bin/bash -i
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-DIR="${DIR%/*}"
 VARCONFIG=$DIR/VARIABLE_CONFIG
 
 while IFS=$'\t' read var val; do unset $var ; declare $var="$val" ; done < $VARCONFIG

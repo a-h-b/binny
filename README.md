@@ -44,9 +44,9 @@ If you want to use snakemake via conda (and you've set SNAKEMAKE_VIA_CONDA to tr
 ```
 conda install -c conda-forge mamba
 if ! [ -x "$(command -v unzip)" ]; then
-  mamba create --prefix $PWD/conda/snakemake_env snakemake unzip -c conda-forge -c bioconda
+  mamba create --prefix $PWD/conda/snakemake_env snakemake mamba unzip -c conda-forge -c bioconda
 else
-  mamba create --prefix $PWD/conda/snakemake_env snakemake -c conda-forge -c bioconda
+  mamba create --prefix $PWD/conda/snakemake_env snakemake mamba -c conda-forge -c bioconda
 fi
 ```
 *Note*: binny will not work with snakemake version 6.3.0 .
