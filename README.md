@@ -1,7 +1,7 @@
 # binny
 
 ## Quickstart
-Here is a quick guide on the installation and test run of binny. Please check out the longer description below to set up binny on a cluster environment
+Here is a quick guide on the installation and test run of binny. Please check out the longer description below to set up binny on a cluster environment.
 
 1) Clone this repository with git
 ```
