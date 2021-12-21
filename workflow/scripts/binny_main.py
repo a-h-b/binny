@@ -33,6 +33,8 @@ hdbscan_epsilon = float(snakemake.params['hdbscan_epsilon'])
 hdbscan_min_samples = int(snakemake.params['hdbscan_min_samples'])
 dist_metric = snakemake.params['distance_metric']
 
+intermediary_file_dir = 'intermediary'
+
 threads = snakemake.threads
 log = snakemake.log[0]
 
@@ -42,6 +44,8 @@ n_dim = 2
 
 sys.path.append(functions)
 from binny_functions import *
+
+
 
 # To achieve reproducible results with HDBSCAN and ensure same seed, because other tools that accept seed arguments,
 # might mess with the global numpy seed
@@ -61,7 +65,7 @@ logging.info('Starting Binny run for sample {0}.'.format(sample))
 tigrfam2pfam_data = tigrfam2pfam_dict(tigrfam2pfam_file)
 
 # Merge Prokka gff with marker set data, load annotation df, and load assembly.
-checkm_hmmer_search2prokka_gff(prokka_checkm_marker_hmm_out, raw_annot)
+checkm_hmmer_search2prokka_gff(prokka_checkm_marker_hmm_out, raw_annot, gff_out_path='intermediary')
 annot_df, annot_dict = gff2ess_gene_df(annot_file, target_attribute='checkm_marker', get_dict=True)
 assembly_dict = load_fasta(assembly)
 
@@ -113,7 +117,8 @@ all_good_bins, contig_data_df_org = iterative_embedding(x_contigs, depth_dict, a
                                                         tsne_main_iterations, min_marker_contig_length,
                                                         include_depth_initial, max_embedding_tries,
                                                         include_depth_main, hdbscan_epsilon,
-                                                        hdbscan_min_samples, dist_metric)
+                                                        hdbscan_min_samples, dist_metric,
+                                                        contigs2clusters_out_path='intermediary')
 
 all_contigs = []
 for bin in all_good_bins:

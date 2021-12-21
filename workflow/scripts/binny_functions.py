@@ -770,7 +770,7 @@ def mask_rep_featrues(contig_rep_feature_dict, contig_list):
 def binny_iterate(contig_data_df, threads, marker_sets_graph, tigrfam2pfam_data_dict, min_purity, min_completeness,
                   max_iterations=10, embedding_iteration=1, max_tries=False, include_depth_initial=False,
                   include_depth_main=True, hdbscan_epsilon=0.25, hdbscan_min_samples=2,
-                  dist_metric='manhattan'):
+                  dist_metric='manhattan', contigs2clusters_out_path='intermediary'):
     leftovers_df = contig_data_df.copy()
     n_iterations = 1
     n_new_clusters = 1
@@ -809,8 +809,8 @@ def binny_iterate(contig_data_df, threads, marker_sets_graph, tigrfam2pfam_data_
 
 
         iteration_clust_df = cluster_df_from_dict(iteration_clust_dict)
-        iteration_clust_df.to_csv('intermediary/iteration_{0}_contigs2clusters.tsv'.format(n_iterations), sep='\t',
-                                  index=False)
+        iteration_clust_df.to_csv('{0}/iteration_{1}_contigs2clusters.tsv'.format(contigs2clusters_out_path,
+                                                                                  n_iterations), sep='\t', index=False)
 
         iteration_clust_contig_df = contig_df_from_cluster_dict(iteration_clust_dict)
 
@@ -946,35 +946,6 @@ def load_checkm_markers(marker_file):
     return tms_data
 
 
-def checkm_hmmer_search2prokka_gff(hmm_checkm_marker_out, prokka_gff):
-    prokka_checkm_gff = 'intermediary/annotation_CDS_RNA_hmms_checkm.gff'
-    checkm_marker_dict = {}
-    with open(hmm_checkm_marker_out, 'r') as cmo:
-        for line in cmo:
-            if not line.startswith('#'):
-                line = line.strip('\n \t').split()
-                gene, acc, e_val, bit_score = line[0], line[3], float(line[4]), float(line[5])
-                if e_val <= 1e-10:
-                    if not checkm_marker_dict.get(gene):
-                        checkm_marker_dict[gene] = {'acc': acc, 'e_val': e_val, 'bit_score': bit_score}
-                    else:
-                        if e_val < checkm_marker_dict[gene]['e_val']:
-                            checkm_marker_dict[gene] = {'acc': acc, 'e_val': e_val, 'bit_score': bit_score}
-                        elif e_val == checkm_marker_dict[gene]['e_val']:
-                            if bit_score > checkm_marker_dict[gene]['bit_score']:
-                                checkm_marker_dict[gene] = {'acc': acc, 'e_val': e_val, 'bit_score': bit_score}
-    with open(prokka_checkm_gff, 'w') as pcg:
-        with open(prokka_gff, 'r') as pg:
-            for line in pg:
-                line = line.strip('\n \t')
-                line_annots = line.split('\t')[-1].split(';')
-                line_gene = line_annots[0].replace('ID=', '')
-                if checkm_marker_dict.get(line_gene):
-                    pcg.write(line + ';checkm_marker=' + checkm_marker_dict[line_gene]['acc'] + '\n')
-                else:
-                    pcg.write(line + '\n')
-
-
 def chose_checkm_marker_set(marker_list, marker_sets_graph, tigrfam2pfam_data_dict):
     nodes = [n for n, d in marker_sets_graph.in_degree() if d == 0]
     current_node = nodes[0]
@@ -1086,8 +1057,8 @@ def parse_mantis_cons_annot(mantis_out_annot):
     return mantis_data
 
 
-def checkm_hmmer_search2prokka_gff(hmm_checkm_marker_out, prokka_gff):
-    prokka_checkm_gff = 'intermediary/annotation_CDS_RNA_hmms_checkm.gff'
+def checkm_hmmer_search2prokka_gff(hmm_checkm_marker_out, prokka_gff, gff_out_path='intermediary'):
+    prokka_checkm_gff = '{0}/annotation_CDS_RNA_hmms_checkm.gff'.format(gff_out_path)
     checkm_marker_dict = parse_mantis_cons_annot(hmm_checkm_marker_out)
     with open(prokka_checkm_gff, 'w') as pcg:
         with open(prokka_gff, 'r') as pg:
@@ -1114,7 +1085,8 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
                         tigrfam2pfam_data, main_contig_data_dict, assembly_dict, max_contig_threshold=3.5e5,
                         tsne_early_exag_iterations=250, tsne_main_iterations=750, internal_min_marker_cont_size=0,
                         include_depth_initial=False, max_embedding_tries=50, include_depth_main=True,
-                        hdbscan_epsilon=0.25, hdbscan_min_samples=2, dist_metric='manhattan'):
+                        hdbscan_epsilon=0.25, hdbscan_min_samples=2, dist_metric='manhattan',
+                        contigs2clusters_out_path='intermediary'):
     np.random.seed(0)
     embedding_tries = 1
     internal_completeness = starting_completeness
@@ -1260,7 +1232,8 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
                                                          include_depth_main=include_depth_main,
                                                          hdbscan_epsilon=hdbscan_epsilon,
                                                          hdbscan_min_samples=hdbscan_min_samples,
-                                                         dist_metric=dist_metric)
+                                                         dist_metric=dist_metric,
+                                                         contigs2clusters_out_path=contigs2clusters_out_path)
 
         logging.info('Good bins this embedding iteration: {0}.'.format(len(good_bins.keys())))
         
