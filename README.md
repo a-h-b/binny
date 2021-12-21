@@ -1,5 +1,31 @@
 # binny
 
+## Quickstart
+Here is a quick guide on the installation and test run of binny. Please check out the longer description below to set up binny on a cluster environment
+
+1) Clone this repository with git
+```
+git clone https://github.com/a-h-b/binny.git
+```
+
+2) Set up the run script, the snakemake and conda environments, and databases
+```
+cd binny
+cp runscripts/binny_submit.sh binny
+chmod 755 binny
+mkdir -p conda
+conda install -c conda-forge mamba
+mamba create --prefix $PWD/conda/snakemake_env snakemake=6.9.1 mamba unzip -c conda-forge -c bioconda
+./binny -i config/config.init.yaml 
+```
+
+3) Test run
+```
+./binny -l -n "TESTRUN" -r config/config.test.yaml
+```
+
+Please see the comments in `config/config.default.yaml` and the longer descriptions below to set up your own runs.
+
 ## Installing binny
 For binny to work, you need [conda](https://www.anaconda.com/). 
 
@@ -39,18 +65,18 @@ cp runscripts/binny_tmux.sh binny
 chmod 755 binny
 ```
 
-4) **optional**: Install snakemake via conda:
+4) Install snakemake via conda:
 If you want to use snakemake via conda (and you've set SNAKEMAKE_VIA_CONDA to true), install the environment, as [recommended by Snakemake](https://snakemake.readthedocs.io/en/stable/getting_started/installation.html):
 ```
 conda install -c conda-forge mamba
 mkdir -p conda
 if ! [ -x "$(command -v unzip)" ]; then
-  mamba create --prefix $PWD/conda/snakemake_env snakemake=6.9.1 unzip -c conda-forge -c bioconda
+  mamba create --prefix $PWD/conda/snakemake_env snakemake=6.9.1 mamba unzip -c conda-forge -c bioconda
 else
-  mamba create --prefix $PWD/conda/snakemake_env snakemake=6.9.1 -c conda-forge -c bioconda
+  mamba create --prefix $PWD/conda/snakemake_env snakemake=6.9.1 mamba -c conda-forge -c bioconda
 fi
 ```
-*Note*: binny will not work with snakemake version 6.3.0 .
+*Note*: binny will not work with snakemake versions up to 6.3.0 .
 
 5) **optional**: Set permissions / PATH:
 binny is meant to be used by multiple users. Set the permissions accordingly. I'd suggest:
