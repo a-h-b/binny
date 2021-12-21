@@ -6,7 +6,7 @@ mem:
   big_mem_per_core_gb: 26
   # Memory per core of your computing resource.
   normal_mem_per_core_gb: 4
-# Path to a temporary directoru to write to.
+# Path to a temporary directory to write to.
 tmp_dir: tmp
 raws:
   # Path to test assembly fasta.
@@ -19,7 +19,7 @@ raws:
 sample: "test"
 # Path to desired output dir binny should create and store results in.
 outputdir: "test_output"
-# Path to binny dbs, leave at default if you performed the defaulty install.
+# Path to binny dbs, leave at default if you performed the default install.
 db_path: "database"
 binning:
   binny:
@@ -45,7 +45,7 @@ binning:
     clustering:
       # Increasing the HDBSCAN cluster selection epsilon beyond 0.5
       # is not advised as it might massively increase run time, but it might
-      # help recover genoems that would be missed with lower settings.
+      # help recover genomes that would be missed with lower settings.
       hdbscan_epsilon: 0.25
       # Adapted from the HDBSCAN manual: 'Measure of how conservative the
       # clustering should be. With larger values, more points will be declared
