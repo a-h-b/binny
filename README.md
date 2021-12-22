@@ -1,3 +1,7 @@
+[![DOI](https://zenodo.org/badge/327396590.svg)](https://zenodo.org/badge/latestdoi/327396590)
+
+
+
 # binny
 
 ## Quickstart
