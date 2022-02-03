@@ -52,9 +52,11 @@ if config['raws']['contig_depth']:
 else:
     CONTIG_DEPTH = None
     if os.path.isabs(os.path.expandvars(config['raws']['metagenomics_alignment'])):
-        MGaln = os.path.expandvars(config['raws']['metagenomics_alignment'])
+        MGaln = os.path.expandvars(config['raws']['metagenomics_alignment']).split(',')
     else:
-        MGaln = os.path.join(os.getcwd(), os.path.expandvars(config['raws']['metagenomics_alignment']))
+        MGaln = os.path.join(os.getcwd(), os.path.expandvars(config['raws']['metagenomics_alignment'])).split(',')
+    # Get filenames of all bam files without extension, even if the name contains '.'
+    mappings_ids = ['.'.join(bam.split('/')[-1].split('.')[:-1]) for bam in MGaln]
 
 # hardware parameters
 MEMCORE = str(config['mem']['normal_mem_per_core_gb']) + "G"
@@ -154,7 +156,7 @@ rule prepare_input_data:
         CONTIG_DEPTH if CONTIG_DEPTH else MGaln
     output:
         "intermediary/assembly.fa",
-        "intermediary/assembly.contig_depth.txt" if CONTIG_DEPTH else "intermediary/reads.sorted.bam"
+        "intermediary/assembly_contig_depth.txt" if CONTIG_DEPTH else "intermediary/reads_{mappings_ids}_sorted.bam"
     threads: 1
     resources:
         runtime = "4:00:00",
@@ -182,10 +184,10 @@ rule format_assembly:
 if not CONTIG_DEPTH:
     rule call_contig_depth:
         input:
-            "intermediary/reads.sorted.bam",
+            "intermediary/reads_sorted.bam",
             "intermediary/assembly.formatted.fa"
         output:
-            "intermediary/assembly.contig_depth.txt"
+            "intermediary/assembly_contig_depth.txt"
         resources:
             runtime = "4:00:00",
             mem = BIGMEMCORE if BIGMEMCORE else MEMCORE
@@ -272,7 +274,7 @@ rule mantis_checkm_marker_sets:
 
 rule binny:
     input:
-        mgdepth='intermediary/assembly.contig_depth.txt',
+        mgdepth='intermediary/assembly_contig_depth.txt',
         raw_gff='intermediary/annotation.filt.gff',
         assembly="intermediary/assembly.formatted.fa",
         hmm_markers="intermediary/mantis_out/consensus_annotation.tsv"
