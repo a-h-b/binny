@@ -1,5 +1,6 @@
 import gzip
 import os
+import glob
 import re
 import shutil
 import sys
@@ -42,7 +43,7 @@ if os.path.isabs(os.path.expandvars(config['raws']['assembly'])):
     CONTIGS = os.path.expandvars(config['raws']['assembly'])
 else:
     CONTIGS = os.path.join(os.getcwd(), os.path.expandvars(config['raws']['assembly']))
-    
+
 # Added depth file par to us instead of alignment
 if config['raws']['contig_depth']:
     if os.path.isabs(os.path.expandvars(config['raws']['contig_depth'])):
@@ -51,12 +52,22 @@ if config['raws']['contig_depth']:
         CONTIG_DEPTH = os.path.join(os.getcwd(), os.path.expandvars(config['raws']['contig_depth']))
 else:
     CONTIG_DEPTH = None
-    if os.path.isabs(os.path.expandvars(config['raws']['metagenomics_alignment'])):
-        MGaln = os.path.expandvars(config['raws']['metagenomics_alignment']).split(',')
+    if all([os.path.isabs(path) for path in glob.glob(config['raws']['metagenomics_alignment'])]):
+        MGaln = [os.path.expandvars(path) for path in glob.glob(config['raws']['metagenomics_alignment'])]
     else:
-        MGaln = os.path.join(os.getcwd(), os.path.expandvars(config['raws']['metagenomics_alignment'])).split(',')
+        MGaln = [os.path.join(os.getcwd(), os.path.expandvars(path)) for path in glob.glob(config['raws']['metagenomics_alignment'])]
+    print(MGaln)
     # Get filenames of all bam files without extension, even if the name contains '.'
     mappings_ids = ['.'.join(bam.split('/')[-1].split('.')[:-1]) for bam in MGaln]
+    print(mappings_ids)
+    # ????:
+    # Note that if a rule has multiple output files, Snakemake requires them to all have exactly the same wildcards.
+    # Otherwise, it could happen that two jobs running the same rule in parallel want to write to the same file.
+    # and
+    # The best solution is to have a dictionary that translates a sample id to the inconsistently named files and
+    # use a function (see Functions as Input Files) to provide an input file ...
+    garbage_dict_so_snakemake_gets_it = {map_id: 'sample_%06.d' % (index + 1) for index, map_id in enumerate(mappings_ids)}
+    print(garbage_dict_so_snakemake_gets_it)
 
 # hardware parameters
 MEMCORE = str(config['mem']['normal_mem_per_core_gb']) + "G"
@@ -108,7 +119,7 @@ if not os.path.isabs(TMPDIR):
     TMPDIR = os.path.join(OUTPUTDIR, TMPDIR)
 if not os.path.exists(TMPDIR):
     os.makedirs(TMPDIR)
-    
+
 # set working directory and dump output
 workdir:
     OUTPUTDIR
@@ -156,7 +167,8 @@ rule prepare_input_data:
         CONTIG_DEPTH if CONTIG_DEPTH else MGaln
     output:
         "intermediary/assembly.fa",
-        "intermediary/assembly_contig_depth.txt" if CONTIG_DEPTH else "intermediary/reads_{mappings_ids}_sorted.bam"
+        # "intermediary/assembly_contig_depth.txt" if CONTIG_DEPTH else expand("intermediary/reads_{mappings_id}_sorted.bam", mappings_id=mappings_ids)
+        "intermediary/assembly_contig_depth.txt" if CONTIG_DEPTH else ["intermediary/reads_{0}_sorted.bam".format(garbage_dict_so_snakemake_gets_it[mappings_id]) for mappings_id in mappings_ids]
     threads: 1
     resources:
         runtime = "4:00:00",
@@ -175,39 +187,82 @@ rule format_assembly:
         runtime = "2:00:00",
         mem = MEMCORE
     message: "Preparing assembly."
-    conda: 
+    conda:
        os.path.join(ENVDIR, "IMP_fasta_no_v.yaml")
     shell:
        "fasta_formatter -i {input} -o {output} -w 80"
+
+# print([f"intermediary/reads_{mappings_id}_sorted.bam" for mappings_id in mappings_ids])
+# print([f"intermediary/assembly_contig_depth_{mappings_id}.txt" for mappings_id in mappings_ids])
+# print(expand(["intermediary/reads_{mappings_id}_sorted.bam", "intermediary/assembly.formatted.fa"], mappings_id=mappings_ids))
 
 # contig depth
 if not CONTIG_DEPTH:
     rule call_contig_depth:
         input:
-            "intermediary/reads_sorted.bam",
-            "intermediary/assembly.formatted.fa"
+            # "intermediary/reads_{sample}_sorted.bam"
+            # [f"intermediary/reads_{mappings_id}_sorted.bam" for mappings_id in mappings_ids]
+            # expand(["intermediary/reads_{mappings_id}_sorted.bam"], mappings_id=mappings_ids)
+            # "intermediary/assembly.formatted.fa"
+            lambda wildcards: "intermediary/reads_{0}_sorted.bam".format(garbage_dict_so_snakemake_gets_it[wildcards.sample])
         output:
-            "intermediary/assembly_contig_depth.txt"
+            "intermediary/assembly_contig_depth_{sample}.txt"
+            # [f"intermediary/assembly_contig_depth_{mappings_id}.txt" for mappings_id in mappings_ids]
+            # expand("intermediary/assembly_contig_depth_{mappings_id}.txt", mappings_id=mappings_ids)
+        params:
+            assembly="intermediary/assembly.formatted.fa"
         resources:
             runtime = "4:00:00",
             mem = BIGMEMCORE if BIGMEMCORE else MEMCORE
-        threads: 
+        threads:
             getThreads(2) if BIGMEMCORE else getThreads(8)
-        conda: 
+        conda:
             os.path.join(ENVDIR, "IMP_mapping.yaml")
-        log: "logs/analysis_call_contig_depth.log"
+        log: "logs/analysis_call_contig_depth_{sample}.log"
         message: "call_contig_depth: Getting data on assembly coverage with mg reads."
         shell:
             """
             echo "Running BEDTools for average depth in each position" >> {log}
             TMP_DEPTH=$(mktemp --tmpdir={TMPDIR} -t "depth_file_XXXXXX.txt")
-            genomeCoverageBed -ibam {input[0]} | grep -v "genome" > $TMP_DEPTH
+            genomeCoverageBed -ibam {input} | grep -v "genome" > $TMP_DEPTH
             echo "Depth calculation done" >> {log}
 
             ## This method of depth calculation was adapted and modified from the CONCOCT code
-            perl {SRCDIR}/calcAvgCoverage.pl $TMP_DEPTH {input[1]} > {output}
+            perl {SRCDIR}/calcAvgCoverage.pl $TMP_DEPTH {params.assembly} > {output}
             echo "Remove the temporary file" >> {log}
             rm $TMP_DEPTH
+            """
+
+    rule merge_contig_depths:
+        input:
+            [f"intermediary/assembly_contig_depth_{mappings_id}.txt" for mappings_id in mappings_ids]
+        output:
+            "intermediary/assembly_contig_depth.txt"
+        resources:
+            runtime = "1:00:00",
+            mem = MEMCORE
+        threads:
+            getThreads(1)
+        conda:
+            os.path.join(ENVDIR, "IMP_mapping.yaml")
+        log: "logs/merge_contig_depth.log"
+        message: "Merging depth files."
+        shell:
+            """
+            first_file=true
+            for file in {input}; do
+              if [[ $first_file == 'true' ]]; then
+                # echo "First file."
+                cp $file {output}
+                first_file=false
+              else
+                # echo "File $COUNTER"
+                TMP_DEPTH=$(mktemp --tmpdir={TMPDIR} -t "tmp_XXXXXX.tsv")
+                paste {output} <( cut -f 2 $file) > $TMP_DEPTH \
+                      && mv $TMP_DEPTH {output}
+              fi
+            done
+            rm intermediary/assembly_contig_depth_*.txt
             """
 
 #gene calling
@@ -220,7 +275,7 @@ rule annotate:
         "intermediary/prokka.fna",
         "intermediary/prokka.ffn",
         "intermediary/prokka.fsa",
-    threads: 
+    threads:
         # getThreads(20)
         workflow.cores
     resources:
@@ -228,7 +283,7 @@ rule annotate:
         mem = MEMCORE
     log: "logs/analysis_annotate.log"
     benchmark: "logs/analysis_annotate_benchmark.txt"
-    conda: 
+    conda:
         os.path.join(ENVDIR, "IMP_annotation.yaml")
     message: "annotate: Running prokkaP."
     shell:
@@ -236,7 +291,7 @@ rule annotate:
         export PERL5LIB=$CONDA_PREFIX/lib/site_perl/5.26.2
         export LC_ALL=en_US.utf-8
 	{BINDIR}/prokkaP --dbdir $CONDA_PREFIX/db --force --outdir intermediary/ --tmpdir {TMPDIR} --prefix prokka --noanno --cpus {threads} --metagenome {input[0]} >> {log} 2>&1
-        
+
 	# Prokka gives a gff file with a long header and with all the contigs at the bottom.  The command below keeps only the gff table.
 
         LN=`grep -Hn "^>" intermediary/prokka.gff | head -n1 | cut -f2 -d ":" || if [[ $? -eq 141 ]]; then true; else exit $?; fi`
@@ -256,9 +311,9 @@ rule mantis_checkm_marker_sets:
     resources:
         runtime = "48:00:00",
         mem = MEMCORE
-    conda: 
+    conda:
         os.path.join(BINDIR, "mantis/mantis_env.yml")
-    threads: 
+    threads:
         # getThreads(20)
         # getThreads(14)
         workflow.cores
@@ -304,14 +359,13 @@ rule binny:
     resources:
         runtime = "12:00:00",
         mem = BIGMEMCORE if BIGMEMCORE else MEMCORE
-    threads: 
+    threads:
         # getThreads(2) if BIGMEMCORE else getThreads(20)
         workflow.cores
-    conda: 
+    conda:
         os.path.join(ENVDIR, "py_binny_linux.yaml")
     log: "logs/binning_binny.log"
     benchmark: "logs/binning_binny_benchmark.txt"
     message: "binny: Running Python Binny."
     script:
         os.path.join(SRCDIR, "binny_main.py")
-

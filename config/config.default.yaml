@@ -11,18 +11,19 @@ tmp_dir: tmp
 raws:
   # Path to a assembly fasta.
   assembly: "path/to/assembly"
-  # Path to a bam file to calculate depth from (single sample mode only atm).
+  # Path to a bam file(s) to calculate depth from. Use wildcards for multiple samples, e.g.:
+  # "path/to/my/mappings/*.bam" or "path/to/my/mappings/with/*/different/folder/*/structure/*.bam" or "path/to/my/mappings/my_mapping.bam"
   # Leave empty if you have an average depth per contig file to supply to binny.
   metagenomics_alignment: ""
   # Path to an average depth per contig tsv file. Leave empty if you supply a
-  # bam file for binny to calculate average contig depth from.
+  # bam file for binny to calculate average contig depth from. First column needs to be the contig ids, subsequent column(s) for depht(s).
   contig_depth: ""
 # Sample name
 sample: "test"
 # Path to desired output dir binny should create and store results in.
 outputdir: "path/to/output/dir"
-# Path to binny dbs, leave at default if you performed the defaulty install.
-db_path: "../db"
+# Path to binny dbs, leave at default if you performed the default install.
+db_path: "database"
 binning:
   binny:
     # Input a list, e.g. '2,3,4'.
