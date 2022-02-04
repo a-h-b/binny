@@ -138,7 +138,8 @@ elif [ "$INITIAL" = true ]; then
            -e "s|\#ncbi_ref_folder\=|ncbi_ref_folder=NA|g" \
            -e "s|\#ncbi_dmp_path_folder\=|ncbi_dmp_path_folder=NA|g" \
            -e "s|\#tcdb_ref_folder\=|tcdb_ref_folder=NA|g" \
-           -e "s|\#custom_ref\=path\/to\/hmm/custom1\.hmm|custom_ref=${DIR}/database/hmms/checkm_tf/checkm_filtered_tf.hmm\ncheckm_filtered_tf_weight=0.5\ncustom_ref=${DIR}/database/hmms/checkm_pf/checkm_filtered_pf.hmm\ncheckm_filtered_pf_weight=1|g" \
+           -e "s|\#custom_ref\=path\/to\/hmm/custom1\.hmm|custom_ref=${DB_PATH}/hmms/checkm_tf/checkm_filtered_tf.hmm\n"
+              "checkm_filtered_tf_weight=0.5\ncustom_ref=${DB_PATH}/hmms/checkm_pf/checkm_filtered_pf.hmm\ncheckm_filtered_pf_weight=1|g" \
            ${DIR}/workflow/bin/mantis/MANTIS.config
     for i in ${DIR}/conda/*.yaml; do
       env_name=$(head -n 1 ${i} | cut -d' ' -f2)
