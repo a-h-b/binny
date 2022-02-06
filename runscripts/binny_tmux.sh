@@ -114,11 +114,16 @@ elif [ "$INITIAL" = true ]; then
     eval $LOADING_MODULES
     eval $CONDA_START
     echo 'Getting MANTIS'
-    # mkdir -r ${DIR}/workflow/bin/mantis
-    # git clone https://github.com/PedroMTQ/mantis.git ${DIR}/workflow/bin/mantis
-    curl -L https://github.com/PedroMTQ/mantis/archive/master.zip --output $DIR/workflow/bin/mantis.zip
-    unzip -q $DIR/workflow/bin/mantis.zip -d $DIR/workflow/bin/ && mv $DIR/workflow/bin/mantis-master $DIR/workflow/bin/mantis && rm $DIR/workflow/bin/mantis.zip
-    snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --verbose --cores 1 -s $DIR/Snakefile --conda-create-envs-only --use-conda --conda-prefix $DIR/conda --local-cores 1 --configfile $CONFIGFILE
+    curl -L https://github.com/PedroMTQ/mantis/archive/refs/tags/1.3.zip --output $DIR/workflow/bin/mantis.zip
+    unzip -q $DIR/workflow/bin/mantis.zip -d $DIR/workflow/bin/ && mv $DIR/workflow/bin/mantis-1.3 $DIR/workflow/bin/mantis \
+     && rm $DIR/workflow/bin/mantis.zip
+    echo 'Getting UniFunc'
+    # Get UniFunc release 1.1
+    curl -L https://github.com/PedroMTQ/UniFunc/archive/refs/tags/1.1.zip  --output $DIR/workflow/bin/unifunc.zip
+    unzip -q $DIR/workflow/bin/unifunc.zip -d $DIR/workflow/bin/ && mv $DIR/workflow/bin/UniFunc-1.1 \
+     $DIR/workflow/bin/mantis/Resources/UniFunc && rm $DIR/workflow/bin/unifunc.zip
+    snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --verbose --cores 1 -s $DIR/Snakefile --conda-create-envs-only --use-conda \
+         --conda-prefix $DIR/conda --local-cores 1 --configfile $CONFIGFILE
     DB_PATH=`grep "db_path:" $CONFIGFILE | cut -f 2 -d " "`
     temp="${DB_PATH%\"}"
     DB_PATH="${temp#\"}"
@@ -127,13 +132,14 @@ elif [ "$INITIAL" = true ]; then
       then
       DB_PATH=${DIR}/$DB_PATH
     fi
-    sed -i -e "s|\#nog_hmm_folder\=|nog_hmm_folder=NA|g" \
-           -e "s|\#pfam_hmm_folder\=|pfam_hmm_folder=NA|g" \
-           -e "s|\#kofam_hmm_folder\=|kofam_hmm_folder=NA|g" \
-           -e "s|\#tigrfam_hmm_folder\=|tigrfam_hmm_folder=NA|g" \
-           -e "s|\#ncbi_hmm_folder\=|ncbi_hmm_folder=NA|g" \
+    echo "Initializing conda environments."
+    sed -i -e "s|\#nog_ref_folder\=|nog_ref_folder=NA|g" \
+           -e "s|\#pfam_ref_folder\=|pfam_ref_folder=NA|g" \
+           -e "s|\#kofam_ref_folder\=|kofam_ref_folder=NA|g" \
+           -e "s|\#ncbi_ref_folder\=|ncbi_ref_folder=NA|g" \
            -e "s|\#ncbi_dmp_path_folder\=|ncbi_dmp_path_folder=NA|g" \
-                      -e "s|\#custom_ref\=path\/to\/hmm/custom1\.hmm|custom_ref=${DIR}/database/hmms/checkm_tf/checkm_filtered_tf.hmm\ncheckm_filtered_tf_weight=0.5\ncustom_ref=${DIR}/database/hmms/checkm_pf/checkm_filtered_pf.hmm\ncheckm_filtered_pf_weight=1|g" \
+           -e "s|\#tcdb_ref_folder\=|tcdb_ref_folder=NA|g" \
+           -e "s|\#custom_ref\=path\/to\/hmm/custom1\.hmm|custom_ref=${DIR}/database/hmms/checkm_tf/checkm_filtered_tf.hmm\ncheckm_filtered_tf_weight=0.5\ncustom_ref=${DIR}/database/hmms/checkm_pf/checkm_filtered_pf.hmm\ncheckm_filtered_pf_weight=1|g" \
            ${DIR}/workflow/bin/mantis/MANTIS.config
     for i in ${DIR}/conda/*.yaml; do
       env_name=$(head -n 1 ${i} | cut -d' ' -f2)
