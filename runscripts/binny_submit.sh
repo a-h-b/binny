@@ -158,10 +158,11 @@ checkm_filtered_tf_weight=0.5\ncustom_ref=${DB_PATH}/hmms/checkm_pf/checkm_filte
     sed -i -e "s|auto_iter_buffer_ee = 15|auto_iter_buffer_ee = 30|g" \
            -e "s|auto_iter_buffer_run = 15|auto_iter_buffer_run = 30|g" \
            -e "s|auto_iter_ee_switch_buffer = 2|auto_iter_ee_switch_buffer = 4|g" multicore_tsne/tsne.cpp
+    # Get rid of line that results in cmake crash
+    sed -i '55d' setup.py
     ${DIR}/conda/${binny_env}/bin/pip install .
-#    which python
     ${DIR}/conda/${binny_env}/bin/python setup.py build
-    cp build/lib.linux-x86_64-3.8/MulticoreTSNE/libtsne_multicore.so MulticoreTSNE
+    cp build/lib.linux-x86_64-*/MulticoreTSNE/libtsne_multicore.so MulticoreTSNE
     cd $DIR
     conda deactivate
     echo "Setting up Mantis with the CheckM databases"
