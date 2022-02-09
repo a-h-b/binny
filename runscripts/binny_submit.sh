@@ -120,7 +120,7 @@ elif [ "$INITIAL" = true ]; then
     # Get UniFunc release 1.1
     curl -L https://github.com/PedroMTQ/UniFunc/archive/refs/tags/1.1.zip  --output $DIR/workflow/bin/unifunc.zip
     unzip -q $DIR/workflow/bin/unifunc.zip -d $DIR/workflow/bin/ && mv $DIR/workflow/bin/UniFunc-1.1 \
-     $DIR/workflow/bin/mantis/Resources/UniFunc && rm $DIR/workflow/bin/unifunc.
+     $DIR/workflow/bin/mantis/Resources/UniFunc && rm $DIR/workflow/bin/unifunc.zip
     echo "Initializing conda environments."
     snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --verbose --cores 1 -s $DIR/Snakefile --conda-create-envs-only --use-conda \
               --conda-prefix $DIR/conda --local-cores 1 --configfile $CONFIGFILE
@@ -158,9 +158,9 @@ checkm_filtered_tf_weight=0.5\ncustom_ref=${DB_PATH}/hmms/checkm_pf/checkm_filte
     sed -i -e "s|auto_iter_buffer_ee = 15|auto_iter_buffer_ee = 30|g" \
            -e "s|auto_iter_buffer_run = 15|auto_iter_buffer_run = 30|g" \
            -e "s|auto_iter_ee_switch_buffer = 2|auto_iter_ee_switch_buffer = 4|g" multicore_tsne/tsne.cpp
-    pip install .
-    which python
-    python setup.py build
+    ${DIR}/conda/${binny_env}/bin/pip install .
+#    which python
+    ${DIR}/conda/${binny_env}/bin/python setup.py build
     cp build/lib.linux-x86_64-3.8/MulticoreTSNE/libtsne_multicore.so MulticoreTSNE
     cd $DIR
     conda deactivate
