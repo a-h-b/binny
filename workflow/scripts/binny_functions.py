@@ -1096,7 +1096,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
     internal_completeness = starting_completeness
     final_try_counter = 0
     tsne_perp_ind = 0
-    perp_range = [5, 30]
+    perp_range = [100, 30, 5]
     pk_factor = 1
     learning_rate_factor = 12
     while embedding_tries <= max_embedding_tries:
@@ -1183,7 +1183,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         if tsne_perp_ind == len(perp_range):
             tsne_perp_ind = 0
 
-        learning_rate = int(len(x_pca)/learning_rate_factor)
+        learning_rate = max(1, int(len(x_pca)/learning_rate_factor))
         logging.info(f'optSNE learning rate: {learning_rate}, perplexity: {perp}, pk_factor: {pk_factor}')
 
         tsne = TSNE(n_jobs=threads, verbose=50, random_state=0, auto_iter=True, perplexity=perp,
