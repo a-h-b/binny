@@ -1095,8 +1095,10 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
     embedding_tries = 1
     internal_completeness = starting_completeness
     final_try_counter = 0
-    perp_1 = 10
-    perp_2 = 100
+    tsne_perp_ind = 0
+    perp_range = [5, 30]
+    pk_factor = 1
+    learning_rate_factor = 12
     while embedding_tries <= max_embedding_tries:
         if embedding_tries == 1:
             internal_min_marker_cont_size = check_sustainable_contig_number(x_contigs, internal_min_marker_cont_size,
@@ -1175,16 +1177,11 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         logging.info('PCA stats: Dimensions: {0}; Amount of variation'
                      ' explained: {1}%.'.format(n_comp, int(round(sum(pca.explained_variance_ratio_), 3) * 100)))
         x_pca = transformer.transform(x_scaled)
-        
-        perp_range = [5, 30]
 
         perp = perp_range[tsne_perp_ind]
         tsne_perp_ind += 1
         if tsne_perp_ind == len(perp_range):
             tsne_perp_ind = 0
-
-        pk_factor = 1
-        learning_rate_factor = 12
 
         learning_rate = int(len(x_pca)/learning_rate_factor)
         logging.info(f'optSNE learning rate: {learning_rate}, perplexity: {perp}, pk_factor: {pk_factor}')

@@ -215,7 +215,8 @@ if not CONTIG_DEPTH:
             runtime = "4:00:00",
             mem = BIGMEMCORE if BIGMEMCORE else MEMCORE
         threads:
-            getThreads(2) if BIGMEMCORE else getThreads(8)
+            # getThreads(2) if BIGMEMCORE else getThreads(8)
+            max(1, int(workflow.cores / len(mappings_ids)))
         conda:
             os.path.join(ENVDIR, "IMP_mapping.yaml")
         log: "logs/analysis_call_contig_depth_{sample}.log"
