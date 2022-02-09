@@ -5,7 +5,9 @@ Created on Wed Feb 22 10:50:35 2021
 """
 import itertools
 import logging
+import os
 import re
+import sys
 from pathlib import Path
 from timeit import default_timer as timer
 
@@ -17,11 +19,13 @@ import pandas as pd
 import seaborn as sns
 from joblib import parallel_backend, Parallel, delayed
 from mpl_toolkits.mplot3d import Axes3D
-from openTSNE import TSNEEmbedding, affinity
-from openTSNE import initialization
 from skbio.stats.composition import clr, multiplicative_replacement
 from sklearn.decomposition import PCA
 from sklearn.neighbors import KNeighborsClassifier
+
+bin_dir = '/'.join(os.path.dirname(__file__).split('/')[:-1])
+sys.path.append('{0}/bin/Multicore-opt-SNE'.format(bin_dir))
+from MulticoreTSNE import MulticoreTSNE as TSNE
 
 
 def unify_multi_model_genes(gene, markers='essential'):
@@ -1172,36 +1176,24 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
                      ' explained: {1}%.'.format(n_comp, int(round(sum(pca.explained_variance_ratio_), 3) * 100)))
         x_pca = transformer.transform(x_scaled)
         
-        if embedding_tries > 1:
-            if perp_1 < 20:
-                perp_1 += 2
-            else:
-                perp_1 = 10
-            if perp_2 < 130:
-                perp_2 += 5
-            else:
-                perp_2 = 100
+        perp_range = [5, 30]
 
-        perplexities = [perp_1, perp_2]
+        perp = perp_range[tsne_perp_ind]
+        tsne_perp_ind += 1
+        if tsne_perp_ind == len(perp_range):
+            tsne_perp_ind = 0
 
-        early_exag = int(len(round_x_contigs) / 100)
-        learning_rate = int(len(round_x_contigs) / 12)
-        if learning_rate < 200:
-            learning_rate = 200
-        if early_exag < 12:
-            early_exag = 12
-        logging.info('Running t-SNE dimensionality-reduction with perplexities {0} and {1}.'.format(perplexities[0],
-                                                                                                    perplexities[1]))
-        affinities_multiscale_mixture = affinity.Multiscale(x_pca, perplexities=perplexities, metric="manhattan",
-                                                            n_jobs=threads, random_state=0, verbose=0)
-        init = initialization.pca(x_pca, random_state=0, verbose=0)
-        embedding = TSNEEmbedding(init, affinities_multiscale_mixture, negative_gradient_method="fft", n_jobs=threads,
-                                  random_state=0, verbose=0)
-        embedding1 = embedding.optimize(n_iter=tsne_early_exag_iterations, exaggeration=early_exag,
-                                        learning_rate=learning_rate, momentum=0.5, n_jobs=threads, verbose=0)
-        embedding2 = embedding1.optimize(n_iter=tsne_main_iterations, exaggeration=1, learning_rate=learning_rate,
-                                         momentum=0.8, n_jobs=threads, verbose=0)
-        embedding_multiscale = embedding2.view(np.ndarray)
+        pk_factor = 1
+        learning_rate_factor = 12
+
+        learning_rate = int(len(x_pca)/learning_rate_factor)
+        logging.info(f'optSNE learning rate: {learning_rate}, perplexity: {perp}, pk_factor: {pk_factor}')
+
+        tsne = TSNE(n_jobs=threads, verbose=50, random_state=0, auto_iter=True, perplexity=perp,
+                    learning_rate=learning_rate)
+        tsne_result = tsne.fit_transform(x_pca)
+        embedding_multiscale = tsne_result
+
         logging.info('Finished t-SNE dimensionality-reduction.')
 
         # Create coordinate df.
