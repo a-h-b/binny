@@ -6,7 +6,6 @@ Created on Wed Feb 22 10:50:35 2021
 import itertools
 import logging
 import os
-import re
 import sys
 from pathlib import Path
 from timeit import default_timer as timer
@@ -47,7 +46,7 @@ def gff2ess_gene_df(annotation_file, target_attribute='essential', get_dict=Fals
             line = line.strip(' \t\n').split('\t')
             contig, contig_start, contig_end, attributes = line[0], line[3], line[4], line[8].split(';')
             # Check if feature has no start and/or stop position or length = 0
-            if not contig_start or not contig_end or int(contig_start)-int(contig_end) == 0:
+            if not contig_start or not contig_end or int(contig_start) - int(contig_end) == 0:
                 continue
             # Only add line if feature was annotated as essential gene
             for attribute in attributes:
@@ -82,7 +81,7 @@ def load_and_merge_cont_data(annot_file, depth_file, coords, dims, coords_from_f
     logging.info('Reading embedding coordinates.')
     dim_range = [i + 1 for i in range(dims)]
     if coords_from_file:
-        coord_df = pd.read_csv(coords, sep='\t', names=['contig']+['dim'+str(i) for i in dim_range])
+        coord_df = pd.read_csv(coords, sep='\t', names=['contig'] + ['dim' + str(i) for i in dim_range])
     else:
         coord_df = coords
     logging.info('Reading average depth.')
@@ -97,7 +96,7 @@ def load_and_merge_cont_data(annot_file, depth_file, coords, dims, coords_from_f
                            names=['contig'] + ['depth' + str(depth_ind + 1) for depth_ind in range(n_depths)])
     logging.info('Merging data.')
     # Merge annotation data and coords_file first, keeping only contigs with coords, then merge with depth data
-    cont_data_df = annot_df.merge(coord_df, how='right', on='contig')\
+    cont_data_df = annot_df.merge(coord_df, how='right', on='contig') \
         .merge(depth_df, how='inner', on='contig').sort_values(by='contig')
     return cont_data_df
 
@@ -167,7 +166,7 @@ def contig_df2cluster_dict(contig_info_df, dbscan_labels, use_noise=False):
 
 def hdbscan_cluster(contig_data_df, pk=None, include_depth=False, n_jobs=1, hdbscan_epsilon=0.25, hdbscan_min_samples=2,
                     dist_metric='manhattan'):
-    dims = [i for i in contig_data_df.columns if 'dim' in i and not '_' in i]
+    dims = [i for i in contig_data_df.columns if 'dim' in i and '_' not in i]
     depths = [i for i in contig_data_df.columns if 'depth' in i]
     if not include_depth:
         dim_df = contig_data_df.loc[:, dims].to_numpy(dtype=np.float64)
@@ -189,7 +188,7 @@ def hdbscan_cluster(contig_data_df, pk=None, include_depth=False, n_jobs=1, hdbs
         logging.debug('HDBSCAN found only noise trying with lower min_cluster_size={0}.'.format(pk))
         with parallel_backend('threading'):
             np.random.seed(0)
-            hdbsc = hdbscan.HDBSCAN(core_dist_n_jobs=n_jobs, min_cluster_size=pk,  min_samples=hdbscan_min_samples,
+            hdbsc = hdbscan.HDBSCAN(core_dist_n_jobs=n_jobs, min_cluster_size=pk, min_samples=hdbscan_min_samples,
                                     cluster_selection_epsilon=hdbscan_epsilon, metric=dist_metric).fit(dim_df)
         cluster_labels = hdbsc.labels_
 
@@ -204,6 +203,7 @@ def run_initial_scan(contig_data_df, initial_cluster_mode, dbscan_threads, pk=No
                      hdbscan_epsilon=0.25, hdbscan_min_samples=2, dist_metric='manhattan'):
     if not pk:
         pk = get_perp(contig_data_df['contig'].size)
+    first_clust_dict, labels = {}, []
     if initial_cluster_mode == 'HDBSCAN' or not initial_cluster_mode:
         logging.info('Running initial scan with HDBSCAN.')
         first_clust_dict, labels = hdbscan_cluster(contig_data_df, pk=pk, n_jobs=dbscan_threads,
@@ -226,7 +226,7 @@ def cluster_df_from_dict(cluster_dict):
         for cluster in cluster_dict:
             if metric in ['contigs', 'essential']:
                 data_list = [i for e in cluster_dict.get(cluster, {}).get(metric) for i in e.split(',')
-                                  if not e == 'non_essential']
+                             if not e == 'non_essential']
                 metric_list.append(len(data_list))
                 if metric == 'essential':
                     metric_uniq_list.append(len(set(data_list)))
@@ -268,7 +268,7 @@ def sort_cluster_dict_data_by_depth(cluster_dict):
 
 def gather_cluster_data(cluster, cluster_dict, marker_sets_graph, tigrfam2pfam_data_dict):
     cluster_essential_genes = [gene for genes in cluster_dict.get(cluster, {}).get('essential')
-                               for gene in genes.split(',') if not gene == 'non_essential' ]
+                               for gene in genes.split(',') if not gene == 'non_essential']
     if cluster_essential_genes:
         marker_set = chose_checkm_marker_set(cluster_essential_genes, marker_sets_graph, tigrfam2pfam_data_dict)
         taxon, cluster_completeness, cluster_purity = marker_set[0], round(marker_set[1], 3), round(marker_set[2], 3)
@@ -303,7 +303,8 @@ def hdbscan_sub_clusters(cluster_contig_df, cluster, pk, threads_for_dbscan, dep
 
         if cluster_contig_df['contig'].size == 1:
             new_clusters = contig_df2cluster_dict(cluster_contig_df, [cluster + '.' + str(0)])
-            logging.debug('Cluster {0} is only a single data point. Returning it.'.format(shorten_cluster_names(cluster)))
+            logging.debug(
+                'Cluster {0} is only a single data point. Returning it.'.format(shorten_cluster_names(cluster)))
             return [new_clusters, cluster]
 
         with parallel_backend('threading'):
@@ -334,8 +335,9 @@ def hdbscan_sub_clusters(cluster_contig_df, cluster, pk, threads_for_dbscan, dep
     return [{}, cluster]
 
 
-def get_sub_clusters(cluster_dicts, threads_for_dbscan, marker_sets_graph, tigrfam2pfam_data_dict, purity_threshold=0.95,
-                      completeness_threshold=0.9, pk=None, cluster_mode=None, include_depth=True, hdbscan_epsilon=0.25,
+def get_sub_clusters(cluster_dicts, threads_for_dbscan, marker_sets_graph, tigrfam2pfam_data_dict,
+                     purity_threshold=0.95,
+                     completeness_threshold=0.9, pk=None, cluster_mode=None, include_depth=True, hdbscan_epsilon=0.25,
                      hdbscan_min_samples=2, dist_metric='manhattan'):
     outputs = []
     for cluster_dict in cluster_dicts:
@@ -356,8 +358,8 @@ def get_sub_clusters(cluster_dicts, threads_for_dbscan, marker_sets_graph, tigrf
 
         if clust_pur < purity_threshold and isinstance(clust_pur, float) and clust_comp >= completeness_threshold:
             logging.debug('Cluster {0} below purity of {1} with {2} and matches completeness of {3} with {4}. '
-                  'Attempting to split.'.format(shorten_cluster_names(cluster), purity_threshold, clust_pur,
-                                                completeness_threshold, clust_comp))
+                          'Attempting to split.'.format(shorten_cluster_names(cluster), purity_threshold, clust_pur,
+                                                        completeness_threshold, clust_comp))
 
             # initialise some stuff
             cluster_contig_df = contig_df_from_cluster_dict(cluster_dict)
@@ -373,7 +375,8 @@ def get_sub_clusters(cluster_dicts, threads_for_dbscan, marker_sets_graph, tigrf
                 pk = min_dims
 
             if cluster_mode == 'HDBSCAN' or not cluster_mode:
-                logging.debug('Trying with HDBSCAN with depth next for cluster {0}.'.format(shorten_cluster_names(cluster)))
+                logging.debug(
+                    'Trying with HDBSCAN with depth next for cluster {0}.'.format(shorten_cluster_names(cluster)))
                 hdbscan_out = hdbscan_sub_clusters(cluster_contig_df, cluster, pk, threads_for_dbscan,
                                                    depth=include_depth, hdbscan_epsilon=hdbscan_epsilon,
                                                    hdbscan_min_samples=hdbscan_min_samples, dist_metric=dist_metric)
@@ -401,7 +404,8 @@ def get_sub_clusters(cluster_dicts, threads_for_dbscan, marker_sets_graph, tigrf
                     logging.warning(clust_dat)
                     raise Exception
                 logging.info('Cluster {0} meets purity threshold of {1} with'
-                             ' {2} and has completeness of {3}.'.format(shorten_cluster_names(cluster), purity_threshold,
+                             ' {2} and has completeness of {3}.'.format(shorten_cluster_names(cluster),
+                                                                        purity_threshold,
                                                                         clust_pur, clust_comp))
                 outputs.append([cluster_dict, cluster])
                 continue
@@ -425,7 +429,7 @@ def divide_clusters_by_depth(ds_clstr_dict, threads, marker_sets_graph, tigrfam2
                                                   for cluster_dict in i]))
         chunks_to_process[0].append({i[0]: dict_cp[i[0]]})
 
-    inner_max_threads = int(threads/len(chunks_to_process))
+    inner_max_threads = int(threads / len(chunks_to_process))
     if inner_max_threads < 1:
         inner_max_threads = 1
 
@@ -437,16 +441,16 @@ def divide_clusters_by_depth(ds_clstr_dict, threads, marker_sets_graph, tigrfam2
         while n_tries <= max_tries and chunks_to_process and not no_progress:
             logging.info('Clustering iteration: {0}.'.format(n_tries))
             n_tries += 1
-            sub_clstr_res = Parallel(n_jobs=threads)\
-                                    (delayed(get_sub_clusters)(cluster_dict_list, inner_max_threads, marker_sets_graph,
-                                                               tigrfam2pfam_data_dict, purity_threshold=min_purity,
-                                                               completeness_threshold=min_completeness, 
-                                                               pk=pk, cluster_mode=cluster_mode,
-                                                               include_depth=include_depth,
-                                                               hdbscan_epsilon=hdbscan_epsilon,
-                                                               hdbscan_min_samples=hdbscan_min_samples,
-                                                               dist_metric=dist_metric)
-                                     for cluster_dict_list in chunks_to_process)
+            sub_clstr_res = Parallel(n_jobs=threads) \
+                (delayed(get_sub_clusters)(cluster_dict_list, inner_max_threads, marker_sets_graph,
+                                           tigrfam2pfam_data_dict, purity_threshold=min_purity,
+                                           completeness_threshold=min_completeness,
+                                           pk=pk, cluster_mode=cluster_mode,
+                                           include_depth=include_depth,
+                                           hdbscan_epsilon=hdbscan_epsilon,
+                                           hdbscan_min_samples=hdbscan_min_samples,
+                                           dist_metric=dist_metric)
+                 for cluster_dict_list in chunks_to_process)
             for outputs in sub_clstr_res:
                 for output in outputs:
                     if output:
@@ -476,7 +480,7 @@ def divide_clusters_by_depth(ds_clstr_dict, threads, marker_sets_graph, tigrfam2
                and v.get('completeness', 0) >= min_completeness}
 
     end = timer()
-    logging.debug('Added purity and completeness stats to the final dict in {0}s.'.format(int(end-start)))
+    logging.debug('Added purity and completeness stats to the final dict in {0}s.'.format(int(end - start)))
     return dict_cp, split_contigs
 
 
@@ -490,18 +494,18 @@ def contig_df_from_cluster_dict(cluster_dict):
     for cluster in cluster_dict:
         for index, contig in enumerate(cluster_dict[cluster]['contigs']):
             try:
-                new_row = [contig, cluster_dict[cluster]['essential'][index]]\
-                           + [cluster_dict[cluster][dim][index] for dim in dims] \
-                           + [cluster_dict[cluster][depth][index] for depth in depths]\
-                           + [cluster, cluster_dict[cluster]['purity'], cluster_dict[cluster]['completeness']]
+                new_row = [contig, cluster_dict[cluster]['essential'][index]] \
+                          + [cluster_dict[cluster][dim][index] for dim in dims] \
+                          + [cluster_dict[cluster][depth][index] for depth in depths] \
+                          + [cluster, cluster_dict[cluster]['purity'], cluster_dict[cluster]['completeness']]
             except KeyError:
                 logging.warning('Something went wrong while fetching cluster data:'
                                 ' {0}, {1}'.format(str(cluster_dict[cluster]), str(cluster_dict.keys())))
-                new_row = [contig, cluster_dict[cluster]['essential'][index]]\
-                           + [cluster_dict[cluster][dim][index] for dim in dims] \
-                           + [cluster_dict[cluster][depth][index] for depth in depths]\
-                           + [cluster, cluster_dict[cluster].get('purity', 0),
-                              cluster_dict[cluster].get('completeness', 0)]
+                new_row = [contig, cluster_dict[cluster]['essential'][index]] \
+                          + [cluster_dict[cluster][dim][index] for dim in dims] \
+                          + [cluster_dict[cluster][depth][index] for depth in depths] \
+                          + [cluster, cluster_dict[cluster].get('purity', 0),
+                             cluster_dict[cluster].get('completeness', 0)]
             clust_contig_df_rows.append(new_row)
             clust_contig_df_ind.append(clust_contig_df_ind_init)
             clust_contig_df_ind_init += 1
@@ -532,7 +536,7 @@ def write_scatterplot(df, hue, file_path=None):
         y = df['dim2']
         z = df['dim3']
         ax.scatter(x, y, z, s=1.5, c=df['cluster'].map(palette_dict))
-        fake_list =[]
+        fake_list = []
         for i, e in zip(sorted_set, palette):
             fake_dot = ax.scatter(df['dim1'].iloc[0], df['dim2'].iloc[0], df['dim3'].iloc[0], s=1.5, color=e)
             fake_list.append(fake_dot)
@@ -582,10 +586,10 @@ def shorten_cluster_names(cluster):
             continue
         previous_sub_clstr = sub_clstr
         counter = 0
-        while index+counter+1 <= len(sub_clusters)-1 and sub_clstr == sub_clusters[index+counter+1]:
+        while index + counter + 1 <= len(sub_clusters) - 1 and sub_clstr == sub_clusters[index + counter + 1]:
             counter += 1
         if counter > 0:
-            new_name.append(sub_clstr+'x'+str(counter+1))
+            new_name.append(sub_clstr + 'x' + str(counter + 1))
         else:
             new_name.append(sub_clstr)
     new_name = '.'.join(new_name)
@@ -598,16 +602,18 @@ def write_bins(cluster_dict, assembly, min_comp=40, min_pur=90, bin_dir='bins'):
     bin_dir = Path(bin_dir)
     bin_dir.mkdir(parents=True, exist_ok=True)
     for cluster in cluster_dict:
-        if cluster_dict[cluster]['purity'] >= min_pur/100 and cluster_dict[cluster]['completeness'] >= min_comp/100:
+        if cluster_dict[cluster]['purity'] >= min_pur / 100 and cluster_dict[cluster]['completeness'] >= min_comp / 100:
             new_cluster_name = shorten_cluster_names(cluster)
             bin_name = '_'.join(['binny'] + [cluster_dict[cluster]['taxon'].replace(' ', '_')]
-                                + ['C'+str(int(round(cluster_dict[cluster]['completeness'] * 100, 0)))]
-                                + ['P'+str(int(round(cluster_dict[cluster]['purity'] * 100, 0)))] + [new_cluster_name])
+                                + ['C' + str(int(round(cluster_dict[cluster]['completeness'] * 100, 0)))]
+                                + ['P' + str(int(round(cluster_dict[cluster]['purity'] * 100, 0)))] + [
+                                    new_cluster_name])
             bin_file_name = bin_name + '.fasta'
             bin_out_path = bin_dir / bin_file_name
             with open(bin_out_path, 'w') as out_file:
                 for contig in cluster_dict[cluster]['contigs']:
                     out_file.write('>' + contig + '\n' + assembly_dict.get(contig) + '\n')
+
 
 ########################################################################################################################
 
@@ -628,33 +634,23 @@ def kmer_is_canonical(kmer):
     return canonical_kmer, is_canonical
 
 
-def kmer_counter(kmer, sequence):
-    d = {i: ['A', 'T', 'G', 'C'] for i in range(kmer)}
-    kmer_list = [''.join(combination) for combination in itertools.product(*[d[k] for k in sorted(d.keys())])]
-    kmer_list_can = [i for i in kmer_list if kmer_is_canonical(i)[1]]
-    kmer_count = [[kl_km, len([i for i in re.finditer(r'(?=({0}))'.format(kl_km), sequence)]) +
-                   len([i for i in re.finditer(r'(?=({0}))'.format(rec_comp(kl_km)), sequence)])]
-                  for kl_km in kmer_list_can]
-    return kmer_count
-
-
 def frequencyCount(string, substr):
-   count = 0
-   pos = 0
-   while(True):
-       pos = string.find(substr , pos)
-       if pos > -1:
-           count = count + 1
-           pos += 1
-       else:
-           break
-   return count
+    count = 0
+    pos = 0
+    while (True):
+        pos = string.find(substr, pos)
+        if pos > -1:
+            count = count + 1
+            pos += 1
+        else:
+            break
+    return count
 
 
 def kmer_counter(kmer_list_can, sequence):
     kmer_count_raw = [frequencyCount(sequence, kl_km) + frequencyCount(sequence, rec_comp(kl_km))
                       if kl_km != rec_comp(kl_km) else frequencyCount(sequence, kl_km) for kl_km in kmer_list_can]
-    sum_can_kmers = sum([kmer_count for kmer_count in kmer_count_raw])
+    sum_can_kmers = sum(kmer_count_raw)
     kmer_freq = [kmer_count / sum_can_kmers if kmer_count > 0 else 0 for kmer_count in kmer_count_raw]
     return kmer_freq
 
@@ -698,13 +694,13 @@ def get_contig_kmer_matrix(contig_list, ksize_list, n_jobs=1):
         kmer_list = [''.join(combination) for combination in itertools.product(*[d[k] for k in sorted(d.keys())])]
         kmer_list_can = sorted(list({i for i in kmer_list if kmer_is_canonical(i)[1]}))
         if n_rounds == 0:
-            contig_kmer_freq_matrix.append(['contig']+kmer_list_can)
+            contig_kmer_freq_matrix.append(['contig'] + kmer_list_can)
         else:
             contig_kmer_freq_matrix[0] = contig_kmer_freq_matrix[0] + kmer_list_can
         with parallel_backend("loky"):
-            contig_kmer_freq_matrix_chunks = Parallel(n_jobs=n_jobs)\
-                                                     (delayed(get_contig_kmer_freq)(kmer_list_can, chunks)
-                                                      for chunks in chunks_to_process)
+            contig_kmer_freq_matrix_chunks = Parallel(n_jobs=n_jobs) \
+                (delayed(get_contig_kmer_freq)(kmer_list_can, chunks)
+                 for chunks in chunks_to_process)
         contig_counter = 0
         for chunk in contig_kmer_freq_matrix_chunks:
             for contig_freq in chunk:
@@ -738,7 +734,7 @@ def gff2low_comp_feature_dict(annotation_file):
             line = line.strip(' \t\n').split('\t')
             contig, feature_start, feature_end, attributes = line[0], line[3], line[4], line[8].split(';')
             # Check if feature has no start and/or stop position or length = 0
-            if not feature_start or not feature_end or int(feature_start)-int(feature_end) == 0:
+            if not feature_start or not feature_end or int(feature_start) - int(feature_end) == 0:
                 continue
             # Only add line if feature was annotated as essential gene
             for attribute in attributes:
@@ -767,7 +763,7 @@ def mask_rep_featrues(contig_rep_feature_dict, contig_list):
                 else:
                     start_region = region[0] - 1
                     start2feature = region[0] - 2
-                contig_list[index][1] = contig[1][:start2feature] + contig[1][start_region:(region[1] - 1)].lower()\
+                contig_list[index][1] = contig[1][:start2feature] + contig[1][start_region:(region[1] - 1)].lower() \
                                         + contig[1][region[1]:]
 
 
@@ -784,7 +780,8 @@ def binny_iterate(contig_data_df, threads, marker_sets_graph, tigrfam2pfam_data_
         max_tries = 2
 
     while n_iterations <= max_iterations and n_new_clusters > 0:
-        init_clust_dict, labels = run_initial_scan(leftovers_df, 'HDBSCAN', threads, include_depth=include_depth_initial,
+        init_clust_dict, labels = run_initial_scan(leftovers_df, 'HDBSCAN', threads,
+                                                   include_depth=include_depth_initial,
                                                    hdbscan_epsilon=hdbscan_epsilon,
                                                    hdbscan_min_samples=hdbscan_min_samples, dist_metric=dist_metric)
 
@@ -803,14 +800,14 @@ def binny_iterate(contig_data_df, threads, marker_sets_graph, tigrfam2pfam_data_
                                                                   hdbscan_epsilon=hdbscan_epsilon,
                                                                   hdbscan_min_samples=hdbscan_min_samples,
                                                                   dist_metric=dist_metric)
-        new_clust_dict = {'I{0}R{1}.'.format(embedding_iteration, n_iterations) + k: v for k, v in new_clust_dict.items()}
+        new_clust_dict = {'I{0}R{1}.'.format(embedding_iteration, n_iterations) + k: v for k, v in
+                          new_clust_dict.items()}
         n_new_clusters = len(set(new_clust_dict.keys()))
         iteration_clust_dict = {**new_clust_dict, **init_clust_dict}
 
         good_clusters.update(new_clust_dict)
         if list(good_clusters.keys()):
             good_clust_contig_df = contig_df_from_cluster_dict(good_clusters)
-
 
         iteration_clust_df = cluster_df_from_dict(iteration_clust_dict)
         iteration_clust_df.to_csv('{0}/iteration_{1}_contigs2clusters.tsv'.format(contigs2clusters_out_path,
@@ -855,11 +852,11 @@ def get_single_contig_bins(essential_gene_df, good_bins_dict, n_dims, marker_set
         chunks_to_process[0].append(i)
 
     with parallel_backend("loky"):
-            single_contig_bin_dict_list = Parallel(n_jobs=threads)\
-                                                  (delayed(asses_contig_completeness_purity)
-                                                          (contig_data, n_dims, marker_sets_graph,
-                                                           tigrfam2pfam_data_dict)
-                                                   for contig_data in chunks_to_process)
+        single_contig_bin_dict_list = Parallel(n_jobs=threads) \
+            (delayed(asses_contig_completeness_purity)
+             (contig_data, n_dims, marker_sets_graph,
+              tigrfam2pfam_data_dict)
+             for contig_data in chunks_to_process)
 
     for bin_dict_sub_list in single_contig_bin_dict_list:
         for bin_dict in bin_dict_sub_list:
@@ -877,10 +874,10 @@ def asses_contig_completeness_purity(essential_gene_lol, n_dims, marker_sets_gra
         taxon, comp, pur = marker_set[0], marker_set[1], marker_set[2]
         if pur > 0.85 and comp > 0.90:
             bin_dict = {contig_data[0]: {'depth1': np.array([None]), 'contigs': np.array([contig_data[0]]),
-                                        'essential': np.array(all_ess), 'purity': pur, 'completeness': comp,
+                                         'essential': np.array(all_ess), 'purity': pur, 'completeness': comp,
                                          'taxon': taxon}}
             for dim in range(n_dims):
-                bin_dict[contig_data[0]]['dim'+str(dim+1)] = np.array(np.array([None]))
+                bin_dict[contig_data[0]]['dim' + str(dim + 1)] = np.array(np.array([None]))
             single_contig_bins.append(bin_dict)
     return single_contig_bins
 
@@ -901,7 +898,6 @@ def tigrfam2pfam_dict(tigrfam2pfam_file):
     return tigrfam2pfam_dict
 
 
-
 def load_checkm_markers(marker_file):
     linegae_dict = {0: 'domain', 1: 'phylum', 2: 'class', 3: 'order', 4: 'family', 5: 'genus', 6: 'species'}
     tms_data = nx.DiGraph()
@@ -910,11 +906,11 @@ def load_checkm_markers(marker_file):
         for line in f:
             line = line.strip('\n \t').split('\t')
             if (int(line[5]) < 58
-            or 'Tenericutes' in line[2]
-            or 'Haemophilus' in line[2]
-            # or 'Enterobacteriales' in line[2]
-            or 'Rickettsiales' in line[2]
-            or 'Chlamydiae' in line[2]):
+                    or 'Tenericutes' in line[2]
+                    or 'Haemophilus' in line[2]
+                    # or 'Enterobacteriales' in line[2]
+                    or 'Rickettsiales' in line[2]
+                    or 'Chlamydiae' in line[2]):
                 logging.debug('Skipping loading of markers from {0}.'.format(line[1]))
                 continue
             marker_sets = line[-1].replace(']), set([', ';')
@@ -923,7 +919,7 @@ def load_checkm_markers(marker_file):
             marker_sets = [[marker.split('.')[0] for marker in marker_set.split(',')] for marker_set in
                            marker_sets.split(';') if not marker_set.split(',') == ['']]
             lineage = line[2].split(';')
-            lineage = [tax + '[' + linegae_dict[tax_ind] + ']' if tax == lineage[tax_ind-1] and len(lineage) > 1
+            lineage = [tax + '[' + linegae_dict[tax_ind] + ']' if tax == lineage[tax_ind - 1] and len(lineage) > 1
                        else tax for tax_ind, tax in enumerate(lineage)]
             if len(lineage) == 7:
                 lineage[-1] = ' '.join(lineage[-2:])
@@ -987,7 +983,8 @@ def chose_checkm_marker_set(marker_list, marker_sets_graph, tigrfam2pfam_data_di
             if len(node_markers_list) == 0 or len(node_markers_list) == 0:
                 logging.debug('Found zero markers for marker set {0} with {1}.'.format(node, 'TO_FINISH'))
                 continue
-            node_marker_set_completeness = len(node_marker_sets_set) / marker_sets_graph.nodes.data()[node]['marker_groups']
+            node_marker_set_completeness = len(node_marker_sets_set) / marker_sets_graph.nodes.data()[node][
+                'marker_groups']
             node_marker_set_purity = len(set(node_markers_list)) / len(node_markers_list)
             if node_marker_set_completeness > 1:
                 logging.warning(node, round(node_marker_set_completeness, 3), round(node_marker_set_purity, 3))
@@ -995,10 +992,10 @@ def chose_checkm_marker_set(marker_list, marker_sets_graph, tigrfam2pfam_data_di
                 logging.warning(len(set(node_markers_list)), marker_sets_graph.nodes.data()[node]['markers'])
                 logging.warning(len(set(node_markers_list)), len(marker_list))
                 logging.warning(len(set(node_markers_list)), len([marker for marker in marker_list if
-                                                                                   any(m_t2p in node_all_markers
-                                                                                       for m_t2p in [marker]
-                                                                                       + tigrfam2pfam_data_dict.get(
-                                                                                       marker, []))]))
+                                                                  any(m_t2p in node_all_markers
+                                                                      for m_t2p in [marker]
+                                                                      + tigrfam2pfam_data_dict.get(
+                                                                      marker, []))]))
                 raise Exception
 
             if not best_marker_set:
@@ -1071,7 +1068,7 @@ def checkm_hmmer_search2prokka_gff(hmm_checkm_marker_out, prokka_gff, gff_out_pa
                 line_annots = line.split('\t')[-1].split(';')
                 line_gene = line_annots[0].replace('ID=', '')
                 if checkm_marker_dict.get(line_gene):
-                     pcg.write(line + ';checkm_marker=' + ','.join(checkm_marker_dict[line_gene]) + '\n')
+                    pcg.write(line + ';checkm_marker=' + ','.join(checkm_marker_dict[line_gene]) + '\n')
                 else:
                     pcg.write(line + '\n')
 
@@ -1082,6 +1079,22 @@ def check_sustainable_contig_number(contig_list, min_val, assembly_dict, contig_
         min_val += 5
         n_contigs = len([cont for cont in contig_list if len(assembly_dict[cont]) >= min_val])
     return min_val
+
+
+def calc_assembly_nx(assembly_dict, scmags, nx_val):
+    mini_dict = {id: id for id in scmags}
+    assembly_cont_length_array = np.sort(np.array([len(seq) for contig_id, seq in assembly_dict.items()
+                                                   if not mini_dict.get(contig_id)]))[::-1]
+    nx_size = int(sum(assembly_cont_length_array) * nx_val / 100)
+    size_sum = 0
+    i = 0
+    nx = 0
+    while size_sum <= nx_size:
+        length = assembly_cont_length_array[i]
+        nx = length
+        size_sum += length
+        i += 1
+    return nx
 
 
 def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completeness, min_purity, min_completeness,
@@ -1096,7 +1109,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
     internal_completeness = starting_completeness
     final_try_counter = 0
     tsne_perp_ind = 0
-    perp_range = [100, 30, 5]
+    perp_range = [45, 5, 30, 10]
     pk_factor = 1
     learning_rate_factor = 12
     while embedding_tries <= max_embedding_tries:
@@ -1134,7 +1147,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
                            if len(assembly_dict[cont]) >= internal_min_marker_cont_size]
                 round_x_contigs = [cont for cont in round_leftovers_contig_list
                                    if len(assembly_dict[cont]) >= internal_min_marker_cont_size]
-                round_leftovers_contig_list = [cont for cont in round_leftovers_contig_list_backup 
+                round_leftovers_contig_list = [cont for cont in round_leftovers_contig_list_backup
                                                if len(assembly_dict[cont]) < internal_min_marker_cont_size]
             del round_leftovers_contig_list_backup
 
@@ -1153,7 +1166,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         round_x = multiplicative_replacement(round_x)
         # Clr transform
         x_scaled = clr(round_x)
-        x_scaled = np.concatenate([round_x_depth, x_scaled], axis=1)        
+        x_scaled = np.concatenate([round_x_depth, x_scaled], axis=1)
 
         # Manifold learning and dimension reduction.
         logging.info('Running manifold learning and dimension reduction.')
@@ -1183,10 +1196,10 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         if tsne_perp_ind == len(perp_range):
             tsne_perp_ind = 0
 
-        learning_rate = max(1, int(len(x_pca)/learning_rate_factor))
+        learning_rate = max(2, int(len(x_pca) / learning_rate_factor))
         logging.info(f'optSNE learning rate: {learning_rate}, perplexity: {perp}, pk_factor: {pk_factor}')
 
-        tsne = TSNE(n_jobs=threads, verbose=50, random_state=0, auto_iter=True, perplexity=perp,
+        tsne = TSNE(n_jobs=threads, verbose=0, random_state=0, auto_iter=True, perplexity=perp,
                     learning_rate=learning_rate)
         tsne_result = tsne.fit_transform(x_pca)
         embedding_multiscale = tsne_result
@@ -1225,7 +1238,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
                                                          contigs2clusters_out_path=contigs2clusters_out_path)
 
         logging.info('Good bins this embedding iteration: {0}.'.format(len(good_bins.keys())))
-        
+
         if not list(good_bins.keys()) and internal_completeness > min_completeness and final_try_counter == 0:
             internal_completeness -= 5
             if 80 < internal_completeness <= 85:
@@ -1239,19 +1252,19 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
                     min_purity = 95
             logging.info('Found no good bins. Minimum completeness lowered to {0},'
                          ' minimum purity is {1}.'.format(internal_completeness, min_purity))
-        elif not list(good_bins.keys()) and final_try_counter <= 4\
+        elif not list(good_bins.keys()) and final_try_counter <= 4 \
                 and not internal_min_marker_cont_size > prev_round_internal_min_marker_cont_size:
             internal_min_marker_cont_size = 2500 - 500 * final_try_counter
             final_try_counter += 1
             internal_completeness = 80
             min_purity = 90
-            logging.info('Final attempt with contigs >= {0}bp,'
+            logging.info('Running with contigs >= {0}bp,'
                          ' minimum completeness {1}, and minimum purity {2}.'.format(internal_min_marker_cont_size,
                                                                                      internal_completeness, min_purity))
         elif not list(good_bins.keys()):
             logging.info('Reached min completeness and found no more bins. Exiting embedding iteration')
             break
-    
+
         prev_round_internal_min_marker_cont_size = internal_min_marker_cont_size
 
         round_clust_dict = {**good_bins, **final_init_clust_dict}
@@ -1278,7 +1291,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
                           ' Removing them.'.format(len(round_leftovers['contig'].tolist())
                                                    - len(set(round_leftovers['contig'].tolist()))))
             round_leftovers.drop_duplicates(subset=['contig'])
-        
+
         if list(good_bins.keys()):
             good_bin_contig_df = contig_df_from_cluster_dict(good_bins)
             round_leftovers = round_leftovers[~round_leftovers['contig'].isin(good_bin_contig_df['contig'].tolist())]

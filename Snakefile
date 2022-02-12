@@ -167,8 +167,8 @@ rule prepare_input_data:
         CONTIG_DEPTH if CONTIG_DEPTH else MGaln
     output:
         "intermediary/assembly.fa",
-        # "intermediary/assembly_contig_depth.txt" if CONTIG_DEPTH else expand("intermediary/reads_{mappings_id}_sorted.bam", mappings_id=mappings_ids)
-        "intermediary/assembly_contig_depth.txt" if CONTIG_DEPTH else ["intermediary/reads_{0}_sorted.bam".format(garbage_dict_so_snakemake_gets_it[mappings_id]) for mappings_id in mappings_ids]
+        # "intermediary/assembly.contig_depth.txt" if CONTIG_DEPTH else expand("intermediary/reads_{mappings_id}_sorted.bam", mappings_id=mappings_ids)
+        "intermediary/assembly.contig_depth.txt" if CONTIG_DEPTH else ["intermediary/reads_{0}_sorted.bam".format(garbage_dict_so_snakemake_gets_it[mappings_id]) for mappings_id in mappings_ids]
     threads: 1
     resources:
         runtime = "4:00:00",
@@ -238,7 +238,7 @@ if not CONTIG_DEPTH:
         input:
             [f"intermediary/assembly_contig_depth_{mappings_id}.txt" for mappings_id in mappings_ids]
         output:
-            "intermediary/assembly_contig_depth.txt"
+            "intermediary/assembly.contig_depth.txt"
         resources:
             runtime = "1:00:00",
             mem = MEMCORE
@@ -330,7 +330,7 @@ rule mantis_checkm_marker_sets:
 
 rule binny:
     input:
-        mgdepth='intermediary/assembly_contig_depth.txt',
+        mgdepth='intermediary/assembly.contig_depth.txt',
         raw_gff='intermediary/annotation.filt.gff',
         assembly="intermediary/assembly.formatted.fa",
         hmm_markers="intermediary/mantis_out/consensus_annotation.tsv"

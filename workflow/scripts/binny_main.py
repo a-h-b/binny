@@ -74,13 +74,25 @@ single_contig_bins = get_single_contig_bins(annot_df, all_good_bins, n_dim, taxo
                                             threads)
 logging.info('Found {0} single contig bins.'.format(len(single_contig_bins)))
 
+logging.info('Getting assembly dict without scMAG.'.format(len(single_contig_bins)))
+# assembly_dict_wo_scmags = {key: val for key, val in assembly_dict.items() if key in
+#                            set(assembly_dict.keys()).difference(set(single_contig_bins))}
+
+x = 95
+logging.info(f'Calculating N{x}'.format(len(single_contig_bins)))
+nx = calc_assembly_nx(assembly_dict, single_contig_bins, x)
+nx2 = calc_assembly_nx(assembly_dict, [], x)
+logging.info(f'N{x} is {nx}, with scMAGs would be {nx2}.'.format(len(single_contig_bins)))
+min_contig_length = min(max(nx, 500), 3000)
+min_marker_contig_length = min(max(nx / 2, 300), 500)
+
 # Load assembly and mask rRNAs and CRISPR arrays
 contig_list = [[contig] + [seq] for contig, seq in assembly_dict.items() if (len(seq) >= min_contig_length
                                                                              or (annot_dict.get(contig)
                                                                              and len(seq) >= min_marker_contig_length))
                                                                             and contig not in single_contig_bins]
 
-logging.info('{0} contigs match length threshold of {1}bp or contain marker genes and'
+logging.info('{0} contigs match length threshold of {1}bp or contain marker genes and'
              ' have a size of at least {2}bp'.format(len(contig_list), min_contig_length, min_marker_contig_length))
 
 contig_rrna_crispr_region_dict = gff2low_comp_feature_dict(annot_file)
