@@ -3,10 +3,9 @@ conda/
 *stderr
 *stdout
 database/
-binny_*
 binny
-moretests/
-workflow/bin/mantis/
-workflow/scripts/__pycache__/
-test_*
+binny_initialized
+workflow/bin/Multicore-opt-SNE
+workflow/scripts/__pycache__
+test_output
 !.gitignore
