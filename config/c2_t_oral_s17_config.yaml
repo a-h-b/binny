@@ -5,25 +5,24 @@ mem:
   big_mem_avail: FALSE
   big_mem_per_core_gb: 26
   # Memory per core of your computing resource.
-  normal_mem_per_core_gb: 4
+  normal_mem_per_core_gb: 1
 # Path to a temporary directory to write to.
 tmp_dir: tmp
 raws:
   # Path to a assembly fasta.
-  assembly: "path/to/assembly"
-  # Path to a bam file(s) to calculate depth from. Use wildcards for multiple samples, e.g.:
-  # "path/to/my/mappings/*.bam" or "path/to/my/mappings/with/*/different/folder/*/structure/*.bam" or "path/to/my/mappings/my_mapping.bam"
+  assembly: "/home/parallels/binny_bench/c2_t_oral_2017.12.04_18.45.54_sample_17_binny_input/anonymous_gsa.fasta"
+  # Path to a bam file to calculate depth from (single sample mode only atm).
   # Leave empty if you have an average depth per contig file to supply to binny.
   metagenomics_alignment: ""
   # Path to an average depth per contig tsv file. Leave empty if you supply a
-  # bam file for binny to calculate average contig depth from. First column needs to be the contig ids, subsequent column(s) for depht(s).
-  contig_depth: ""
+  # bam file for binny to calculate average contig depth from.
+  contig_depth: "/home/parallels/binny_bench/c2_t_oral_2017.12.04_18.45.54_sample_17_binny_input/anonymous_gsa_contig_depth.txt"
 # Sample name
 sample: "test"
 # Path to desired output dir binny should create and store results in.
-outputdir: "path/to/output/dir"
+outputdir: "/home/parallels/binny_bench/c2_t_oral_2017.12.04_18.45.54_sample_17_out"
 # Path to binny dbs, leave at default if you performed the default install.
-db_path: "database"
+db_path: "/home/parallels/local_tools/binny/database"
 binning:
   binny:
     # Input a list, e.g. '2,3,4'.
@@ -38,7 +37,7 @@ binning:
     # Prevents use of excessive amounts of memory on large assemblies.
     # Default should ensure adequate performance, adjust e.g. according
     # to available memory.
-    max_n_contigs: 5e5
+    max_n_contigs: 3.5e5
     # Distance metric for opentSNE and HDBSCAN.
     distance_metric: 'manhattan'
     embedding:
@@ -49,12 +48,12 @@ binning:
       # Number of iterations with perplexity 1.
       tsne_main_iterations: 750
     clustering:
-      # Increasing the HDBSCAN cluster selection epsilon beyond 0.5
+      # Increasing the HDBSCAN cluster selection epsilon max beyond 0.5
       # is not advised as it might massively increase run time, but it might
       # help recover fragmented genomes that would be missed with lower settings.
-      hdbscan_epsilon_range: '0.250,0.250'
+      hdbscan_epsilon: 0.00  # _range '0,0'
       # Adapted from the HDBSCAN manual: 'Measure of how conservative the
-      # clustering should be. With larger values, more points will be declared
+      # clustering should be. With larger values, more points  will be declared
       # as noise, and clusters will be restricted to progressively more dense areas.'.
       hdbscan_min_samples: 2
       # Use depth as additional dimension during the initial clustering.
@@ -64,6 +63,6 @@ binning:
     bin_quality:
       # Minimum value binny will lower completeness to while running. It will
       # start at 90.
-      completeness: 70
+      completeness: 90
       # Minimum purity for bins to be selected.
-      purity: 85
+      purity: 90

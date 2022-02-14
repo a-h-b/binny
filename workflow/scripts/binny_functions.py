@@ -9,6 +9,7 @@ import os
 import sys
 from pathlib import Path
 from timeit import default_timer as timer
+import re
 
 import hdbscan
 import matplotlib.pyplot as plt
@@ -23,7 +24,7 @@ from sklearn.decomposition import PCA
 from sklearn.neighbors import KNeighborsClassifier
 
 bin_dir = '/'.join(os.path.dirname(__file__).split('/')[:-1])
-sys.path.append('{0}/bin/Multicore-opt-SNE'.format(bin_dir))
+sys.path.append('/home/parallels/local_tools/Multicore-opt-SNE')
 from MulticoreTSNE import MulticoreTSNE as TSNE
 
 
@@ -621,10 +622,17 @@ def write_bins(cluster_dict, assembly, min_comp=40, min_pur=90, bin_dir='bins'):
     for cluster in cluster_dict:
         if cluster_dict[cluster]['purity'] >= min_pur / 100 and cluster_dict[cluster]['completeness'] >= min_comp / 100:
             new_cluster_name = shorten_cluster_names(cluster)
-            bin_name = '_'.join(['binny'] + [cluster_dict[cluster]['taxon'].replace(' ', '_')]
+            new_cluster_name = re.split(r'\D+', new_cluster_name)[1:]
+            print(new_cluster_name)
+            new_cluster_name = 'I{0}R{1}.{2}'.format('%05.d' % (int(new_cluster_name[0])),
+                                                     '%05.d' % (int(new_cluster_name[1])),
+                                                     '.'.join(['%05.d' % (int(e)) for e in new_cluster_name[2:]]))
+            print(new_cluster_name)
+            bin_name = '_'.join(['binny']
+                                + [new_cluster_name]
                                 + ['C' + str(int(round(cluster_dict[cluster]['completeness'] * 100, 0)))]
-                                + ['P' + str(int(round(cluster_dict[cluster]['purity'] * 100, 0)))] + [
-                                    new_cluster_name])
+                                + ['P' + str(int(round(cluster_dict[cluster]['purity'] * 100, 0)))]
+                                + [cluster_dict[cluster]['taxon'].replace(' ', '_')])
             bin_file_name = bin_name + '.fasta'
             bin_out_path = bin_dir / bin_file_name
             with open(bin_out_path, 'w') as out_file:
@@ -1129,7 +1137,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
     internal_completeness = starting_completeness
     final_try_counter = 0
     tsne_perp_ind = 0
-    perp_range = list(range(25, 36))  # [30, 15] list(range(10, 21))
+    perp_range = [5, 30]  # [30, 15] list(range(10, 21))
     pk_factor = 1
     hdbscan_epsilon = hdbscan_epsilon_range[0]
     learning_rate_factor = 12

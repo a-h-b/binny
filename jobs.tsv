@@ -1,0 +1,210 @@
+Running workflow in current session - don't use this setting except with small datasets and databases.
+Building DAG of jobs...
+['/home/parallels/local_tools/binny/test/reads_3bins4.bam', '/home/parallels/local_tools/binny/test/reads_3bins2.bam', '/home/parallels/local_tools/binny/test/reads_3bins.bam', '/home/parallels/local_tools/binny/test/reads_3bins3.bam']
+['reads_3bins4', 'reads_3bins2', 'reads_3bins', 'reads_3bins3']
+output_file	date	rule	version	log-file(s)	input-file(s)	shellcmd	status	plan
+bins	-	-	-	-	-	-	missing	update pending
+intermediary/assembly_contig_depth.txt	-	-	-	-	-	-	missing	update pending
+intermediary/assembly_contig_depth_reads_3bins4.txt	-	-	-	-	-	-	missing	update pending
+intermediary/assembly_contig_depth_reads_3bins2.txt	-	-	-	-	-	-	missing	update pending
+intermediary/assembly_contig_depth_reads_3bins.txt	-	-	-	-	-	-	missing	update pending
+intermediary/assembly_contig_depth_reads_3bins3.txt	-	-	-	-	-	-	missing	update pending
+intermediary/assembly.fa	Thu Feb  3 15:49:27 2022	prepare_input_data	-		/home/parallels/local_tools/binny/test/contigs_3bins.fa,/home/parallels/local_tools/binny/test/reads_3bins.bam,/home/parallels/local_tools/binny/test/reads_3bins2.bam,/home/parallels/local_tools/binny/test/reads_3bins3.bam,/home/parallels/local_tools/binny/test/reads_3bins4.bam	-	ok	no update
+intermediary/reads_reads_3bins4_sorted.bam	Thu Feb  3 15:49:27 2022	prepare_input_data	-		/home/parallels/local_tools/binny/test/contigs_3bins.fa,/home/parallels/local_tools/binny/test/reads_3bins.bam,/home/parallels/local_tools/binny/test/reads_3bins2.bam,/home/parallels/local_tools/binny/test/reads_3bins3.bam,/home/parallels/local_tools/binny/test/reads_3bins4.bam	-	ok	no update
+intermediary/reads_reads_3bins2_sorted.bam	Thu Feb  3 15:49:27 2022	prepare_input_data	-		/home/parallels/local_tools/binny/test/contigs_3bins.fa,/home/parallels/local_tools/binny/test/reads_3bins.bam,/home/parallels/local_tools/binny/test/reads_3bins2.bam,/home/parallels/local_tools/binny/test/reads_3bins3.bam,/home/parallels/local_tools/binny/test/reads_3bins4.bam	-	ok	no update
+intermediary/reads_reads_3bins_sorted.bam	Thu Feb  3 15:49:27 2022	prepare_input_data	-		/home/parallels/local_tools/binny/test/contigs_3bins.fa,/home/parallels/local_tools/binny/test/reads_3bins.bam,/home/parallels/local_tools/binny/test/reads_3bins2.bam,/home/parallels/local_tools/binny/test/reads_3bins3.bam,/home/parallels/local_tools/binny/test/reads_3bins4.bam	-	ok	no update
+intermediary/reads_reads_3bins3_sorted.bam	Thu Feb  3 15:49:27 2022	prepare_input_data	-		/home/parallels/local_tools/binny/test/contigs_3bins.fa,/home/parallels/local_tools/binny/test/reads_3bins.bam,/home/parallels/local_tools/binny/test/reads_3bins2.bam,/home/parallels/local_tools/binny/test/reads_3bins3.bam,/home/parallels/local_tools/binny/test/reads_3bins4.bam	-	ok	no update
+intermediary/annotation.filt.gff	Thu Feb  3 15:50:26 2022	annotate	-	logs/analysis_annotate.log	intermediary/assembly.formatted.fa	export PERL5LIB=$CONDA_PREFIX/lib/site_perl/5.26.2;         export LC_ALL=en_US.utf-8; 	/home/parallels/local_tools/binny/workflow/bin/prokkaP --dbdir $CONDA_PREFIX/db --force --outdir intermediary/ --tmpdir /home/parallels/local_tools/binny/test_output/tmp --prefix prokka --noanno --cpus 11 --metagenome intermediary/assembly.formatted.fa >> logs/analysis_annotate.log 2>&1; ; 	# Prokka gives a gff file with a long header and with all the contigs at the bottom.  The command below keeps only the gff table.; ;         LN=`grep -Hn "^>" intermediary/prokka.gff | head -n1 | cut -f2 -d ":" || if [[ $? -eq 141 ]]; then true; else exit $?; fi`;         LN1=1;         LN=$(($LN-$LN1));         head -n $LN intermediary/prokka.gff | grep -v "^#" | sort | uniq | grep -v "^==" > intermediary/annotation.filt.gff	ok	no update
+intermediary/prokka.faa	Thu Feb  3 15:50:26 2022	annotate	-	logs/analysis_annotate.log	intermediary/assembly.formatted.fa	export PERL5LIB=$CONDA_PREFIX/lib/site_perl/5.26.2;         export LC_ALL=en_US.utf-8; 	/home/parallels/local_tools/binny/workflow/bin/prokkaP --dbdir $CONDA_PREFIX/db --force --outdir intermediary/ --tmpdir /home/parallels/local_tools/binny/test_output/tmp --prefix prokka --noanno --cpus 11 --metagenome intermediary/assembly.formatted.fa >> logs/analysis_annotate.log 2>&1; ; 	# Prokka gives a gff file with a long header and with all the contigs at the bottom.  The command below keeps only the gff table.; ;         LN=`grep -Hn "^>" intermediary/prokka.gff | head -n1 | cut -f2 -d ":" || if [[ $? -eq 141 ]]; then true; else exit $?; fi`;         LN1=1;         LN=$(($LN-$LN1));         head -n $LN intermediary/prokka.gff | grep -v "^#" | sort | uniq | grep -v "^==" > intermediary/annotation.filt.gff	ok	no update
+intermediary/prokka.fna	Thu Feb  3 15:50:26 2022	annotate	-	logs/analysis_annotate.log	intermediary/assembly.formatted.fa	export PERL5LIB=$CONDA_PREFIX/lib/site_perl/5.26.2;         export LC_ALL=en_US.utf-8; 	/home/parallels/local_tools/binny/workflow/bin/prokkaP --dbdir $CONDA_PREFIX/db --force --outdir intermediary/ --tmpdir /home/parallels/local_tools/binny/test_output/tmp --prefix prokka --noanno --cpus 11 --metagenome intermediary/assembly.formatted.fa >> logs/analysis_annotate.log 2>&1; ; 	# Prokka gives a gff file with a long header and with all the contigs at the bottom.  The command below keeps only the gff table.; ;         LN=`grep -Hn "^>" intermediary/prokka.gff | head -n1 | cut -f2 -d ":" || if [[ $? -eq 141 ]]; then true; else exit $?; fi`;         LN1=1;         LN=$(($LN-$LN1));         head -n $LN intermediary/prokka.gff | grep -v "^#" | sort | uniq | grep -v "^==" > intermediary/annotation.filt.gff	ok	no update
+intermediary/prokka.ffn	Thu Feb  3 15:50:26 2022	annotate	-	logs/analysis_annotate.log	intermediary/assembly.formatted.fa	export PERL5LIB=$CONDA_PREFIX/lib/site_perl/5.26.2;         export LC_ALL=en_US.utf-8; 	/home/parallels/local_tools/binny/workflow/bin/prokkaP --dbdir $CONDA_PREFIX/db --force --outdir intermediary/ --tmpdir /home/parallels/local_tools/binny/test_output/tmp --prefix prokka --noanno --cpus 11 --metagenome intermediary/assembly.formatted.fa >> logs/analysis_annotate.log 2>&1; ; 	# Prokka gives a gff file with a long header and with all the contigs at the bottom.  The command below keeps only the gff table.; ;         LN=`grep -Hn "^>" intermediary/prokka.gff | head -n1 | cut -f2 -d ":" || if [[ $? -eq 141 ]]; then true; else exit $?; fi`;         LN1=1;         LN=$(($LN-$LN1));         head -n $LN intermediary/prokka.gff | grep -v "^#" | sort | uniq | grep -v "^==" > intermediary/annotation.filt.gff	ok	no update
+intermediary/prokka.fsa	Thu Feb  3 15:50:26 2022	annotate	-	logs/analysis_annotate.log	intermediary/assembly.formatted.fa	export PERL5LIB=$CONDA_PREFIX/lib/site_perl/5.26.2;         export LC_ALL=en_US.utf-8; 	/home/parallels/local_tools/binny/workflow/bin/prokkaP --dbdir $CONDA_PREFIX/db --force --outdir intermediary/ --tmpdir /home/parallels/local_tools/binny/test_output/tmp --prefix prokka --noanno --cpus 11 --metagenome intermediary/assembly.formatted.fa >> logs/analysis_annotate.log 2>&1; ; 	# Prokka gives a gff file with a long header and with all the contigs at the bottom.  The command below keeps only the gff table.; ;         LN=`grep -Hn "^>" intermediary/prokka.gff | head -n1 | cut -f2 -d ":" || if [[ $? -eq 141 ]]; then true; else exit $?; fi`;         LN1=1;         LN=$(($LN-$LN1));         head -n $LN intermediary/prokka.gff | grep -v "^#" | sort | uniq | grep -v "^==" > intermediary/annotation.filt.gff	ok	no update
+intermediary/assembly.formatted.fa	Thu Feb  3 15:49:28 2022	format_assembly	-		intermediary/assembly.fa	fasta_formatter -i intermediary/assembly.fa -o intermediary/assembly.formatted.fa -w 80	ok	no update
+intermediary/mantis_out/output_annotation.tsv	Thu Feb  3 15:52:12 2022	mantis_checkm_marker_sets	-	logs/analysis_checkm_markers.log	intermediary/prokka.faa	if [ -d intermediary/mantis_out ]; then rm intermediary/mantis_out/* || true ; fi >> logs/analysis_checkm_markers.log 2>&1;         python /home/parallels/local_tools/binny/workflow/bin/mantis/ run_mantis -i intermediary/prokka.faa -da heuristic -mc /home/parallels/local_tools/binny/workflow/bin/mantis/MANTIS.config                                            -o intermediary/mantis_out -c 11 -et 1e-3 >> logs/analysis_checkm_markers.log 2>&1	ok	no update
+intermediary/mantis_out/integrated_annotation.tsv	Thu Feb  3 15:52:12 2022	mantis_checkm_marker_sets	-	logs/analysis_checkm_markers.log	intermediary/prokka.faa	if [ -d intermediary/mantis_out ]; then rm intermediary/mantis_out/* || true ; fi >> logs/analysis_checkm_markers.log 2>&1;         python /home/parallels/local_tools/binny/workflow/bin/mantis/ run_mantis -i intermediary/prokka.faa -da heuristic -mc /home/parallels/local_tools/binny/workflow/bin/mantis/MANTIS.config                                            -o intermediary/mantis_out -c 11 -et 1e-3 >> logs/analysis_checkm_markers.log 2>&1	ok	no update
+intermediary/mantis_out/consensus_annotation.tsv	Thu Feb  3 15:52:12 2022	mantis_checkm_marker_sets	-	logs/analysis_checkm_markers.log	intermediary/prokka.faa	if [ -d intermediary/mantis_out ]; then rm intermediary/mantis_out/* || true ; fi >> logs/analysis_checkm_markers.log 2>&1;         python /home/parallels/local_tools/binny/workflow/bin/mantis/ run_mantis -i intermediary/prokka.faa -da heuristic -mc /home/parallels/local_tools/binny/workflow/bin/mantis/MANTIS.config                                            -o intermediary/mantis_out -c 11 -et 1e-3 >> logs/analysis_checkm_markers.log 2>&1	ok	no updateunlocking
+removing lock
+removing lock
+removed all locks
+
+Building DAG of jobs...
+Creating report...
+Missing metadata for file bins. Maybe metadata was deleted or it was created using an older version of Snakemake. This is a non critical warning.
+Missing metadata for file intermediary/assembly_contig_depth.txt. Maybe metadata was deleted or it was created using an older version of Snakemake. This is a non critical warning.
+Missing metadata for file intermediary/assembly_contig_depth_reads_3bins4.txt. Maybe metadata was deleted or it was created using an older version of Snakemake. This is a non critical warning.
+Missing metadata for file intermediary/assembly_contig_depth_reads_3bins2.txt. Maybe metadata was deleted or it was created using an older version of Snakemake. This is a non critical warning.
+Missing metadata for file intermediary/assembly_contig_depth_reads_3bins.txt. Maybe metadata was deleted or it was created using an older version of Snakemake. This is a non critical warning.
+Missing metadata for file intermediary/assembly_contig_depth_reads_3bins3.txt. Maybe metadata was deleted or it was created using an older version of Snakemake. This is a non critical warning.
+Downloading resources and rendering HTML.
+Report created: report.html.
+unlocking
+removing lock
+removing lock
+removed all locks
+['/home/parallels/local_tools/binny/test/reads_3bins4.bam', '/home/parallels/local_tools/binny/test/reads_3bins2.bam', '/home/parallels/local_tools/binny/test/reads_3bins.bam', '/home/parallels/local_tools/binny/test/reads_3bins3.bam']
+['reads_3bins4', 'reads_3bins2', 'reads_3bins', 'reads_3bins3']
+Running workflow in current session - don't use this setting except with small datasets and databases.
+Building DAG of jobs...
+Using shell: /usr/bin/bash
+Provided cores: 11
+Rules claiming more threads will be scaled down.
+Job stats:
+job                    count    min threads    max threads
+-------------------  -------  -------------  -------------
+ALL                        1              1              1
+binny                      1             11             11
+call_contig_depth          1              8              8
+merge_contig_depths        1              1              1
+total                      4              1             11
+
+Resources before job selection: {'_cores': 11, '_nodes': 9223372036854775807}
+Ready jobs (1):
+	call_contig_depth
+Select jobs to execute...
+Using greedy selector because only single job has to be scheduled.
+Selected jobs (1):
+	call_contig_depth
+Resources after job selection: {'_cores': 3, '_nodes': 9223372036854775806}
+
+[Thu Feb  3 16:38:11 2022]
+Job 3: call_contig_depth: Getting data on assembly coverage with mg reads.
+
+Full Traceback (most recent call last):
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/snakemake/utils.py", line 430, in format
+    return fmt.format(_pattern, *args, **variables)
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/string.py", line 161, in format
+    return self.vformat(format_string, args, kwargs)
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/string.py", line 165, in vformat
+    result, _ = self._vformat(format_string, args, kwargs, used_args, 2)
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/string.py", line 205, in _vformat
+    obj, arg_used = self.get_field(field_name, args, kwargs)
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/string.py", line 270, in get_field
+    obj = self.get_value(first, args, kwargs)
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/string.py", line 227, in get_value
+    return kwargs[key]
+KeyError: 'mappings_id'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/snakemake/jobs.py", line 869, in format_wildcards
+    return format(string, **_variables)
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/snakemake/utils.py", line 437, in format
+    raise NameError(
+NameError: The name 'mappings_id' is unknown in this context. Please make sure that you defined that variable. Also note that braces not used for variable access have to be escaped by repeating them, i.e. {{print $1}}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/snakemake/__init__.py", line 699, in snakemake
+    success = workflow.execute(
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/snakemake/workflow.py", line 1069, in execute
+    success = self.scheduler.schedule()
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/snakemake/scheduler.py", line 516, in schedule
+    self.run(runjobs)
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/snakemake/scheduler.py", line 563, in run
+    executor.run_jobs(
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/snakemake/executors/__init__.py", line 149, in run_jobs
+    self.run(
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/snakemake/executors/__init__.py", line 463, in run
+    super()._run(job)
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/snakemake/executors/__init__.py", line 243, in _run
+    super()._run(job)
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/snakemake/executors/__init__.py", line 169, in _run
+    self.printjob(job)
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/snakemake/executors/__init__.py", line 175, in printjob
+    job.log_info(skip_dynamic=True)
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/snakemake/jobs.py", line 950, in log_info
+    logger.shellcmd(self.shellcmd, indent=indent)
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/snakemake/jobs.py", line 418, in shellcmd
+    self.format_wildcards(self.rule.shellcmd)
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/snakemake/jobs.py", line 871, in format_wildcards
+    raise RuleException("NameError: " + str(ex), rule=self.rule)
+snakemake.exceptions.RuleException: NameError: The name 'mappings_id' is unknown in this context. Please make sure that you defined that variable. Also note that braces not used for variable access have to be escaped by repeating them, i.e. {{print $1}}
+
+RuleException in line 233 of /home/parallels/local_tools/binny/Snakefile:
+NameError: The name 'mappings_id' is unknown in this context. Please make sure that you defined that variable. Also note that braces not used for variable access have to be escaped by repeating them, i.e. {{print $1}}
+unlocking
+removing lock
+removing lock
+removed all locks
+['/home/parallels/local_tools/binny/test/reads_3bins4.bam', '/home/parallels/local_tools/binny/test/reads_3bins2.bam', '/home/parallels/local_tools/binny/test/reads_3bins.bam', '/home/parallels/local_tools/binny/test/reads_3bins3.bam']
+['reads_3bins4', 'reads_3bins2', 'reads_3bins', 'reads_3bins3']
+Building DAG of jobs...
+Creating report...
+Missing metadata for file bins. Maybe metadata was deleted or it was created using an older version of Snakemake. This is a non critical warning.
+Missing metadata for file intermediary/assembly_contig_depth.txt. Maybe metadata was deleted or it was created using an older version of Snakemake. This is a non critical warning.
+Missing metadata for file intermediary/assembly_contig_depth_reads_3bins4.txt. Maybe metadata was deleted or it was created using an older version of Snakemake. This is a non critical warning.
+Missing metadata for file intermediary/assembly_contig_depth_reads_3bins2.txt. Maybe metadata was deleted or it was created using an older version of Snakemake. This is a non critical warning.
+Missing metadata for file intermediary/assembly_contig_depth_reads_3bins.txt. Maybe metadata was deleted or it was created using an older version of Snakemake. This is a non critical warning.
+Missing metadata for file intermediary/assembly_contig_depth_reads_3bins3.txt. Maybe metadata was deleted or it was created using an older version of Snakemake. This is a non critical warning.
+Full Traceback (most recent call last):
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/snakemake/__init__.py", line 699, in snakemake
+    success = workflow.execute(
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/snakemake/workflow.py", line 884, in execute
+    auto_report(dag, report, stylesheet=report_stylesheet)
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/snakemake/report/__init__.py", line 870, in auto_report
+    template = env.get_template("report.html.jinja2")
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/jinja2/environment.py", line 997, in get_template
+    return self._load_template(name, globals)
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/jinja2/environment.py", line 958, in _load_template
+    template = self.loader.load(self, name, self.make_globals(globals))
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/jinja2/loaders.py", line 137, in load
+    code = environment.compile(source, name, filename)
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/jinja2/environment.py", line 750, in compile
+    source = self._generate(source, name, filename, defer_init=defer_init)
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/jinja2/environment.py", line 678, in _generate
+    return generate(  # type: ignore
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/jinja2/compiler.py", line 117, in generate
+    generator.visit(node)
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/jinja2/visitor.py", line 40, in visit
+    return f(node, *args, **kwargs)
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/jinja2/compiler.py", line 888, in visit_Template
+    self.blockvisit(node.body, frame)
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/jinja2/compiler.py", line 449, in blockvisit
+    self.visit(node, frame)
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/jinja2/visitor.py", line 40, in visit
+    return f(node, *args, **kwargs)
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/jinja2/compiler.py", line 1507, in visit_Output
+    const = self._output_child_to_const(child, frame, finalize)
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/jinja2/compiler.py", line 1441, in _output_child_to_const
+    const = node.as_const(frame.eval_ctx)
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/jinja2/nodes.py", line 799, in as_const
+    return super().as_const(eval_ctx=eval_ctx)
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/jinja2/nodes.py", line 780, in as_const
+    return func(*args, **kwargs)
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/snakemake/report/__init__.py", line 591, in get_resource_as_string
+    r = requests.get(url)
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/requests/api.py", line 75, in get
+    return request('get', url, params=params, **kwargs)
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/requests/api.py", line 61, in request
+    return session.request(method=method, url=url, **kwargs)
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/requests/sessions.py", line 529, in request
+    resp = self.send(prep, **send_kwargs)
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/requests/sessions.py", line 645, in send
+    r = adapter.send(request, **kwargs)
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/requests/adapters.py", line 440, in send
+    resp = conn.urlopen(
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/urllib3/connectionpool.py", line 703, in urlopen
+    httplib_response = self._make_request(
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/urllib3/connectionpool.py", line 386, in _make_request
+    self._validate_conn(conn)
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/urllib3/connectionpool.py", line 1040, in _validate_conn
+    conn.connect()
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/urllib3/connection.py", line 358, in connect
+    conn = self._new_conn()
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/urllib3/connection.py", line 174, in _new_conn
+    conn = connection.create_connection(
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/site-packages/urllib3/util/connection.py", line 72, in create_connection
+    for res in socket.getaddrinfo(host, port, family, socket.SOCK_STREAM):
+  File "/home/parallels/local_tools/binny/conda/snakemake_env/lib/python3.10/socket.py", line 955, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+KeyboardInterrupt
+
+Cancelling snakemake on user request.
+unlocking
+removing lock
+removing lock
+removed all locks
+['/home/parallels/local_tools/binny/test/reads_3bins4.bam', '/home/parallels/local_tools/binny/test/reads_3bins2.bam', '/home/parallels/local_tools/binny/test/reads_3bins.bam', '/home/parallels/local_tools/binny/test/reads_3bins3.bam']
+['reads_3bins4', 'reads_3bins2', 'reads_3bins', 'reads_3bins3']

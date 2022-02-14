@@ -1,0 +1,8 @@
+name: fasta_processing
+channels:
+  - biobuilds
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - fastx-toolkit=0.0.14

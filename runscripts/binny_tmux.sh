@@ -47,12 +47,12 @@ do
         h)
             usage
             exit;;
-        *)  
-            echo "Unimplemented option: -$OPTARG" >&2 
+        *)
+            echo "Unimplemented option: -$OPTARG" >&2
             usage
             exit 1;;
-        :) 
-            echo "Missing option argument for -$OPTARG" >&2 
+        :)
+            echo "Missing option argument for -$OPTARG" >&2
             usage
             exit 1;;
         ?)
@@ -148,7 +148,7 @@ checkm_filtered_tf_weight=0.5\ncustom_ref=${DB_PATH}/hmms/checkm_pf/checkm_filte
       env_name=$(head -n 1 ${i} | cut -d' ' -f2)
       if [[ ${env_name} == 'mantis_env' ]]; then
         mantis_env=$(basename -s .yaml ${i})
-      elif [[ ${env_name} == 'py_binny_linux' ]]; then
+      elif [[ ${env_name} == 'binny_linux' ]]; then
         binny_env=$(basename -s .yaml ${i})
       fi
     done
@@ -216,13 +216,13 @@ elif [ "$LAPTOP" = true ]; then
     eval $LOADING_MODULES
     eval $CONDA_START
     if [ "$REPORT" = true ]; then
-        snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS -s $DIR/Snakefile --keep-going --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda 
-        snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS -s $DIR/Snakefile --configfile $CONFIGFILE --use-conda --conda-prefix $DIR/conda --report report.html 
+        snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS -s $DIR/Snakefile --keep-going --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda
+        snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS -s $DIR/Snakefile --configfile $CONFIGFILE --use-conda --conda-prefix $DIR/conda --report report.html
         eval $CONDA_END
     else
-        snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS -s $DIR/Snakefile --keep-going --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda 
+        snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS -s $DIR/Snakefile --keep-going --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda
         eval $CONDA_END
-    fi    
+    fi
 elif [ "$REPORT" = true ]; then
     echo "Writing report."
     eval $LOADING_MODULES
@@ -232,5 +232,3 @@ elif [ "$REPORT" = true ]; then
 else
     echo "Nothing was done, please give -u, -d, -r, -c, -f, -i, or -l to start anything."
 fi
-
-

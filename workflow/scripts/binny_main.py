@@ -83,8 +83,8 @@ logging.info(f'Calculating N{x}'.format(len(single_contig_bins)))
 nx = calc_assembly_nx(assembly_dict, single_contig_bins, x)
 nx2 = calc_assembly_nx(assembly_dict, [], x)
 logging.info(f'N{x} is {nx}, with scMAGs would be {nx2}.'.format(len(single_contig_bins)))
-min_contig_length = min(max(nx, 500), 3000)
-min_marker_contig_length = min(max(nx / 2, 300), 500)
+min_contig_length = min(max(nx, 500), 2000)
+min_marker_contig_length = min(max(nx / 2, 200), 300)
 
 # Load assembly and mask rRNAs and CRISPR arrays
 contig_list = [[contig] + [seq] for contig, seq in assembly_dict.items() if (len(seq) >= min_contig_length
@@ -146,10 +146,10 @@ for contig, k_freq in main_contig_data_dict.items():
                                   'k-mer_freqs': ';'.join([str(k) for k in list(k_freq)]),
                                   'depths': ';'.join([str(d) for d in list(depth_dict.get(contig))])}
 
-compression_opts = dict(method='zip', archive_name='contig_data.tsv')  
+compression_opts = dict(method='zip', archive_name='contig_data.tsv')
 
 contig_data_df = pd.DataFrame.from_dict(all_cont_data_dict, orient='index', columns=['bin', 'k-mer_freqs', 'depths'])
 
-contig_data_df.to_csv('contig_data.zip', header=True, index=True, index_label='contig', chunksize=1000, compression=compression_opts, sep='\t')  
+contig_data_df.to_csv('contig_data.zip', header=True, index=True, index_label='contig', chunksize=1000, compression=compression_opts, sep='\t')
 
 logging.info('Run finished.')

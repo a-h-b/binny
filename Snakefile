@@ -56,10 +56,10 @@ else:
         MGaln = [os.path.expandvars(path) for path in glob.glob(config['raws']['metagenomics_alignment'])]
     else:
         MGaln = [os.path.join(os.getcwd(), os.path.expandvars(path)) for path in glob.glob(config['raws']['metagenomics_alignment'])]
-    print(MGaln)
+    # print(MGaln)
     # Get filenames of all bam files without extension, even if the name contains '.'
     mappings_ids = ['.'.join(bam.split('/')[-1].split('.')[:-1]) for bam in MGaln]
-    print(mappings_ids)
+    # print(mappings_ids)
     # ????:
     # Note that if a rule has multiple output files, Snakemake requires them to all have exactly the same wildcards.
     # Otherwise, it could happen that two jobs running the same rule in parallel want to write to the same file.
@@ -67,7 +67,7 @@ else:
     # The best solution is to have a dictionary that translates a sample id to the inconsistently named files and
     # use a function (see Functions as Input Files) to provide an input file ...
     garbage_dict_so_snakemake_gets_it = {map_id: 'sample_%06.d' % (index + 1) for index, map_id in enumerate(mappings_ids)}
-    print(garbage_dict_so_snakemake_gets_it)
+    # print(garbage_dict_so_snakemake_gets_it)
 
 # hardware parameters
 MEMCORE = str(config['mem']['normal_mem_per_core_gb']) + "G"
@@ -188,7 +188,7 @@ rule format_assembly:
         mem = MEMCORE
     message: "Preparing assembly."
     conda:
-       os.path.join(ENVDIR, "IMP_fasta_no_v.yaml")
+       os.path.join(ENVDIR, "fasta_processing.yaml")
     shell:
        "fasta_formatter -i {input} -o {output} -w 80"
 
@@ -218,7 +218,7 @@ if not CONTIG_DEPTH:
             # getThreads(2) if BIGMEMCORE else getThreads(8)
             max(1, int(workflow.cores / len(mappings_ids)))
         conda:
-            os.path.join(ENVDIR, "IMP_mapping.yaml")
+            os.path.join(ENVDIR, "mapping.yaml")
         log: "logs/analysis_call_contig_depth_{sample}.log"
         message: "call_contig_depth: Getting data on assembly coverage with mg reads."
         shell:
@@ -245,7 +245,7 @@ if not CONTIG_DEPTH:
         threads:
             getThreads(1)
         conda:
-            os.path.join(ENVDIR, "IMP_mapping.yaml")
+            os.path.join(ENVDIR, "mapping.yaml")
         log: "logs/merge_contig_depth.log"
         message: "Merging depth files."
         shell:
@@ -285,7 +285,7 @@ rule annotate:
     log: "logs/analysis_annotate.log"
     benchmark: "logs/analysis_annotate_benchmark.txt"
     conda:
-        os.path.join(ENVDIR, "IMP_annotation.yaml")
+        os.path.join(ENVDIR, "prokka.yaml")
     message: "annotate: Running prokkaP."
     shell:
         """
@@ -309,14 +309,14 @@ rule mantis_checkm_marker_sets:
         "intermediary/mantis_out/output_annotation.tsv",
         "intermediary/mantis_out/integrated_annotation.tsv",
         "intermediary/mantis_out/consensus_annotation.tsv"
+    params:
+        binny_cfg=srcdir("config/binny_mantis.cfg")
     resources:
         runtime = "48:00:00",
         mem = MEMCORE
     conda:
-        os.path.join(BINDIR, "mantis/mantis_env.yml")
+        os.path.join(ENVDIR, "mantis.yaml")
     threads:
-        # getThreads(20)
-        # getThreads(14)
         workflow.cores
     log: "logs/analysis_checkm_markers.log"
     benchmark: "logs/analysis_checkm_markers_benchmark.txt"
@@ -324,8 +324,12 @@ rule mantis_checkm_marker_sets:
     shell:
         """
         if [ -d intermediary/mantis_out ]; then rm intermediary/mantis_out/* || true ; fi >> {log} 2>&1
-        python {BINDIR}/mantis/ run_mantis -i {input[0]} -da heuristic -mc {BINDIR}/mantis/MANTIS.config \
-                                           -o intermediary/mantis_out -c {threads} -et 1e-3 >> {log} 2>&1
+        mantis run -i {input[0]} \
+                   -da heuristic \
+                   -mc {params.binny_cfg} \
+                   -o intermediary/mantis_out \
+                   -c {threads} \
+                   -et 1e-3 >> {log} 2>&1
         """
 
 rule binny:
@@ -364,7 +368,7 @@ rule binny:
         # getThreads(2) if BIGMEMCORE else getThreads(20)
         workflow.cores
     conda:
-        os.path.join(ENVDIR, "py_binny_linux.yaml")
+        os.path.join(ENVDIR, "binny_linux.yaml")
     log: "logs/binning_binny.log"
     benchmark: "logs/binning_binny_benchmark.txt"
     message: "binny: Running Python Binny."

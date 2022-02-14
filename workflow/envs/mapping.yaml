@@ -1,0 +1,11 @@
+name: mapping
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - bcftools=1.9
+  - bedtools=2.29.2
+  - samtools=1.9
+  - vcftools=0.1.16
+  - bwa=0.7.17
