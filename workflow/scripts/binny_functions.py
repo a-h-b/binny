@@ -270,7 +270,7 @@ def gather_cluster_data(cluster, cluster_dict, marker_sets_graph, tigrfam2pfam_d
     cluster_essential_genes = [gene for genes in cluster_dict.get(cluster, {}).get('essential')
                                for gene in genes.split(',') if not gene == 'non_essential']
     if cluster_essential_genes:
-        marker_set = chose_checkm_marker_set(cluster_essential_genes, marker_sets_graph, tigrfam2pfam_data_dict)
+        marker_set = choose_checkm_marker_set(cluster_essential_genes, marker_sets_graph, tigrfam2pfam_data_dict)
         taxon, cluster_completeness, cluster_purity = marker_set[0], round(marker_set[1], 3), round(marker_set[2], 3)
     else:
         cluster_purity = 0
@@ -355,6 +355,23 @@ def get_sub_clusters(cluster_dicts, threads_for_dbscan, marker_sets_graph, tigrf
         cluster_dict[cluster]['purity'] = clust_pur
         cluster_dict[cluster]['completeness'] = clust_comp
         cluster_dict[cluster]['taxon'] = clust_taxon
+
+        if 0.850 < clust_comp <= 0.900:
+            if purity_threshold < 0.875:
+                purity_threshold = 0.875
+        elif 0.750 < clust_comp <= 0.850:
+            if purity_threshold < 0.900:
+                purity_threshold = 0.900
+        elif 0.700 < clust_comp <= 0.750:
+            if purity_threshold < 0.950:
+                purity_threshold = 0.950
+        elif clust_comp <= 0.700:
+            if purity_threshold < 0.975:
+                purity_threshold = 0.975
+
+        if clust_taxon == 'Bacteria':
+            if purity_threshold < 0.975:
+                purity_threshold += 0.025
 
         if clust_pur < purity_threshold and isinstance(clust_pur, float) and clust_comp >= completeness_threshold:
             logging.debug('Cluster {0} below purity of {1} with {2} and matches completeness of {3} with {4}. '
@@ -870,7 +887,7 @@ def asses_contig_completeness_purity(essential_gene_lol, n_dims, marker_sets_gra
     single_contig_bins = []
     for contig_data in essential_gene_lol:
         all_ess = contig_data[1]
-        marker_set = chose_checkm_marker_set(all_ess, marker_sets_graph, tigrfam2pfam_data_dict)
+        marker_set = choose_checkm_marker_set(all_ess, marker_sets_graph, tigrfam2pfam_data_dict)
         taxon, comp, pur = marker_set[0], marker_set[1], marker_set[2]
         if pur > 0.85 and comp > 0.90:
             bin_dict = {contig_data[0]: {'depth1': np.array([None]), 'contigs': np.array([contig_data[0]]),
@@ -946,7 +963,7 @@ def load_checkm_markers(marker_file):
     return tms_data
 
 
-def chose_checkm_marker_set(marker_list, marker_sets_graph, tigrfam2pfam_data_dict):
+def choose_checkm_marker_set(marker_list, marker_sets_graph, tigrfam2pfam_data_dict):
     nodes = [n for n, d in marker_sets_graph.in_degree() if d == 0]
     current_node = nodes[0]
     previous_nodes = None
@@ -986,6 +1003,9 @@ def chose_checkm_marker_set(marker_list, marker_sets_graph, tigrfam2pfam_data_di
             node_marker_set_completeness = len(node_marker_sets_set) / marker_sets_graph.nodes.data()[node][
                 'marker_groups']
             node_marker_set_purity = len(set(node_markers_list)) / len(node_markers_list)
+            if node == 'Bacteria':
+                node_marker_set_completeness -= 0.025
+                node_marker_set_purity -= 0.025
             if node_marker_set_completeness > 1:
                 logging.warning(node, round(node_marker_set_completeness, 3), round(node_marker_set_purity, 3))
                 logging.warning(len(node_marker_sets_set), marker_sets_graph.nodes.data()[node]['marker_groups'])
@@ -1102,15 +1122,16 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
                         tigrfam2pfam_data, main_contig_data_dict, assembly_dict, max_contig_threshold=3.5e5,
                         tsne_early_exag_iterations=250, tsne_main_iterations=750, internal_min_marker_cont_size=0,
                         include_depth_initial=False, max_embedding_tries=50, include_depth_main=True,
-                        hdbscan_epsilon=0.25, hdbscan_min_samples=2, dist_metric='manhattan',
+                        hdbscan_epsilon_range=[0.000, 0.250], hdbscan_min_samples=2, dist_metric='manhattan',
                         contigs2clusters_out_path='intermediary'):
     np.random.seed(0)
     embedding_tries = 1
     internal_completeness = starting_completeness
     final_try_counter = 0
     tsne_perp_ind = 0
-    perp_range = [45, 5, 30, 10]
+    perp_range = list(range(25, 36))  # [30, 15] list(range(10, 21))
     pk_factor = 1
+    hdbscan_epsilon = hdbscan_epsilon_range[0]
     learning_rate_factor = 12
     while embedding_tries <= max_embedding_tries:
         if embedding_tries == 1:
@@ -1226,6 +1247,12 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         if embedding_tries == 1:
             contig_data_df_org = contig_data_df.copy()
 
+        if embedding_tries > 1:
+            if hdbscan_epsilon < hdbscan_epsilon_range[1]:
+                hdbscan_epsilon += 0.125
+            else:
+                hdbscan_epsilon = hdbscan_epsilon_range[0]
+
         # Find bins
         good_bins, final_init_clust_dict = binny_iterate(contig_data_df, threads, taxon_marker_sets, tigrfam2pfam_data,
                                                          min_purity, internal_completeness, 1,
@@ -1239,30 +1266,30 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
 
         logging.info('Good bins this embedding iteration: {0}.'.format(len(good_bins.keys())))
 
-        if not list(good_bins.keys()) and internal_completeness > min_completeness and final_try_counter == 0:
-            internal_completeness -= 5
-            if 80 < internal_completeness <= 85:
-                if min_purity < 87.5:
-                    min_purity = 87.5
-            elif 75 < internal_completeness <= 80:
-                if min_purity < 90:
-                    min_purity = 90
-            elif internal_completeness <= 75:
-                if min_purity < 95:
-                    min_purity = 95
+        if len(list(good_bins.keys())) < 3 and internal_completeness > min_completeness and final_try_counter == 0:
+            internal_completeness -= 2.5
+            # if 80 < internal_completeness <= 85:
+            #     if min_purity < 87.5:
+            #         min_purity = 87.5
+            # elif 75 < internal_completeness <= 80:
+            #     if min_purity < 90:
+            #         min_purity = 90
+            # elif internal_completeness <= 75:
+            #     if min_purity < 95:
+            #         min_purity = 95
             logging.info('Found no good bins. Minimum completeness lowered to {0},'
                          ' minimum purity is {1}.'.format(internal_completeness, min_purity))
-        elif not list(good_bins.keys()) and final_try_counter <= 4 \
+        elif len(list(good_bins.keys())) < 3 and final_try_counter <= 10 \
                 and not internal_min_marker_cont_size > prev_round_internal_min_marker_cont_size:
-            internal_min_marker_cont_size = 2500 - 500 * final_try_counter
+            internal_min_marker_cont_size = 2500 - 250 * final_try_counter
             final_try_counter += 1
             internal_completeness = 80
-            min_purity = 90
+            # min_purity = 90
             logging.info('Running with contigs >= {0}bp,'
                          ' minimum completeness {1}, and minimum purity {2}.'.format(internal_min_marker_cont_size,
                                                                                      internal_completeness, min_purity))
-        elif not list(good_bins.keys()):
-            logging.info('Reached min completeness and found no more bins. Exiting embedding iteration')
+        elif len(list(good_bins.keys())) < 2:
+            logging.info('Reached min completeness and min contig size. Exiting embedding iteration')
             break
 
         prev_round_internal_min_marker_cont_size = internal_min_marker_cont_size

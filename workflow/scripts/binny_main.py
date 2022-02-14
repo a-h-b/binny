@@ -29,7 +29,7 @@ tsne_early_exag_iterations = int(snakemake.params['tsne_early_exag_iterations'])
 tsne_main_iterations = int(snakemake.params['tsne_main_iterations'])
 include_depth_initial = eval(snakemake.params['include_depth_initial'])
 include_depth_main = eval(snakemake.params['include_depth_main'])
-hdbscan_epsilon = float(snakemake.params['hdbscan_epsilon'])
+hdbscan_epsilon_range = [float(epsilon) for epsilon in snakemake.params['hdbscan_epsilon_range'].split(',')]
 hdbscan_min_samples = int(snakemake.params['hdbscan_min_samples'])
 dist_metric = snakemake.params['distance_metric']
 
@@ -123,7 +123,7 @@ all_good_bins, contig_data_df_org = iterative_embedding(x_contigs, depth_dict, a
                                                         max_contig_threshold, tsne_early_exag_iterations,
                                                         tsne_main_iterations, min_marker_contig_length,
                                                         include_depth_initial, max_embedding_tries,
-                                                        include_depth_main, hdbscan_epsilon,
+                                                        include_depth_main, hdbscan_epsilon_range,
                                                         hdbscan_min_samples, dist_metric,
                                                         contigs2clusters_out_path='intermediary')
 

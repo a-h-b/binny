@@ -355,7 +355,7 @@ rule binny:
         include_depth_initial=config["binning"]["binny"]["clustering"]["include_depth_initial"],
         include_depth_main=config["binning"]["binny"]["clustering"]["include_depth_main"],
         hdbscan_min_samples=config["binning"]["binny"]["clustering"]["hdbscan_min_samples"],
-        hdbscan_epsilon=config["binning"]["binny"]["clustering"]["hdbscan_epsilon"],
+        hdbscan_epsilon_range=config["binning"]["binny"]["clustering"]["hdbscan_epsilon_range"],
         gff="intermediary/annotation_CDS_RNA_hmms_checkm.gff",
     resources:
         runtime = "12:00:00",
