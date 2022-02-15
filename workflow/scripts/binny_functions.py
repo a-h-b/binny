@@ -19,7 +19,7 @@ import pandas as pd
 import seaborn as sns
 from joblib import parallel_backend, Parallel, delayed
 from mpl_toolkits.mplot3d import Axes3D
-from skbio.stats.composition import clr, multiplicative_replacement
+# from skbio.stats.composition import clr, multiplicative_replacement
 from sklearn.decomposition import PCA
 from sklearn.neighbors import KNeighborsClassifier
 
@@ -1191,11 +1191,12 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
 
         round_x_depth = np.array([depth_dict[contig] for contig in round_x_contigs])
 
-        # Replace zeroes for clr
-        round_x = multiplicative_replacement(round_x)
-        # Clr transform
-        x_scaled = clr(round_x)
-        x_scaled = np.concatenate([round_x_depth, x_scaled], axis=1)
+        # # Replace zeroes for clr
+        # round_x = multiplicative_replacement(round_x)
+        # # Clr transform
+        # x_scaled = clr(round_x)
+        # x_scaled = np.concatenate([round_x_depth, x_scaled], axis=1)
+        x_scaled = round_x
 
         # Manifold learning and dimension reduction.
         logging.info('Running manifold learning and dimension reduction.')

@@ -329,6 +329,7 @@ rule mantis_checkm_marker_sets:
                    -mc {params.binny_cfg} \
                    -o intermediary/mantis_out \
                    -c {threads} \
+                    --no_taxonomy \
                    -et 1e-3 >> {log} 2>&1
         """
 

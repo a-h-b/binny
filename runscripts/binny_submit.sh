@@ -111,16 +111,6 @@ elif [ "$DRYRUN" = true ]; then
 elif [ "$INITIAL" = true ]; then
     eval $LOADING_MODULES
     eval $CONDA_START
-    # echo 'Getting MANTIS'
-    # # Get Mantis release 1.3
-    # curl -L https://github.com/PedroMTQ/mantis/archive/refs/tags/1.3.zip --output $DIR/workflow/bin/mantis.zip
-    # unzip -q $DIR/workflow/bin/mantis.zip -d $DIR/workflow/bin/ && mv $DIR/workflow/bin/mantis-1.3 $DIR/workflow/bin/mantis \
-    #  && rm $DIR/workflow/bin/mantis.zip
-    # echo 'Getting UniFunc'
-    # # Get UniFunc release 1.1
-    # curl -L https://github.com/PedroMTQ/UniFunc/archive/refs/tags/1.1.zip  --output $DIR/workflow/bin/unifunc.zip
-    # unzip -q $DIR/workflow/bin/unifunc.zip -d $DIR/workflow/bin/ && mv $DIR/workflow/bin/UniFunc-1.1 \
-    #  $DIR/workflow/bin/mantis/Resources/UniFunc && rm $DIR/workflow/bin/unifunc.zip
     echo "Initializing conda environments."
     snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --verbose --cores 1 -s $DIR/Snakefile --conda-create-envs-only --use-conda \
               --conda-prefix $DIR/conda --local-cores 1 --configfile $CONFIGFILE
@@ -141,31 +131,24 @@ elif [ "$INITIAL" = true ]; then
         binny_env=$(basename -s .yaml ${i})
       fi
     done
-    echo "Installing opt-SNE."
-    git clone https://github.com/omiq-ai/Multicore-opt-SNE.git $DIR/workflow/bin/Multicore-opt-SNE
-    conda activate ${DIR}/conda/${binny_env}
-    conda install -c anaconda cmake --yes
-    cd $DIR/workflow/bin/Multicore-opt-SNE
-    sed -i -e "s|auto_iter_buffer_ee = 15|auto_iter_buffer_ee = 30|g" \
-           -e "s|auto_iter_buffer_run = 15|auto_iter_buffer_run = 30|g" \
-           -e "s|auto_iter_ee_switch_buffer = 2|auto_iter_ee_switch_buffer = 4|g" multicore_tsne/tsne.cpp
-    # Get rid of line that results in cmake crash
-    sed -i '55d' setup.py
-    ${DIR}/conda/${binny_env}/bin/pip install .
-    ${DIR}/conda/${binny_env}/bin/python setup.py build
-    cp build/lib.linux-x86_64-*/MulticoreTSNE/libtsne_multicore.so MulticoreTSNE
-    cd $DIR
-    conda deactivate
+    if [ ! "$(ls -A $DIR/workflow/bin/Multicore-opt-SNE)" ]; then
+      echo "Installing opt-SNE."
+      git clone https://github.com/omiq-ai/Multicore-opt-SNE.git $DIR/workflow/bin/Multicore-opt-SNE
+      conda activate ${DIR}/conda/${binny_env}
+      conda install -c anaconda cmake --yes
+      cd $DIR/workflow/bin/Multicore-opt-SNE
+      sed -i -e "s|auto_iter_buffer_ee = 15|auto_iter_buffer_ee = 30|g" \
+             -e "s|auto_iter_buffer_run = 15|auto_iter_buffer_run = 30|g" \
+             -e "s|auto_iter_ee_switch_buffer = 2|auto_iter_ee_switch_buffer = 4|g" multicore_tsne/tsne.cpp
+      # Get rid of line that results in cmake crash
+      sed -i '55d' setup.py
+      ${DIR}/conda/${binny_env}/bin/pip install .
+      ${DIR}/conda/${binny_env}/bin/python setup.py build
+      cp build/lib.linux-x86_64-*/MulticoreTSNE/libtsne_multicore.so MulticoreTSNE
+      cd $DIR
+      conda deactivate
+    fi
     echo "Setting up Mantis with the CheckM databases"
-    sed -i -e "s|\#nog_ref_folder\=|nog_ref_folder=NA|g" \
-           -e "s|\#pfam_ref_folder\=|pfam_ref_folder=NA|g" \
-           -e "s|\#kofam_ref_folder\=|kofam_ref_folder=NA|g" \
-           -e "s|\#ncbi_ref_folder\=|ncbi_ref_folder=NA|g" \
-           -e "s|\#ncbi_dmp_path_folder\=|ncbi_dmp_path_folder=NA|g" \
-           -e "s|\#tcdb_ref_folder\=|tcdb_ref_folder=NA|g" \
-           -e "s|\#custom_ref\=path\/to\/hmm/custom1\.hmm|custom_ref=${DB_PATH}/hmms/checkm_tf/checkm_filtered_tf.hmm\n\
-checkm_filtered_tf_weight=0.5\ncustom_ref=${DB_PATH}/hmms/checkm_pf/checkm_filtered_pf.hmm\ncheckm_filtered_pf_weight=1|g" \
-           {DIR}/conda/${mantis_env}/lib/python3.9/site-packages/config/MANTIS.cfg
     conda activate ${DIR}/conda/${mantis_env}
     # Make sure a compiler for cython is available
     if ! [ -x "$(command -v gcc)" ]; then
@@ -177,8 +160,9 @@ checkm_filtered_tf_weight=0.5\ncustom_ref=${DB_PATH}/hmms/checkm_pf/checkm_filte
     hmmpress database/hmms/checkm_tf/checkm_filtered_tf.hmm
     hmmpress database/hmms/checkm_pf/checkm_filtered_pf.hmm
     # python ${DIR}/workflow/bin/mantis/ check_installation
-    mantis setup
-    mantis  check
+    sed -e "s|__PATH_TO_DB__|${DIR}|g" ${DIR}/config/binny_mantis_template.cfg > ${DIR}/config/binny_mantis.cfg
+    mantis setup -mc ${DIR}/config/binny_mantis.cfg --chunk_size 1200 --no_taxonomy
+    mantis check -mc ${DIR}/config/binny_mantis.cfg --no_taxonomy
     conda deactivate
     echo "Done."
     exit 0
