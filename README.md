@@ -1,19 +1,38 @@
+[![DOI](https://zenodo.org/badge/327396590.svg)](https://zenodo.org/badge/latestdoi/327396590)
+
+
+
 # binny
 
-## Installing binny
-For binny to work, you need [conda](https://www.anaconda.com/). 
+## Quickstart
+Here is a quick guide on the installation and test run of binny. Please check out the longer description below to set up binny on a cluster environment.
+Make sure you have conda (optionally and recommended mamba) installed.
 
-1) Clone this repository to your disk:
+1) Clone this repository with git
 ```
 git clone https://github.com/a-h-b/binny.git
 ```
-Change into the binny directory:
+
+2) Install the snakemake and conda environments, and databases
 ```
 cd binny
+./binny -i config/config.init.yaml 
 ```
-At this point, you have all the scripts you need to run the workflow using snakemake. If you want to use the **comfortable binny wrapper**, follow the points 2-6. 
 
-2) Adjust the file VARIABLE_CONFIG to your requirements (have a tab between the variable name and your setting):
+3) Test run
+```
+./binny -l -n "TESTRUN" -r config/config.test.yaml
+```
+If all goes well, binny will run in the current session, load the conda environments, and make and fill a directory called test_output. A completed run should contain 3 bins in
+```
+test_output/bins
+``` 
+If you don't want to see binny's guts at this point, you can also run this with the -c or -f settings to submit to your cluster or start a tmux session (see How to run binny below). 
+
+Please see the comments in `config/config.default.yaml` and the longer descriptions below to set up your own runs.
+
+## Adjusting the VARIABLE_CONFIG
+* Make sure to separate variable name and your setting with a tab
 * SNAKEMAKE_VIA_CONDA - set this to true, if you don't have snakemake in your path and want to install it via conda. Leave empty, if you don't need an additional snakemake.
 * SNAKEMAKE_EXTRA_ARGUMENTS - if you want to pass additional arguments to snakemake, put them here (e.g. --latency-wait=320 for slower file systems). Leave empty usually.
 * LOADING_MODULES - insert a bash command to load modules, if you need them to run conda. Leave empty, if you don't need to load a module.
@@ -26,53 +45,16 @@ At this point, you have all the scripts you need to run the workflow using snake
 * BIGMEM_MEM_EACH - set the size of the RAM of one core of your bigmem (or highmem) compute nodes. If you're not planning to use binny to submit to a cluster or don't have separate bigmem nodes, you don't need to set this.
 
 
-3) Decide how you want to run binny, if you let it submit jobs to the cluster:
-Only do one of the two:
-* if you want to submit the process running snakemake to the cluster:
+## Deciding how to run binny:
+* if you want to submit the process running snakemake to the cluster use :
 ```
-cp runscripts/binny_submit.sh binny
-chmod 755 binny
+binny
 ```
-* if you want to keep the process running snakemake on the frontend using tmux:
+* if you want to keep the process running snakemake on the frontend using tmux use:
 ```
-cp runscripts/binny_tmux.sh binny
-chmod 755 binny
+binny_tmux
 ```
 
-4) **optional**: Install snakemake via conda:
-If you want to use snakemake via conda (and you've set SNAKEMAKE_VIA_CONDA to true), install the environment, as [recommended by Snakemake](https://snakemake.readthedocs.io/en/stable/getting_started/installation.html):
-```
-conda install -c conda-forge mamba
-if ! [ -x "$(command -v unzip)" ]; then
-  mamba create --prefix $PWD/conda/snakemake_env snakemake mamba unzip -c conda-forge -c bioconda
-else
-  mamba create --prefix $PWD/conda/snakemake_env snakemake mamba -c conda-forge -c bioconda
-fi
-```
-*Note*: binny will not work with snakemake version 6.3.0 .
-
-5) **optional**: Set permissions / PATH:
-binny is meant to be used by multiple users. Set the permissions accordingly. I'd suggest:
-* to have read access for all files for the users plus 
-* execution rights for the binny file and the .sh scripts in the subfolder runscripts
-* read, write and execution rights for the conda subfolder 
-* to add the binny directory to your path. 
-* It can also be useful to make the VARIABLE_CONFIG file not-writable, because you will always need it. The same goes for config.default.yaml once you've set the paths to the databases you want to use (see below).
-
-6) Initialize conda environments:
-This run sets up the conda environments, including [Mantis](https://academic.oup.com/gigascience/article/10/6/giab042/6291114), that will be usable by all users: 
-```
-./binny -i config/config.init.yaml 
-```
-This step will take several minutes to an hour. It will also create a folder with the name "database". It contains the database of unique genes from [CheckM](https://data.ace.uq.edu.au/public/CheckM_databases/checkm_data_2015_01_16.tar.gz). You can move this elsewhere and specify the path in the config, if you wish.
-
-7) **Optional** test run:
-You should be able to test run by 
-```
-./binny -l -n "TESTRUN" -r config/config.test.yaml
-```
-If all goes well, binny will run in the current session, load the conda environments, and make and fill a directory called testoutput. A completed run contains a file "contigs2bin.tsv". 
-If you don't want to see binny's guts at this point, you can also run this with the -c or -f settings to submit to your cluster or start a tmux session (see How to run binny below). 
 
 ## How to run binny
 To run the binny, you need a config file, plus data: 
@@ -121,4 +103,3 @@ If you want to share the conda installation with colleagues, use the `--conda-pr
 snakemake -j 50 -s Snakefile --cluster-config PATH/TO/SCHEDULER.config.yaml --cluster "{cluster.call} {cluster.runtime}{params.runtime} {cluster.mem_per_cpu}{resources.mem} {cluster.threads}{threads} {cluster.partition}" --use-conda --conda-prefix /PATH/TO/YOUR/COMMON/CONDA/DIRECTORY
 ```
 Depending on your dataset and settings, and your cluster's queue, the workflow will take a few minutes to days to finish.
-

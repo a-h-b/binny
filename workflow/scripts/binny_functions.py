@@ -19,12 +19,12 @@ import pandas as pd
 import seaborn as sns
 from joblib import parallel_backend, Parallel, delayed
 from mpl_toolkits.mplot3d import Axes3D
-# from skbio.stats.composition import clr, multiplicative_replacement
+from skbio.stats.composition import clr, multiplicative_replacement
 from sklearn.decomposition import PCA
 from sklearn.neighbors import KNeighborsClassifier
 
 bin_dir = '/'.join(os.path.dirname(__file__).split('/')[:-1])
-sys.path.append('/home/parallels/local_tools/Multicore-opt-SNE')
+sys.path.append('{0}/bin/Multicore-opt-SNE'.format(bin_dir))
 from MulticoreTSNE import MulticoreTSNE as TSNE
 
 
@@ -180,6 +180,8 @@ def hdbscan_cluster(contig_data_df, pk=None, include_depth=False, n_jobs=1, hdbs
 
     with parallel_backend('threading'):
         np.random.seed(0)
+        logging.info(f'HDBSCAN params: min_cluster_size={pk}, min_samples={hdbscan_min_samples}'
+                     f'cluster_selection_epsilon={hdbscan_epsilon}, metric={dist_metric}.')
         hdbsc = hdbscan.HDBSCAN(core_dist_n_jobs=n_jobs, min_cluster_size=pk, min_samples=hdbscan_min_samples,
                                 cluster_selection_epsilon=hdbscan_epsilon, metric=dist_metric).fit(dim_df)
     cluster_labels = hdbsc.labels_
@@ -370,9 +372,9 @@ def get_sub_clusters(cluster_dicts, threads_for_dbscan, marker_sets_graph, tigrf
             if purity_threshold < 0.975:
                 purity_threshold = 0.975
 
-        if clust_taxon == 'Bacteria':
-            if purity_threshold < 0.975:
-                purity_threshold += 0.025
+        # if clust_taxon == 'Bacteria':
+        #     if purity_threshold < 0.975:
+        #         purity_threshold += 0.025
 
         if clust_pur < purity_threshold and isinstance(clust_pur, float) and clust_comp >= completeness_threshold:
             logging.debug('Cluster {0} below purity of {1} with {2} and matches completeness of {3} with {4}. '
@@ -623,11 +625,9 @@ def write_bins(cluster_dict, assembly, min_comp=40, min_pur=90, bin_dir='bins'):
         if cluster_dict[cluster]['purity'] >= min_pur / 100 and cluster_dict[cluster]['completeness'] >= min_comp / 100:
             new_cluster_name = shorten_cluster_names(cluster)
             new_cluster_name = re.split(r'\D+', new_cluster_name)[1:]
-            print(new_cluster_name)
             new_cluster_name = 'I{0}R{1}.{2}'.format('%05.d' % (int(new_cluster_name[0])),
                                                      '%05.d' % (int(new_cluster_name[1])),
                                                      '.'.join(['%05.d' % (int(e)) for e in new_cluster_name[2:]]))
-            print(new_cluster_name)
             bin_name = '_'.join(['binny']
                                 + [new_cluster_name]
                                 + ['C' + str(int(round(cluster_dict[cluster]['completeness'] * 100, 0)))]
@@ -1011,9 +1011,9 @@ def choose_checkm_marker_set(marker_list, marker_sets_graph, tigrfam2pfam_data_d
             node_marker_set_completeness = len(node_marker_sets_set) / marker_sets_graph.nodes.data()[node][
                 'marker_groups']
             node_marker_set_purity = len(set(node_markers_list)) / len(node_markers_list)
-            if node == 'Bacteria':
-                node_marker_set_completeness -= 0.025
-                node_marker_set_purity -= 0.025
+            # if node == 'Bacteria':
+            #     node_marker_set_completeness -= 0.025
+            #     node_marker_set_purity -= 0.025
             if node_marker_set_completeness > 1:
                 logging.warning(node, round(node_marker_set_completeness, 3), round(node_marker_set_purity, 3))
                 logging.warning(len(node_marker_sets_set), marker_sets_graph.nodes.data()[node]['marker_groups'])
@@ -1046,7 +1046,7 @@ def choose_checkm_marker_set(marker_list, marker_sets_graph, tigrfam2pfam_data_d
     if best_marker_set:
         return best_marker_set
     else:
-        logging.debug('Something went wrong while chosing the best marker set. Markers:'
+        logging.info('Something went wrong while chosing the best marker set. Markers:'
                       ' {0}; unique: {1}; total {2}.'.format(set(marker_list), len(set(marker_list)), len(marker_list)))
         return ['None', 0, 0, 0]
 
@@ -1137,7 +1137,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
     internal_completeness = starting_completeness
     final_try_counter = 0
     tsne_perp_ind = 0
-    perp_range = [5, 30]  # [30, 15] list(range(10, 21))
+    perp_range = [100]  # [30, 15] list(range(10, 21))
     pk_factor = 1
     hdbscan_epsilon = hdbscan_epsilon_range[0]
     learning_rate_factor = 12
@@ -1191,12 +1191,12 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
 
         round_x_depth = np.array([depth_dict[contig] for contig in round_x_contigs])
 
-        # # Replace zeroes for clr
-        # round_x = multiplicative_replacement(round_x)
-        # # Clr transform
-        # x_scaled = clr(round_x)
-        # x_scaled = np.concatenate([round_x_depth, x_scaled], axis=1)
-        x_scaled = round_x
+        # Replace zeroes for clr
+        round_x = multiplicative_replacement(round_x)
+        # Clr transform
+        x_scaled = clr(round_x)
+        x_scaled = np.concatenate([round_x_depth, x_scaled], axis=1)
+        # x_scaled = np.concatenate([round_x_depth, round_x], axis=1)
 
         # Manifold learning and dimension reduction.
         logging.info('Running manifold learning and dimension reduction.')
@@ -1277,23 +1277,13 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
 
         if len(list(good_bins.keys())) < 3 and internal_completeness > min_completeness and final_try_counter == 0:
             internal_completeness -= 2.5
-            # if 80 < internal_completeness <= 85:
-            #     if min_purity < 87.5:
-            #         min_purity = 87.5
-            # elif 75 < internal_completeness <= 80:
-            #     if min_purity < 90:
-            #         min_purity = 90
-            # elif internal_completeness <= 75:
-            #     if min_purity < 95:
-            #         min_purity = 95
             logging.info('Found no good bins. Minimum completeness lowered to {0},'
                          ' minimum purity is {1}.'.format(internal_completeness, min_purity))
         elif len(list(good_bins.keys())) < 3 and final_try_counter <= 10 \
                 and not internal_min_marker_cont_size > prev_round_internal_min_marker_cont_size:
             internal_min_marker_cont_size = 2500 - 250 * final_try_counter
             final_try_counter += 1
-            internal_completeness = 80
-            # min_purity = 90
+            internal_completeness = 70
             logging.info('Running with contigs >= {0}bp,'
                          ' minimum completeness {1}, and minimum purity {2}.'.format(internal_min_marker_cont_size,
                                                                                      internal_completeness, min_purity))

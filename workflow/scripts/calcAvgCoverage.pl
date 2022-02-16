@@ -1,5 +1,3 @@
-#!/usr/bin/perl
-#
 use strict;
 
 my $input=$ARGV[0];
@@ -37,9 +35,9 @@ close(FILE);
 
 foreach my $id (@ids){
     if(exists($ids{$id})){
-        printf("%s\t%.5f\n",$id,$ids{$id});
+        printf("%s\t%.8f\n",$id,$ids{$id});
     }else{
-        printf("%s\t%.5f\n",$id,0);    
+        printf("%s\t%.8f\n",$id,0);
     }
 }
 

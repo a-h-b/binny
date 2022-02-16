@@ -111,6 +111,7 @@ if not os.path.exists(DBPATH):
         os.remove(os.path.join(DBPATH, "hmms/checkm.hmm"))
     if os.path.exists(os.path.join(DBPATH, "taxon_marker_sets.tsv")) and os.path.exists(os.path.join(DBPATH, "taxon_marker_sets_lineage_sorted.tsv")):
         os.remove(os.path.join(DBPATH, "taxon_marker_sets.tsv"))
+    print("Initializing conda environments.")
 
 # temporary directory will be stored inside the OUTPUTDIR directory
 # unless a absolute path is set
@@ -182,7 +183,8 @@ rule format_assembly:
         "intermediary/assembly.fa"
     output:
         "intermediary/assembly.formatted.fa"
-    threads: 1
+    threads:
+        workflow.cores
     resources:
         runtime = "2:00:00",
         mem = MEMCORE
@@ -190,7 +192,7 @@ rule format_assembly:
     conda:
        os.path.join(ENVDIR, "fasta_processing.yaml")
     shell:
-       "fasta_formatter -i {input} -o {output} -w 80"
+       "seqkit seq {input} -o {output} -w 80"
 
 # print([f"intermediary/reads_{mappings_id}_sorted.bam" for mappings_id in mappings_ids])
 # print([f"intermediary/assembly_contig_depth_{mappings_id}.txt" for mappings_id in mappings_ids])
@@ -203,14 +205,12 @@ if not CONTIG_DEPTH:
             # "intermediary/reads_{sample}_sorted.bam"
             # [f"intermediary/reads_{mappings_id}_sorted.bam" for mappings_id in mappings_ids]
             # expand(["intermediary/reads_{mappings_id}_sorted.bam"], mappings_id=mappings_ids)
-            # "intermediary/assembly.formatted.fa"
-            lambda wildcards: "intermediary/reads_{0}_sorted.bam".format(garbage_dict_so_snakemake_gets_it[wildcards.sample])
+            assembly = "intermediary/assembly.formatted.fa",
+            mapping=lambda wildcards: "intermediary/reads_{0}_sorted.bam".format(garbage_dict_so_snakemake_gets_it[wildcards.sample])
         output:
             "intermediary/assembly_contig_depth_{sample}.txt"
             # [f"intermediary/assembly_contig_depth_{mappings_id}.txt" for mappings_id in mappings_ids]
             # expand("intermediary/assembly_contig_depth_{mappings_id}.txt", mappings_id=mappings_ids)
-        params:
-            assembly="intermediary/assembly.formatted.fa"
         resources:
             runtime = "4:00:00",
             mem = BIGMEMCORE if BIGMEMCORE else MEMCORE
@@ -224,13 +224,14 @@ if not CONTIG_DEPTH:
         shell:
             """
             echo "Running BEDTools for average depth in each position" >> {log}
-            TMP_DEPTH=$(mktemp --tmpdir={TMPDIR} -t "depth_file_XXXXXX.txt")
-            genomeCoverageBed -ibam {input} | grep -v "genome" > $TMP_DEPTH
+            TMP_DEPTH=$(mktemp --tmpdir={TMPDIR} "depth_file_XXXXXXXXXXXXXXXX.txt")
+            genomeCoverageBed -ibam {input.mapping} | grep -v "genome" > $TMP_DEPTH
             echo "Depth calculation done" >> {log}
 
             ## This method of depth calculation was adapted and modified from the CONCOCT code
-            perl {SRCDIR}/calcAvgCoverage.pl $TMP_DEPTH {params.assembly} > {output}
-            echo "Remove the temporary file" >> {log}
+            echo "Getting average contig depth." >> {log}
+            perl {SRCDIR}/calcAvgCoverage.pl $TMP_DEPTH {input.assembly} > {output} && \
+            echo "Done. Removing the temporary file" >> {log} 
             rm $TMP_DEPTH
             """
 
@@ -258,7 +259,7 @@ if not CONTIG_DEPTH:
                 first_file=false
               else
                 # echo "File $COUNTER"
-                TMP_DEPTH=$(mktemp --tmpdir={TMPDIR} -t "tmp_XXXXXX.tsv")
+                TMP_DEPTH=$(mktemp --tmpdir={TMPDIR} "tmp_XXXXXXXXXXX.tsv")
                 paste {output} <( cut -f 2 $file) > $TMP_DEPTH \
                       && mv $TMP_DEPTH {output}
               fi
@@ -329,7 +330,7 @@ rule mantis_checkm_marker_sets:
                    -mc {params.binny_cfg} \
                    -o intermediary/mantis_out \
                    -c {threads} \
-                    --no_taxonomy \
+                   --no_taxonomy \
                    -et 1e-3 >> {log} 2>&1
         """
 

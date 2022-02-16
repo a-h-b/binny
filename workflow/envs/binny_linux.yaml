@@ -8,4 +8,4 @@ dependencies:
   - python=3.8
   - seaborn=0.11.2
   - hdbscan=0.8.28
-  # - scikit-bio
+  - scikit-bio
