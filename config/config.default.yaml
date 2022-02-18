@@ -40,7 +40,7 @@ binning:
     # to available memory.
     max_n_contigs: 5e5
     # Distance metric for opentSNE and HDBSCAN.
-    distance_metric: 'manhattan'
+    distance_metric: 'euclidean'
     embedding:
       # Maximum number of binny iterations.
       max_iterations: 50

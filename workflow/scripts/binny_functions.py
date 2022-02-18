@@ -180,7 +180,7 @@ def hdbscan_cluster(contig_data_df, pk=None, include_depth=False, n_jobs=1, hdbs
 
     with parallel_backend('threading'):
         np.random.seed(0)
-        logging.info(f'HDBSCAN params: min_cluster_size={pk}, min_samples={hdbscan_min_samples}'
+        logging.info(f'HDBSCAN params: min_cluster_size={pk}, min_samples={hdbscan_min_samples}, '
                      f'cluster_selection_epsilon={hdbscan_epsilon}, metric={dist_metric}.')
         hdbsc = hdbscan.HDBSCAN(core_dist_n_jobs=n_jobs, min_cluster_size=pk, min_samples=hdbscan_min_samples,
                                 cluster_selection_epsilon=hdbscan_epsilon, metric=dist_metric).fit(dim_df)
@@ -359,24 +359,26 @@ def get_sub_clusters(cluster_dicts, threads_for_dbscan, marker_sets_graph, tigrf
         cluster_dict[cluster]['completeness'] = clust_comp
         cluster_dict[cluster]['taxon'] = clust_taxon
 
+        cluster_pur_thresh = purity_threshold
+
         if 0.850 < clust_comp <= 0.900:
-            if purity_threshold < 0.875:
-                purity_threshold = 0.875
+            if cluster_pur_thresh < 0.875:
+                cluster_pur_thresh = 0.875
         elif 0.750 < clust_comp <= 0.850:
-            if purity_threshold < 0.900:
-                purity_threshold = 0.900
+            if cluster_pur_thresh < 0.900:
+                cluster_pur_thresh = 0.900
         elif 0.700 < clust_comp <= 0.750:
-            if purity_threshold < 0.950:
-                purity_threshold = 0.950
+            if cluster_pur_thresh < 0.950:
+                cluster_pur_thresh = 0.950
         elif clust_comp <= 0.700:
-            if purity_threshold < 0.975:
-                purity_threshold = 0.975
+            if cluster_pur_thresh < 0.975:
+                cluster_pur_thresh = 0.975
 
         # if clust_taxon == 'Bacteria':
         #     if purity_threshold < 0.975:
         #         purity_threshold += 0.025
 
-        if clust_pur < purity_threshold and isinstance(clust_pur, float) and clust_comp >= completeness_threshold:
+        if clust_pur < cluster_pur_thresh and isinstance(clust_pur, float) and clust_comp >= completeness_threshold:
             logging.debug('Cluster {0} below purity of {1} with {2} and matches completeness of {3} with {4}. '
                           'Attempting to split.'.format(shorten_cluster_names(cluster), purity_threshold, clust_pur,
                                                         completeness_threshold, clust_comp))
@@ -624,10 +626,11 @@ def write_bins(cluster_dict, assembly, min_comp=40, min_pur=90, bin_dir='bins'):
     for cluster in cluster_dict:
         if cluster_dict[cluster]['purity'] >= min_pur / 100 and cluster_dict[cluster]['completeness'] >= min_comp / 100:
             new_cluster_name = shorten_cluster_names(cluster)
-            new_cluster_name = re.split(r'\D+', new_cluster_name)[1:]
-            new_cluster_name = 'I{0}R{1}.{2}'.format('%05.d' % (int(new_cluster_name[0])),
-                                                     '%05.d' % (int(new_cluster_name[1])),
-                                                     '.'.join(['%05.d' % (int(e)) for e in new_cluster_name[2:]]))
+            if re.match(r"I[0-9]+R[0-9]+\.[0-9]+", cluster):
+                new_cluster_name = re.split(r'\D+', new_cluster_name)[1:]
+                new_cluster_name = 'I{0}R{1}.{2}'.format('%05.d' % (int(new_cluster_name[0])),
+                                                         '%05.d' % (int(new_cluster_name[1])),
+                                                         '.'.join(['%05.d' % (int(e)) for e in new_cluster_name[2:]]))
             bin_name = '_'.join(['binny']
                                 + [new_cluster_name]
                                 + ['C' + str(int(round(cluster_dict[cluster]['completeness'] * 100, 0)))]
@@ -1137,7 +1140,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
     internal_completeness = starting_completeness
     final_try_counter = 0
     tsne_perp_ind = 0
-    perp_range = [100]  # [30, 15] list(range(10, 21))
+    perp_range = list(range(20, 41, 5))  # [30, 15] list(range(10, 21))
     pk_factor = 1
     hdbscan_epsilon = hdbscan_epsilon_range[0]
     learning_rate_factor = 12
@@ -1217,8 +1220,8 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
             sum_var_exp = sum(pca.explained_variance_ratio_)
             n_comp += 2
             n_pca_tries += 1
-        logging.info('PCA stats: Dimensions: {0}; Amount of variation'
-                     ' explained: {1}%.'.format(n_comp, int(round(sum(pca.explained_variance_ratio_), 3) * 100)))
+        var_exp = int(round(sum(pca.explained_variance_ratio_), 3) * 100)
+        logging.info(f'PCA stats: Dimensions: {n_comp}; Amount of variation explained: {var_exp}%.')
         x_pca = transformer.transform(x_scaled)
 
         perp = perp_range[tsne_perp_ind]
@@ -1277,8 +1280,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
 
         if len(list(good_bins.keys())) < 3 and internal_completeness > min_completeness and final_try_counter == 0:
             internal_completeness -= 2.5
-            logging.info('Found no good bins. Minimum completeness lowered to {0},'
-                         ' minimum purity is {1}.'.format(internal_completeness, min_purity))
+            logging.info(f'Found no good bins. Minimum completeness lowered to {internal_completeness}.')
         elif len(list(good_bins.keys())) < 3 and final_try_counter <= 10 \
                 and not internal_min_marker_cont_size > prev_round_internal_min_marker_cont_size:
             internal_min_marker_cont_size = 2500 - 250 * final_try_counter

@@ -84,9 +84,7 @@ nx = calc_assembly_nx(assembly_dict, single_contig_bins, x)
 nx2 = calc_assembly_nx(assembly_dict, [], x)
 logging.info(f'N{x} is {nx}, with scMAGs would be {nx2}.'.format(len(single_contig_bins)))
 min_contig_length = min(max(nx, 500), 2000)
-min_marker_contig_length = min(max(nx / 2, 200), 300)
-min_contig_length = 500
-min_marker_contig_length = 0
+min_marker_contig_length = min(max(int(nx / 2), 200), 300)
 
 # Load assembly and mask rRNAs and CRISPR arrays
 contig_list = [[contig] + [seq] for contig, seq in assembly_dict.items() if (len(seq) >= min_contig_length
