@@ -52,7 +52,7 @@ binning:
       # Increasing the HDBSCAN cluster selection epsilon beyond 0.5
       # is not advised as it might massively increase run time, but it might
       # help recover fragmented genomes that would be missed with lower settings.
-      hdbscan_epsilon_range: '0.250,0.250'
+      hdbscan_epsilon_range: '0.250,0.125'
       # Adapted from the HDBSCAN manual: 'Measure of how conservative the
       # clustering should be. With larger values, more points will be declared
       # as noise, and clusters will be restricted to progressively more dense areas.'.
@@ -64,6 +64,6 @@ binning:
     bin_quality:
       # Minimum value binny will lower completeness to while running. It will
       # start at 90.
-      completeness: 70
+      completeness: 80
       # Minimum purity for bins to be selected.
-      purity: 85
+      purity: 90
