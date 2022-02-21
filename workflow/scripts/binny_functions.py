@@ -900,7 +900,7 @@ def asses_contig_completeness_purity(essential_gene_lol, n_dims, marker_sets_gra
         all_ess = contig_data[1]
         marker_set = choose_checkm_marker_set(all_ess, marker_sets_graph, tigrfam2pfam_data_dict)
         taxon, comp, pur = marker_set[0], marker_set[1], marker_set[2]
-        if pur > 0.85 and comp > 0.90:
+        if pur > 0.80 and comp > 0.85:
             bin_dict = {contig_data[0]: {'depth1': np.array([None]), 'contigs': np.array([contig_data[0]]),
                                          'essential': np.array(all_ess), 'purity': pur, 'completeness': comp,
                                          'taxon': taxon}}
@@ -1288,7 +1288,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         if tsne_perp_ind == len(perp_range):
             tsne_perp_ind = 0
 
-        early_exagg = 1000
+        early_exagg = 100
         learning_rate = max(2, int(len(x_pca) / early_exagg))   # learning_rate_factor
         logging.info(f'optSNE learning rate: {learning_rate}, perplexity: {perp}, pk_factor: {pk_factor}')
 
