@@ -46,10 +46,7 @@ else:
 
 # Added depth file par to us instead of alignment
 if config['raws']['contig_depth']:
-    if os.path.isabs(os.path.expandvars(config['raws']['contig_depth'])):
-        CONTIG_DEPTH = os.path.expandvars(config['raws']['contig_depth'])
-    else:
-        CONTIG_DEPTH = os.path.join(os.getcwd(), os.path.expandvars(config['raws']['contig_depth']))
+c
 else:
     CONTIG_DEPTH = None
     if all([os.path.isabs(path) for path in glob.glob(config['raws']['metagenomics_alignment'])]):
@@ -68,6 +65,22 @@ else:
     # use a function (see Functions as Input Files) to provide an input file ...
     garbage_dict_so_snakemake_gets_it = {map_id: 'sample_%06.d' % (index + 1) for index, map_id in enumerate(mappings_ids)}
     # print(garbage_dict_so_snakemake_gets_it)
+
+# Use existing env for Prokka and Mantis if specified
+if config['prokka_env']:
+    if os.path.isabs(os.path.expandvars(config['prokka_env'])):
+        PROKKA_ENV = os.path.expandvars(config['prokka_env'])
+    else:
+        PROKKA_ENV = os.path.join(os.getcwd(), os.path.expandvars(config['prokka_env']))
+else:
+    PROKKA_ENV = None
+if config['mantis_env']:
+    if os.path.isabs(os.path.expandvars(config['mantis_env'])):
+        MANTIS_ENV = os.path.expandvars(config['mantis_env'])
+    else:
+        MANTIS_ENV = os.path.join(os.getcwd(), os.path.expandvars(config['mantis_env']))
+else:
+    MANTIS_ENV = None
 
 # hardware parameters
 MEMCORE = str(config['mem']['normal_mem_per_core_gb']) + "G"
@@ -286,7 +299,7 @@ rule annotate:
     log: "logs/analysis_annotate.log"
     benchmark: "logs/analysis_annotate_benchmark.txt"
     conda:
-        os.path.join(ENVDIR, "prokka.yaml")
+        PROKKA_ENV if PROKKA_ENV else os.path.join(ENVDIR, "prokka.yaml")
     message: "annotate: Running prokkaP."
     shell:
         """
@@ -316,7 +329,7 @@ rule mantis_checkm_marker_sets:
         runtime = "48:00:00",
         mem = MEMCORE
     conda:
-        os.path.join(ENVDIR, "mantis.yaml")
+        MANTIS_ENV if MANTIS_ENV else os.path.join(ENVDIR, "mantis.yaml")
     threads:
         workflow.cores
     log: "logs/analysis_checkm_markers.log"

@@ -1189,11 +1189,10 @@ def calc_assembly_nx(assembly_dict, scmags, nx_val):
 
 def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completeness, min_purity, min_completeness,
                         threads, n_dim, annot_file, mg_depth_file, single_contig_bins, taxon_marker_sets,
-                        tigrfam2pfam_data, main_contig_data_dict, assembly_dict, max_contig_threshold=3.5e5,
-                        tsne_early_exag_iterations=250, tsne_main_iterations=750, internal_min_marker_cont_size=0,
-                        include_depth_initial=False, max_embedding_tries=50, include_depth_main=True,
-                        hdbscan_epsilon_range=[0.000, 0.250], hdbscan_min_samples=2, dist_metric='manhattan',
-                        contigs2clusters_out_path='intermediary'):
+                        tigrfam2pfam_data, main_contig_data_dict, assembly_dict, max_contig_threshold=3.0e5,
+                        internal_min_marker_cont_size=0, include_depth_initial=False, max_embedding_tries=50,
+                        include_depth_main=True, hdbscan_epsilon_range=[0.250, 0.125], hdbscan_min_samples=2,
+                        dist_metric='euclidean', contigs2clusters_out_path='intermediary'):
     np.random.seed(0)
     embedding_tries = 1
     internal_completeness = starting_completeness
@@ -1202,7 +1201,6 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
     perp_range = list(range(10, 41, 5))[::-1]  # [30, 15] list(range(10, 21))
     pk_factor = 1
     hdbscan_epsilon = hdbscan_epsilon_range[0]
-    learning_rate_factor = 1.2
     while embedding_tries <= max_embedding_tries:
         if embedding_tries == 1:
             internal_min_marker_cont_size = check_sustainable_contig_number(x_contigs, internal_min_marker_cont_size,

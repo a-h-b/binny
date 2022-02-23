@@ -21,6 +21,10 @@ sample: "test"
 outputdir: "test_output"
 # Path to binny dbs, leave at default if you performed the default install.
 db_path: "database"
+# If you want to use existing environments containing the dependencies for Prokka
+# and/or Mantis you can input the absolute paths here.
+prokka_env: ""
+mantis_env: ""
 binning:
   binny:
     # Input a list, e.g. '2,3,4'.

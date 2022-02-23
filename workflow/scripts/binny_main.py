@@ -25,8 +25,6 @@ min_contig_length = int(snakemake.params['cutoff'])
 min_marker_contig_length = int(snakemake.params['cutoff_marker'])
 max_contig_threshold = float(snakemake.params['max_n_contigs'])
 max_embedding_tries = int(snakemake.params['max_embedding_tries'])
-tsne_early_exag_iterations = int(snakemake.params['tsne_early_exag_iterations'])
-tsne_main_iterations = int(snakemake.params['tsne_main_iterations'])
 include_depth_initial = eval(snakemake.params['include_depth_initial'])
 include_depth_main = eval(snakemake.params['include_depth_main'])
 hdbscan_epsilon_range = [float(epsilon) for epsilon in snakemake.params['hdbscan_epsilon_range'].split(',')]
@@ -120,8 +118,7 @@ all_good_bins, contig_data_df_org = iterative_embedding(x_contigs, depth_dict, a
                                                         min_purity, min_completeness, threads, n_dim, annot_file,
                                                         mg_depth_file, single_contig_bins, taxon_marker_sets,
                                                         tigrfam2pfam_data, main_contig_data_dict, assembly_dict,
-                                                        max_contig_threshold, tsne_early_exag_iterations,
-                                                        tsne_main_iterations, min_marker_contig_length,
+                                                        max_contig_threshold, min_marker_contig_length,
                                                         include_depth_initial, max_embedding_tries,
                                                         include_depth_main, hdbscan_epsilon_range,
                                                         hdbscan_min_samples, dist_metric,

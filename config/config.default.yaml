@@ -24,6 +24,10 @@ sample: "test"
 outputdir: "path/to/output/dir"
 # Path to binny dbs, leave at default if you performed the default install.
 db_path: "database"
+# If you want to use existing environments containing the dependencies for Prokka
+# and/or Mantis you can input the absolute paths here.
+prokka_env: ""
+mantis_env: ""
 binning:
   binny:
     # Input a list, e.g. '2,3,4'.
@@ -44,10 +48,6 @@ binning:
     embedding:
       # Maximum number of binny iterations.
       max_iterations: 50
-      # Number of iterations with perplexity: (n contigs) / 100.
-      tsne_early_exag_iterations: 250
-      # Number of iterations with perplexity 1.
-      tsne_main_iterations: 750
     clustering:
       # Increasing the HDBSCAN cluster selection epsilon beyond 0.5
       # is not advised as it might massively increase run time, but it might
