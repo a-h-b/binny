@@ -900,7 +900,7 @@ def asses_contig_completeness_purity(essential_gene_lol, n_dims, marker_sets_gra
         all_ess = contig_data[1]
         marker_set = choose_checkm_marker_set(all_ess, marker_sets_graph, tigrfam2pfam_data_dict)
         taxon, comp, pur = marker_set[0], marker_set[1], marker_set[2]
-        if pur > 0.85 and comp > 0.90:
+        if pur > 0.80 and comp > 0.875:
             bin_dict = {contig_data[0]: {'depth1': np.array([None]), 'contigs': np.array([contig_data[0]]),
                                          'essential': np.array(all_ess), 'purity': pur, 'completeness': comp,
                                          'taxon': taxon}}
@@ -1288,9 +1288,10 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         if tsne_perp_ind == len(perp_range):
             tsne_perp_ind = 0
 
-        early_exagg = 100
-        learning_rate = max(2, int(len(x_pca) / early_exagg))   # learning_rate_factor
-        logging.info(f'optSNE learning rate: {learning_rate}, perplexity: {perp}, pk_factor: {pk_factor}')
+        early_exagg = max(30, min(500, int(len(x_pca) * 0.0005)))
+        learning_rate = max(2, int(len(x_pca) / early_exagg))  # learning_rate_factor
+        logging.info(f'optSNE learning rate: {learning_rate}, early_exagg: {early_exagg},'
+                     f' perplexity: {perp}, pk_factor: {pk_factor}')
 
         tsne = TSNE(n_jobs=threads, verbose=50, random_state=0, auto_iter=True, perplexity=perp,
                     learning_rate=learning_rate, early_exaggeration=early_exagg)
