@@ -1297,7 +1297,6 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         embedding_multiscale = tsne_result
 
         logging.info('Finished t-SNE dimensionality-reduction.')
-
         # Create coordinate df.
         dim_range = [i + 1 for i in range(n_dim)]
         coord_df = pd.DataFrame(data=embedding_multiscale, index=None, columns=['dim' + str(i) for i in dim_range])
