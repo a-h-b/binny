@@ -1242,7 +1242,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
 
         logging.info('Running with {0} contigs. Filtered {1} contigs using a min contig size of {2} to stay below'
                      ' {3} contigs'.format(len(round_x_contigs), len(round_leftovers_contig_list),
-                                           internal_min_marker_cont_size, max_contig_threshold))
+                                           internal_min_marker_cont_size, c))
 
         if len(round_x_contigs) != len(round_x):
             logging.warning('Contig feature data length ({0}) doesnt match contig id'
@@ -1286,7 +1286,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         if tsne_perp_ind == len(perp_range):
             tsne_perp_ind = 0
 
-        early_exagg = max(30, min(500, int(len(x_pca) * 0.0005)))
+        early_exagg = max(50, min(200, int(len(x_pca) * 0.00075)))
         learning_rate = max(2, int(len(x_pca) / early_exagg))  # learning_rate_factor
         logging.info(f'optSNE learning rate: {learning_rate}, early_exagg: {early_exagg},'
                      f' perplexity: {perp}, pk_factor: {pk_factor}')
@@ -1341,9 +1341,10 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
             logging.info(f'Found no good bins. Minimum completeness lowered to {internal_completeness}.')
         elif len(list(good_bins.keys())) < 3 and final_try_counter <= 10 \
                 and not internal_min_marker_cont_size > prev_round_internal_min_marker_cont_size:
+            if final_try_counter == 0:
+                max_contig_threshold *= 2
             internal_min_marker_cont_size = 2500 - 250 * final_try_counter
             final_try_counter += 1
-            # internal_completeness = 70
             logging.info(f'Running with contigs >= {internal_min_marker_cont_size}bp, minimum completeness {internal_completeness}.')
         elif len(list(good_bins.keys())) < 2:
             logging.info('Reached min completeness and min contig size. Exiting embedding iteration')

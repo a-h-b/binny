@@ -46,7 +46,10 @@ else:
 
 # Added depth file par to us instead of alignment
 if config['raws']['contig_depth']:
-c
+    if os.path.isabs(os.path.expandvars(config['raws']['contig_depth'])):
+        CONTIG_DEPTH = os.path.expandvars(config['raws']['contig_depth'])
+    else:
+        CONTIG_DEPTH = os.path.join(os.getcwd(),os.path.expandvars(config['raws']['contig_depth']))
 else:
     CONTIG_DEPTH = None
     if all([os.path.isabs(path) for path in glob.glob(config['raws']['metagenomics_alignment'])]):
@@ -329,7 +332,7 @@ rule mantis_checkm_marker_sets:
         runtime = "48:00:00",
         mem = MEMCORE
     conda:
-        MANTIS_ENV if MANTIS_ENV else os.path.join(ENVDIR, "mantis.yaml")
+        PROKKA_ENV if PROKKA_ENV else os.path.join(ENVDIR, "mantis.yaml")
     threads:
         workflow.cores
     log: "logs/analysis_checkm_markers.log"
@@ -369,8 +372,6 @@ rule binny:
         max_n_contigs=config["binning"]["binny"]["max_n_contigs"],
         distance_metric=config["binning"]["binny"]["distance_metric"],
         max_embedding_tries=config["binning"]["binny"]["embedding"]["max_iterations"],
-        tsne_early_exag_iterations=config["binning"]["binny"]["embedding"]["tsne_early_exag_iterations"],
-        tsne_main_iterations=config["binning"]["binny"]["embedding"]["tsne_main_iterations"],
         include_depth_initial=config["binning"]["binny"]["clustering"]["include_depth_initial"],
         include_depth_main=config["binning"]["binny"]["clustering"]["include_depth_main"],
         hdbscan_min_samples=config["binning"]["binny"]["clustering"]["hdbscan_min_samples"],
