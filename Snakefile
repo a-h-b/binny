@@ -12,7 +12,7 @@ import yaml
 
 
 def open_output(filename):
-    return(open(OUTPUTDIR+'/'+filename, 'w+'))
+    return open(OUTPUTDIR+'/'+filename, 'w+')
 
 # default executable for snakmake
 shell.executable("bash")
@@ -57,6 +57,8 @@ else:
     else:
         MGaln = [os.path.join(os.getcwd(), os.path.expandvars(path)) for path in glob.glob(config['raws']['metagenomics_alignment'])]
     # print(MGaln)
+    # print(config['raws']['metagenomics_alignment'])
+    # print(glob.glob(config['raws']['metagenomics_alignment']))
     # Get filenames of all bam files without extension, even if the name contains '.'
     mappings_ids = ['.'.join(bam.split('/')[-1].split('.')[:-1]) for bam in MGaln]
     # print(mappings_ids)
@@ -67,7 +69,7 @@ else:
     # The best solution is to have a dictionary that translates a sample id to the inconsistently named files and
     # use a function (see Functions as Input Files) to provide an input file ...
     garbage_dict_so_snakemake_gets_it = {map_id: 'sample_%06.d' % (index + 1) for index, map_id in enumerate(mappings_ids)}
-    # print(garbage_dict_so_snakemake_gets_it)
+    print(garbage_dict_so_snakemake_gets_it)
 
 # Use existing env for Prokka and Mantis if specified
 if config['prokka_env']:
@@ -292,7 +294,7 @@ rule annotate:
         "intermediary/prokka.faa",
         "intermediary/prokka.fna",
         "intermediary/prokka.ffn",
-        "intermediary/prokka.fsa",
+        "intermediary/prokka.fsa"
     threads:
         # getThreads(20)
         workflow.cores
@@ -376,7 +378,7 @@ rule binny:
         include_depth_main=config["binning"]["binny"]["clustering"]["include_depth_main"],
         hdbscan_min_samples=config["binning"]["binny"]["clustering"]["hdbscan_min_samples"],
         hdbscan_epsilon_range=config["binning"]["binny"]["clustering"]["hdbscan_epsilon_range"],
-        gff="intermediary/annotation_CDS_RNA_hmms_checkm.gff",
+        gff="intermediary/annotation_CDS_RNA_hmms_checkm.gff"
     resources:
         runtime = "12:00:00",
         mem = BIGMEMCORE if BIGMEMCORE else MEMCORE
