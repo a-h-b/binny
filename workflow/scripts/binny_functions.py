@@ -1076,6 +1076,11 @@ def choose_checkm_marker_set(marker_list, marker_sets_graph, tigrfam2pfam_data_d
 
             node_marker_set_completeness = node_stats[0]
             node_marker_set_purity = node_stats[1]
+
+            if node in ['Bacteria', 'Archaea']:
+                node_marker_set_completeness -= 0.05
+                node_marker_set_purity -= 0.05
+
             node_marker_set_completeness_score = round(node_marker_set_completeness
                                                        * node_n_marker_sets / node_n_markers * 100, 3)
 
@@ -1287,7 +1292,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         if tsne_perp_ind == len(perp_range):
             tsne_perp_ind = 0
 
-        early_exagg = max(12, min(200, int(len(x_pca) * 0.00005)))
+        early_exagg = max(12, min(200, int(len(x_pca) * 0.0001)))
         # early_exagg = 12
         learning_rate = max(2, int(len(x_pca) / early_exagg))  # learning_rate_factor
         logging.info(f'optSNE learning rate: {learning_rate}, early_exagg: {early_exagg},'
