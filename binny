@@ -188,6 +188,7 @@ elif [ "$INITIAL" = true ]; then
     # Check if config contains existing mantis env
     if [[ (! -d "$DIR/workflow/bin/Multicore-opt-SNE") && (! $(ls -A $DIR/workflow/bin/Multicore-opt-SNE)) ]]; then
       echo "Installing opt-SNE."
+      binny_pip=
       git clone --quiet https://github.com/omiq-ai/Multicore-opt-SNE.git $DIR/workflow/bin/Multicore-opt-SNE && \
       conda activate ${binny_env} && \
       conda install -c anaconda cmake pip --yes && \
@@ -196,8 +197,8 @@ elif [ "$INITIAL" = true ]; then
              -e "s|auto_iter_buffer_run = 15|auto_iter_buffer_run = 30|g" \
              -e "s|auto_iter_ee_switch_buffer = 2|auto_iter_ee_switch_buffer = 4|g" multicore_tsne/tsne.cpp && \
       sed -i '55d' setup.py && \
-      ${DIR}/conda/${binny_env}/bin/pip install . --quiet && \
-      ${DIR}/conda/${binny_env}/bin/python setup.py -q build && \
+      ${binny_env}/bin/pip install . --quiet && \
+      ${binny_env}/bin/python setup.py -q build && \
       cp build/lib.linux-x86_64-*/MulticoreTSNE/libtsne_multicore.so MulticoreTSNE && \
       cd $DIR && \
       conda deactivate
