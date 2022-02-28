@@ -79,6 +79,7 @@ if config['prokka_env'] and config['prokka_env'].split('.')[-1] in ['yaml', 'yml
     print(PROKKA_ENV)
 elif config['prokka_env']:
     PROKKA_ENV = config['prokka_env']
+    print('named', PROKKA_ENV)
 else:
     PROKKA_ENV = None
 # Use existing env for Mantis if specified
@@ -88,6 +89,7 @@ if config['mantis_env'] and config['mantis_env'].split('.')[-1] in ['yaml', 'yml
     print(MANTIS_ENV)
 elif config['mantis_env']:
     MANTIS_ENV = config['mantis_env']
+    print('named', MANTIS_ENV)
 else:
     MANTIS_ENV = None
 
