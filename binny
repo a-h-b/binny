@@ -81,6 +81,7 @@ if [[ !  -e "$1" ]]; then
 fi
 
 if [ "$SNAKEMAKE_VIA_CONDA" = true ]; then
+  snakemake_env_config_var=$(grep 'mantis_env:' ${CONFIGFILE} | cut -d' ' -f2 | sed -e 's/"//g')
   if [[ ${snakemake_env_config_var} == "in_path" ]]; then
     CONDA_START=""
   elif [[ -n  ${snakemake_env_config_var} ]]; then
@@ -130,6 +131,9 @@ elif [ "$INITIAL" = true ]; then
     mkdir -p conda
     eval $LOADING_MODULES
     eval $CONDA_START
+    echo "snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --verbose --cores 1 -s $DIR/Snakefile --conda-create-envs-only --use-conda \
+              --conda-prefix $DIR/conda --local-cores 1 --configfile $CONFIGFILE"
+    which snakemake
     snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --verbose --cores 1 -s $DIR/Snakefile --conda-create-envs-only --use-conda \
               --conda-prefix $DIR/conda --local-cores 1 --configfile $CONFIGFILE
     DB_PATH=`grep "db_path:" $CONFIGFILE | cut -f 2 -d " "`
