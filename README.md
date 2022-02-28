@@ -16,9 +16,9 @@ git clone https://github.com/a-h-b/binny.git
 Optional: If you already have environments for Snakemake, Prokka and/or Mantis you can add them to the config files to have binny use them, e.g.:
 (for Snakemake, if you have it already installed in your PATH set the param to `"in_path"`)
 ```
-my_prokka_env="absolute/path/to/prokka/env"
-my_mantis_env="absolute/path/to/mantis/env"
-my_snakemake_env="absolute/path/to/snakemake/env" or "in_path"
+my_prokka_env="absolute/path/to/prokka/env.yaml" or "my_named_prokka_env"
+my_mantis_env="absolute/path/to/mantis/env.ml" or "my_named_mantis_env"
+my_snakemake_env="absolute/path/to/snakemake/env" or "my_named_snakemake_env" or "in_path"
 sed -i -e "s|prokka_env: \"\"|prokka_env: \"${my_prokka_env}\"|g" \
        -e "s|mantis_env: \"\"|mantis_env: \"${my_mantis_env}\"|g" \
        -e "s|snakemake_env: \"\"|snakemake_env: \"${my_snakemake_env}\"|g" config/config.*.yaml

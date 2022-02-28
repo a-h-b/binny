@@ -22,7 +22,8 @@ outputdir: "test_output"
 # Path to binny dbs, leave at default if you performed the default install.
 db_path: "database"
 # If you want to use existing environments containing the environments for Snakemake, Prokka
-# and/or Mantis you can input the absolute paths here.
+# and/or Mantis you can either input the absolute paths to yaml files or env names here.
+# Otherwise, leave empty and binny will take care of the installations.
 # If you already have Snakemake in your path set: snakemake_env="in_path".
 snakemake_env: ""
 prokka_env: ""

@@ -157,7 +157,7 @@ elif [ "$INITIAL" = true ]; then
     mantis_env_config_var=$(grep 'mantis_env:' ${CONFIGFILE} | cut -d' ' -f2 | sed -e 's/"//g')
     if [[ -n  ${mantis_env_config_var} ]]; then
       mantis_env=${mantis_env_config_var}
-      echo "Using path to existing Mantis env: ${mantis_env}"
+      echo "Using existing Mantis env: ${mantis_env}"
     fi
     if [[ (! -d "$DIR/workflow/bin/Multicore-opt-SNE") && (! $(ls -A $DIR/workflow/bin/Multicore-opt-SNE)) ]]; then
       echo "Installing opt-SNE."
