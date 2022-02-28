@@ -136,11 +136,13 @@ elif [ "$INITIAL" = true ]; then
       # Get env folder path without extension, if input is yaml/yml else get whole string
       prokka_env_path=$(python -c "print(\"${prokka_env_config_var}\".replace('.yaml', '').replace('.yml', ''))"\
                                   "if \"${prokka_env_config_var}\".split('.')[-1] in ['yaml', 'yml'] else print(\"${prokka_env_config_var}\")")
-      # If env is from yaml/yml get env name to create symlink to trick snakemake into not rebuilding the env
+      # If env is from yaml/yml add parent dir to envs_dirs to trick snakemake into not rebuilding the env and accepting it as named env
       if [[ ${prokka_env_config_var} != ${prokka_env_path} ]]; then
         prokka_env_name=$(python -c "print(\"${prokka_env_path}\".split('/')[-1])")
-        ln -s ${prokka_env_path} $DIR/conda/${prokka_env_name}
-        ln -s ${prokka_env_path}.yaml $DIR/conda/${prokka_env_name}.yaml
+        prokka_env_parent=$(python -c "print(\"${prokka_env_path}\".replace(\"${prokka_env_name}\", ''))")
+        conda config --append envs_dirs ${prokka_env_parent}
+      else
+        prokka_env_name=${mantis_env_path}
       fi
     fi
     # Same for mantis
@@ -148,13 +150,15 @@ elif [ "$INITIAL" = true ]; then
     if [[ -n  ${mantis_env_config_var} ]]; then
       mantis_env_path=$(python -c "print(\"${mantis_env_config_var}\".replace('.yaml', '').replace('.yml', ''))"\
                                   "if \"${mantis_env_config_var}\".split('.')[-1] in ['yaml', 'yml'] else print(\"${mantis_env_config_var}\")")
-      # If env is from yaml/yml get env name to create symlink to trick snakemake into not rebuilding the env
+      # If env is from yaml/yml add parent dir to envs_dirs to trick snakemake into not rebuilding the env and accepting it as named env
       if [[ ${mantis_env_config_var} != ${mantis_env_path} ]]; then
         mantis_env_name=$(python -c "print(\"${mantis_env_path}\".split('/')[-1])")
-        ln -s ${mantis_env_path} $DIR/conda/${mantis_env_name}
-        ln -s ${mantis_env_path}.yaml $DIR/conda/${mantis_env_name}.yaml
+        mantis_env_parent=$(python -c "print(\"${mantis_env_path}\".replace(\"${mantis_env_name}\", ''))")
+        conda config --append envs_dirs ${mantis_env_parent}
+      else
+        mantis_env_name=${mantis_env_path}
       fi
-      mantis_env=${mantis_env_path}
+      mantis_env=${mantis_env_name}
       echo "Using existing Mantis env: ${mantis_env}"
     fi
 

@@ -74,8 +74,8 @@ else:
 
 # Use existing env for Prokka if specified
 if config['prokka_env'] and config['prokka_env'].split('.')[-1] in ['yaml', 'yml']:
-    prokka_conda_name = '.'.join(config['prokka_env'].split('/')[-1].split('.')[:-1])
-    PROKKA_ENV = os.path.join(os.getcwd(), f'conda/{prokka_conda_name}.yaml')
+    PROKKA_ENV = '.'.join(config['prokka_env'].split('/')[-1].split('.')[:-1])
+    # PROKKA_ENV = os.path.join(os.getcwd(), f'conda/{prokka_conda_name}.yaml')
     print(PROKKA_ENV)
 elif config['prokka_env']:
     PROKKA_ENV = config['prokka_env']
@@ -83,8 +83,8 @@ else:
     PROKKA_ENV = None
 # Use existing env for Mantis if specified
 if config['mantis_env'] and config['mantis_env'].split('.')[-1] in ['yaml', 'yml']:
-    mantis_conda_name = '.'.join(config['mantis_env'].split('/')[-1].split('.')[:-1])
-    MANTIS_ENV = os.path.join(os.getcwd(), f'conda/{mantis_conda_name}.yaml')
+    MANTIS_ENV = '.'.join(config['mantis_env'].split('/')[-1].split('.')[:-1])
+    # MANTIS_ENV = os.path.join(os.getcwd(), f'conda/{mantis_conda_name}.yaml')
     print(MANTIS_ENV)
 elif config['mantis_env']:
     MANTIS_ENV = config['mantis_env']
