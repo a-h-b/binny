@@ -131,6 +131,33 @@ elif [ "$INITIAL" = true ]; then
     mkdir -p conda
     eval $LOADING_MODULES
     eval $CONDA_START
+    prokka_env_config_var=$(grep 'prokka_env:' ${CONFIGFILE} | cut -d' ' -f2 | sed -e 's/"//g')
+    if [[ -n  ${prokka_env_config_var} ]]; then
+      # Get env folder path without extension, if input is yaml/yml else get whole string
+      prokka_env_path=$(python -c "print(\"${prokka_env_config_var}\".replace('.yaml', '').replace('.yml', ''))"\
+                                  "if \"${prokka_env_config_var}\".split('.')[-1] in ['yaml', 'yml'] else print(\"${prokka_env_config_var}\")")
+      # If env is from yaml/yml get env name to create symlink to trick snakemake into not rebuilding the env
+      if [[ ${prokka_env_config_var} != ${prokka_env_path} ]]; then
+        prokka_env_name=$(python -c "print(\"${prokka_env_path}\".split('/')[-1])")
+        ln -s ${prokka_env_path} $DIR/conda/${prokka_env_name}
+        ln -s ${prokka_env_path}.yaml $DIR/conda/${prokka_env_name}.yaml
+      fi
+    fi
+    # Same for mantis
+    mantis_env_config_var=$(grep 'mantis_env:' ${CONFIGFILE} | cut -d' ' -f2 | sed -e 's/"//g')
+    if [[ -n  ${mantis_env_config_var} ]]; then
+      mantis_env_path=$(python -c "print(\"${mantis_env_config_var}\".replace('.yaml', '').replace('.yml', ''))"\
+                                  "if \"${mantis_env_config_var}\".split('.')[-1] in ['yaml', 'yml'] else print(\"${mantis_env_config_var}\")")
+      # If env is from yaml/yml get env name to create symlink to trick snakemake into not rebuilding the env
+      if [[ ${mantis_env_config_var} != ${mantis_env_path} ]]; then
+        mantis_env_name=$(python -c "print(\"${mantis_env_path}\".split('/')[-1])")
+        ln -s ${mantis_env_path} $DIR/conda/${mantis_env_name}
+        ln -s ${mantis_env_path}.yaml $DIR/conda/${mantis_env_name}.yaml
+      fi
+      mantis_env=${mantis_env_path}
+      echo "Using existing Mantis env: ${mantis_env}"
+    fi
+
     echo "snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --verbose --cores 1 -s $DIR/Snakefile --conda-create-envs-only --use-conda \
               --conda-prefix $DIR/conda --local-cores 1 --configfile $CONFIGFILE"
     which snakemake
@@ -154,11 +181,6 @@ elif [ "$INITIAL" = true ]; then
       fi
     done
     # Check if config contains existing mantis env
-    mantis_env_config_var=$(grep 'mantis_env:' ${CONFIGFILE} | cut -d' ' -f2 | sed -e 's/"//g')
-    if [[ -n  ${mantis_env_config_var} ]]; then
-      mantis_env=${mantis_env_config_var}
-      echo "Using existing Mantis env: ${mantis_env}"
-    fi
     if [[ (! -d "$DIR/workflow/bin/Multicore-opt-SNE") && (! $(ls -A $DIR/workflow/bin/Multicore-opt-SNE)) ]]; then
       echo "Installing opt-SNE."
       git clone --quiet https://github.com/omiq-ai/Multicore-opt-SNE.git $DIR/workflow/bin/Multicore-opt-SNE && \
