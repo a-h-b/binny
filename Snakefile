@@ -340,7 +340,7 @@ rule mantis_checkm_marker_sets:
         runtime = "48:00:00",
         mem = MEMCORE
     conda:
-        PROKKA_ENV if PROKKA_ENV else os.path.join(ENVDIR, "mantis.yaml")
+        MANTIS_ENV if MANTIS_ENV else os.path.join(ENVDIR, "mantis.yaml")
     threads:
         workflow.cores
     log: "logs/analysis_checkm_markers.log"
