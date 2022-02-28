@@ -362,11 +362,11 @@ def get_sub_clusters(cluster_dicts, threads_for_dbscan, marker_sets_graph, tigrf
         cluster_pur_thresh = purity_threshold
 
         if 0.850 < clust_comp <= 0.900:
-            if cluster_pur_thresh < 0.875:
-                cluster_pur_thresh = 0.875
-        elif 0.750 < clust_comp <= 0.850:
             if cluster_pur_thresh < 0.900:
                 cluster_pur_thresh = 0.900
+        elif 0.750 < clust_comp <= 0.850:
+            if cluster_pur_thresh < 0.925:
+                cluster_pur_thresh = 0.925
         elif 0.700 < clust_comp <= 0.750:
             if cluster_pur_thresh < 0.950:
                 cluster_pur_thresh = 0.950
@@ -1204,7 +1204,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
     internal_completeness = starting_completeness
     final_try_counter = 0
     tsne_perp_ind = 0
-    perp_range = list(range(10, 31, 5))[::-1]  # [30, 15] list(range(10, 21))
+    perp_range = list(range(15, 31, 5))[::-1]  # [30, 15] list(range(10, 21))
     pk_factor = 1
     hdbscan_epsilon = hdbscan_epsilon_range[0]
     while embedding_tries <= max_embedding_tries:
@@ -1292,7 +1292,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         if tsne_perp_ind == len(perp_range):
             tsne_perp_ind = 0
 
-        early_exagg = max(12, min(200, int(len(x_pca) * 0.0001)))
+        early_exagg = max(12, min(200, int(len(x_pca) * 0.00025)))
         # early_exagg = 12
         learning_rate = max(2, int(len(x_pca) / early_exagg))  # learning_rate_factor
         logging.info(f'optSNE learning rate: {learning_rate}, early_exagg: {early_exagg},'
