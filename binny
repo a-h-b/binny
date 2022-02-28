@@ -81,7 +81,7 @@ if [[ !  -e "$1" ]]; then
 fi
 
 if [ "$SNAKEMAKE_VIA_CONDA" = true ]; then
-  snakemake_env_config_var=$(grep 'mantis_env:' ${CONFIGFILE} | cut -d' ' -f2 | sed -e 's/"//g')
+  snakemake_env_config_var=$(grep 'snakemake_env:' ${CONFIGFILE} | cut -d' ' -f2 | sed -e 's/"//g')
   if [[ ${snakemake_env_config_var} == "in_path" ]]; then
     CONDA_START=""
   elif [[ -n  ${snakemake_env_config_var} ]]; then
