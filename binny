@@ -81,7 +81,25 @@ if [[ !  -e "$1" ]]; then
 fi
 
 if [ "$SNAKEMAKE_VIA_CONDA" = true ]; then
-   CONDA_START="conda activate $DIR/conda/snakemake_env"
+  if [[ ${snakemake_env_config_var} == "in_path" ]]; then
+    CONDA_START=""
+  elif [[ -n  ${snakemake_env_config_var} ]]; then
+    snakemake_env=${snakemake_env_config_var}
+    echo "Using existing Snakemake env: ${snakemake_env}"
+    CONDA_START="conda activate ${snakemake_env}"
+  else
+    if ! [ -x "$(command -v snakemake)" ]; then
+      mkdir -p conda
+      if ! [ -x "$(command -v mamba)" ]; then
+        env_manager="conda"
+      else
+        env_manager="mamba"
+      fi
+      echo "Creating snakemake environment"
+      ${env_manager} create --prefix $DIR/conda/snakemake_env snakemake=6.9.1 mamba unzip python=3.7 -c conda-forge -c bioconda
+      CONDA_START="conda activate $DIR/conda/snakemake_env"
+    fi
+  fi
    CONDA_END="conda deactivate"
 else
    CONDA_START=""
@@ -110,13 +128,6 @@ elif [ "$DRYRUN" = true ]; then
     eval $CONDA_END
 elif [ "$INITIAL" = true ]; then
     mkdir -p conda
-    if ! [ -x "$(command -v mamba)" ]; then
-      env_manager="conda"
-    else
-      env_manager="mamba"
-    fi
-    echo "Creating snakemake environment"
-    ${env_manager} create --prefix $PWD/conda/snakemake_env snakemake=6.9.1 mamba unzip python=3.7 -c conda-forge -c bioconda
     eval $LOADING_MODULES
     eval $CONDA_START
     snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --verbose --cores 1 -s $DIR/Snakefile --conda-create-envs-only --use-conda \

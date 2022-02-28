@@ -13,12 +13,15 @@ Make sure you have conda (optionally and recommended mamba) installed.
 git clone https://github.com/a-h-b/binny.git
 ```
 
-Optional: If you already have environments for Prokka and/or Mantis you can add them to the config files to have binny use them, e.g.:
+Optional: If you already have environments for Snakemake, Prokka and/or Mantis you can add them to the config files to have binny use them, e.g.:
+(for Snakemake, if you have it already installed in your PATH set the param to `"in_path"`)
 ```
 my_prokka_env="absolute/path/to/prokka/env"
 my_mantis_env="absolute/path/to/mantis/env"
-sed -i -e "s|prokka_env: \"\"|prokka_env: \"${my_prokka_env}\"|g" config/config.*.yaml
-sed -i -e "s|mantis_env: \"\"|mantis_env: \"${my_mantis_env}\"|g" config/config.*.yaml
+my_snakemake_env="absolute/path/to/snakemake/env" or "in_path"
+sed -i -e "s|prokka_env: \"\"|prokka_env: \"${my_prokka_env}\"|g" \
+       -e "s|mantis_env: \"\"|mantis_env: \"${my_mantis_env}\"|g" \
+       -e "s|snakemake_env: \"\"|snakemake_env: \"${my_snakemake_env}\"|g" config/config.*.yaml
 ```
 
 2) Install the snakemake and conda environments, and databases
