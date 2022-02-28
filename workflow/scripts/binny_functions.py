@@ -1077,6 +1077,7 @@ def choose_checkm_marker_set(marker_list, marker_sets_graph, tigrfam2pfam_data_d
             node_marker_set_completeness = node_stats[0]
             node_marker_set_purity = node_stats[1]
 
+            # Minimize use of Kingdom level sets, which are most error prone
             if node in ['Bacteria', 'Archaea']:
                 node_marker_set_completeness -= 0.05
                 node_marker_set_purity -= 0.05
@@ -1207,6 +1208,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
     perp_range = list(range(15, 31, 5))[::-1]  # [30, 15] list(range(10, 21))
     pk_factor = 1
     hdbscan_epsilon = hdbscan_epsilon_range[0]
+    high_exagg = False
     while embedding_tries <= max_embedding_tries:
         if embedding_tries == 1:
             internal_min_marker_cont_size = check_sustainable_contig_number(x_contigs, internal_min_marker_cont_size,
@@ -1292,8 +1294,14 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         if tsne_perp_ind == len(perp_range):
             tsne_perp_ind = 0
 
-        early_exagg = max(12, min(200, int(len(x_pca) * 0.00025)))
-        # early_exagg = 12
+
+        if not high_exagg:
+            early_exagg = 12
+            high_exagg = True
+        else:
+            early_exagg = max(12, min(200, int(len(x_pca) * 0.0005)))
+            high_exagg = False
+
         learning_rate = max(2, int(len(x_pca) / early_exagg))  # learning_rate_factor
         logging.info(f'optSNE learning rate: {learning_rate}, early_exagg: {early_exagg},'
                      f' perplexity: {perp}, pk_factor: {pk_factor}')
@@ -1349,7 +1357,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         elif len(list(good_bins.keys())) < 3 and final_try_counter <= 10 \
                 and not internal_min_marker_cont_size > prev_round_internal_min_marker_cont_size:
             if final_try_counter == 0:
-                max_contig_threshold *= 1.5
+                max_contig_threshold *= 1.25
             internal_min_marker_cont_size = 2500 - 250 * final_try_counter
             final_try_counter += 1
             logging.info(f'Running with contigs >= {internal_min_marker_cont_size}bp, minimum completeness {internal_completeness}.')

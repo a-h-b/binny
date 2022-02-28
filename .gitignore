@@ -3,7 +3,6 @@ conda/
 *stderr
 *stdout
 database/
-binny
 binny_initialized
 workflow/bin/Multicore-opt-SNE
 workflow/scripts/__pycache__
