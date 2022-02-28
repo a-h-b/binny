@@ -141,6 +141,8 @@ elif [ "$INITIAL" = true ]; then
         prokka_env_name=$(python -c "print(\"${prokka_env_path}\".split('/')[-1])")
         prokka_env_parent=$(python -c "print(\"${prokka_env_path}\".replace(\"${prokka_env_name}\", ''))")
         conda config --append envs_dirs ${prokka_env_parent}
+        # Hack to prevent source file not found error?
+        ln -s ${prokka_env_parent} ${DIR}/conda/${prokka_env_name}
       else
         prokka_env_name=${mantis_env_path}
       fi
@@ -156,6 +158,8 @@ elif [ "$INITIAL" = true ]; then
         mantis_env_name=$(python -c "print(\"${mantis_env_path}\".split('/')[-1])")
         mantis_env_parent=$(python -c "print(\"${mantis_env_path}\".replace(\"${mantis_env_name}\", ''))")
         conda config --append envs_dirs ${mantis_env_parent}
+        # Hack to prevent source file not found error?
+        ln -s ${mantis_env_parent} ${DIR}/conda/${mantis_env_name}
       else
         mantis_env_name=${mantis_env_path}
       fi
