@@ -70,12 +70,14 @@ else:
     # The best solution is to have a dictionary that translates a sample id to the inconsistently named files and
     # use a function (see Functions as Input Files) to provide an input file ...
     garbage_dict_so_snakemake_gets_it = {map_id: 'sample_%06.d' % (index + 1) for index, map_id in enumerate(mappings_ids)}
-    print(garbage_dict_so_snakemake_gets_it)
+    # print(garbage_dict_so_snakemake_gets_it)
 
 # Use existing env for Prokka if specified
 if config['prokka_env'] and config['prokka_env'].split('.')[-1] in ['yaml', 'yml']:
-    PROKKA_ENV = '.'.join(config['prokka_env'].split('/')[-1].split('.')[:-1])
-    # PROKKA_ENV = os.path.join(os.getcwd(), f'conda/{prokka_conda_name}.yaml')
+    if os.path.isabs(config['prokka_env']):
+        PROKKA_ENV = os.path.expandvars(config['prokka_env'])
+    else:
+        PROKKA_ENV = os.path.join(os.getcwd(), config['prokka_env'])
     print(PROKKA_ENV)
 elif config['prokka_env']:
     PROKKA_ENV = config['prokka_env']
@@ -84,8 +86,10 @@ else:
     PROKKA_ENV = None
 # Use existing env for Mantis if specified
 if config['mantis_env'] and config['mantis_env'].split('.')[-1] in ['yaml', 'yml']:
-    MANTIS_ENV = '.'.join(config['mantis_env'].split('/')[-1].split('.')[:-1])
-    # MANTIS_ENV = os.path.join(os.getcwd(), f'conda/{mantis_conda_name}.yaml')
+    if os.path.isabs(config['mantis_env']):
+        MANTIS_ENV = os.path.expandvars(config['mantis_env'])
+    else:
+        MANTIS_ENV = os.path.join(os.getcwd(), config['mantis_env'])
     print(MANTIS_ENV)
 elif config['mantis_env']:
     MANTIS_ENV = config['mantis_env']
@@ -138,7 +142,7 @@ if not os.path.exists(DBPATH):
     print("Initializing conda environments.")
 
 # temporary directory will be stored inside the OUTPUTDIR directory
-# unless a absolute path is set
+# unless an absolute path is set
 TMPDIR = config['tmp_dir']
 if not os.path.isabs(TMPDIR):
     TMPDIR = os.path.join(OUTPUTDIR, TMPDIR)

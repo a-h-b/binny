@@ -900,7 +900,7 @@ def asses_contig_completeness_purity(essential_gene_lol, n_dims, marker_sets_gra
         all_ess = contig_data[1]
         marker_set = choose_checkm_marker_set(all_ess, marker_sets_graph, tigrfam2pfam_data_dict)
         taxon, comp, pur = marker_set[0], marker_set[1], marker_set[2]
-        if pur > 0.80 and comp > 0.90:
+        if pur > 0.80 and comp > 0.875:
             bin_dict = {contig_data[0]: {'depth1': np.array([None]), 'contigs': np.array([contig_data[0]]),
                                          'essential': np.array(all_ess), 'purity': pur, 'completeness': comp,
                                          'taxon': taxon}}
@@ -975,7 +975,10 @@ def load_checkm_markers(marker_file):
 
 
 def get_marker_set_quality(marker_set, marker_list, tigrfam2pfam_data_dict):
-    marker_set_markers_found = [marker for marker in marker_list
+    # marker_set_markers_found = [marker for marker in marker_list
+    #                      for t2p_marker in [marker] + tigrfam2pfam_data_dict.get(marker, [])
+    #                      if t2p_marker in marker_set]
+    marker_set_markers_found = [t2p_marker for marker in marker_list
                          for t2p_marker in [marker] + tigrfam2pfam_data_dict.get(marker, [])
                          if t2p_marker in marker_set]
 
@@ -992,11 +995,11 @@ def get_marker_set_quality(marker_set, marker_list, tigrfam2pfam_data_dict):
     marker_set_completeness = round(len(n_set_markers_found) / len(marker_set), 3)
 
     if marker_set_completeness > 1:
-        print('fuuuck')
         marker_set_completeness = 1
 
     marker_set_marker_purities = [round(1 / marker_set_markers_found.count(marker), 3)
-                                  for marker in set(marker_set_markers_found)]
+                                  for marker in set(node_markers_list_set).intersection(set(marker_set_markers_found))]
+                                  # for marker in set(marker_set_markers_found)]
     marker_set_average_purity = round(sum(marker_set_marker_purities)
                                       / len(marker_set_marker_purities), 3)
 
@@ -1299,7 +1302,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
             early_exagg = 12
             high_exagg = True
         else:
-            early_exagg = max(12, min(200, int(len(x_pca) * 0.0005)))
+            early_exagg = max(12, min(100, int(len(x_pca) * 0.0001)))
             high_exagg = False
 
         learning_rate = max(2, int(len(x_pca) / early_exagg))  # learning_rate_factor

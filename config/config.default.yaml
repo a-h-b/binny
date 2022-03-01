@@ -5,7 +5,7 @@ mem:
   big_mem_avail: FALSE
   big_mem_per_core_gb: 26
   # Memory per core of your computing resource.
-  normal_mem_per_core_gb: 4
+  normal_mem_per_core_gb: 2
 # Path to a temporary directory to write to.
 tmp_dir: tmp
 raws:

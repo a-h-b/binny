@@ -82,6 +82,7 @@ fi
 
 if [ "$SNAKEMAKE_VIA_CONDA" = true ]; then
   snakemake_env_config_var=$(grep 'snakemake_env:' ${CONFIGFILE} | cut -d' ' -f2 | sed -e 's/"//g')
+  echo ${snakemake_env_config_var}
   if [[ ${snakemake_env_config_var} == "in_path" ]]; then
     CONDA_START=""
   elif [[ -n  ${snakemake_env_config_var} ]]; then
@@ -98,14 +99,64 @@ if [ "$SNAKEMAKE_VIA_CONDA" = true ]; then
       fi
       echo "Creating snakemake environment"
       ${env_manager} create --prefix $DIR/conda/snakemake_env snakemake=6.9.1 mamba unzip python=3.7 -c conda-forge -c bioconda
-      CONDA_START="conda activate $DIR/conda/snakemake_env"
     fi
+  CONDA_START="conda activate $DIR/conda/snakemake_env"
   fi
    CONDA_END="conda deactivate"
 else
    CONDA_START=""
    CONDA_END=""
 fi
+
+
+# Get info on Prokka and Mantis envs
+prokka_env_config_var=$(grep 'prokka_env:' ${CONFIGFILE} | cut -d' ' -f2 | sed -e 's/"//g')
+if [[ -n  ${prokka_env_config_var} ]]; then
+  # Get env folder path without extension, if input is yaml/yml else get whole string
+  prokka_env_path=$(python -c "print(\"${prokka_env_config_var}\".replace('.yaml', '').replace('.yml', ''))"\
+                              "if \"${prokka_env_config_var}\".split('.')[-1] in ['yaml', 'yml'] else print(\"${prokka_env_config_var}\")")
+  # If env is from yaml/yml add parent dir to envs_dirs to trick snakemake into not rebuilding the env and accepting it as named env
+  if [[ ${prokka_env_config_var} != ${prokka_env_path} ]]; then
+    prokka_env_name=$(python -c "print(\"${prokka_env_path}\".split('/')[-1])")
+    prokka_env_parent=$(python -c "print(\"${prokka_env_path}\".replace(\"${prokka_env_name}\", ''))")
+    conda config --append envs_dirs ${prokka_env_parent}
+    # Hack to prevent source file not found error?
+    ln -s ${prokka_env_path} ${DIR}/${prokka_env_name}
+  else
+    prokka_env_name=${mantis_env_path}
+  fi
+  echo "Using existing Prokka env: ${prokka_env}"
+fi
+# Same for mantis
+mantis_env_config_var=$(grep 'mantis_env:' ${CONFIGFILE} | cut -d' ' -f2 | sed -e 's/"//g')
+if [[ -n  ${mantis_env_config_var} ]]; then
+  mantis_env_path=$(python -c "print(\"${mantis_env_config_var}\".replace('.yaml', '').replace('.yml', ''))"\
+                              "if \"${mantis_env_config_var}\".split('.')[-1] in ['yaml', 'yml'] else print(\"${mantis_env_config_var}\")")
+  # If env is from yaml/yml add parent dir to envs_dirs to trick snakemake into not rebuilding the env and accepting it as named env
+  if [[ ${mantis_env_config_var} != ${mantis_env_path} ]]; then
+    mantis_env_name=$(python -c "print(\"${mantis_env_path}\".split('/')[-1])")
+    mantis_env_parent=$(python -c "print(\"${mantis_env_path}\".replace(\"${mantis_env_name}\", ''))")
+  else
+    mantis_env_name=${mantis_env_path}
+  fi
+  mantis_env=${mantis_env_name}
+  echo "Using existing Mantis env: ${mantis_env}"
+fi
+# Set conda source path to existing Prokka/Mantis source path if exists
+if  [[ ( -n  ${mantis_env_parent} && -n  ${prokka_env_parent} ) && (${prokka_env_parent} == ${mantis_env_parent}) ]]; then
+  CONDA_SOURCE=${mantis_env_parent}
+elif [[ ( -n  ${mantis_env_parent} && -n  ${prokka_env_parent} ) ]]; then
+  echo "Existing Prokka and Mantis env sources must currently be identical (Snakemake limitation)." \
+       " Choose one and have Binny create the other." && exit 1
+elif [[ -n  ${mantis_env_parent} ]]; then
+  CONDA_SOURCE=${mantis_env_parent}
+elif [[ -n  ${prokka_env_parent} ]]; then
+  CONDA_SOURCE=${prokka_env_parent}
+else
+  CONDA_SOURCE="${DIR}/conda"
+fi
+echo "Will use conda source path: ${CONDA_SOURCE}"
+
 
 START_TIME=`date +%s`
 NAMEHASH=`echo $START_TIME| cksum | awk '{print $1}'`
@@ -131,47 +182,8 @@ elif [ "$INITIAL" = true ]; then
     mkdir -p conda
     eval $LOADING_MODULES
     eval $CONDA_START
-    prokka_env_config_var=$(grep 'prokka_env:' ${CONFIGFILE} | cut -d' ' -f2 | sed -e 's/"//g')
-    if [[ -n  ${prokka_env_config_var} ]]; then
-      # Get env folder path without extension, if input is yaml/yml else get whole string
-      prokka_env_path=$(python -c "print(\"${prokka_env_config_var}\".replace('.yaml', '').replace('.yml', ''))"\
-                                  "if \"${prokka_env_config_var}\".split('.')[-1] in ['yaml', 'yml'] else print(\"${prokka_env_config_var}\")")
-      # If env is from yaml/yml add parent dir to envs_dirs to trick snakemake into not rebuilding the env and accepting it as named env
-      if [[ ${prokka_env_config_var} != ${prokka_env_path} ]]; then
-        prokka_env_name=$(python -c "print(\"${prokka_env_path}\".split('/')[-1])")
-        prokka_env_parent=$(python -c "print(\"${prokka_env_path}\".replace(\"${prokka_env_name}\", ''))")
-        conda config --append envs_dirs ${prokka_env_parent}
-        # Hack to prevent source file not found error?
-        ln -s ${prokka_env_parent} ${DIR}/conda/${prokka_env_name}
-      else
-        prokka_env_name=${mantis_env_path}
-      fi
-      echo "Using existing Prokka env: ${prokka_env}"
-    fi
-    # Same for mantis
-    mantis_env_config_var=$(grep 'mantis_env:' ${CONFIGFILE} | cut -d' ' -f2 | sed -e 's/"//g')
-    if [[ -n  ${mantis_env_config_var} ]]; then
-      mantis_env_path=$(python -c "print(\"${mantis_env_config_var}\".replace('.yaml', '').replace('.yml', ''))"\
-                                  "if \"${mantis_env_config_var}\".split('.')[-1] in ['yaml', 'yml'] else print(\"${mantis_env_config_var}\")")
-      # If env is from yaml/yml add parent dir to envs_dirs to trick snakemake into not rebuilding the env and accepting it as named env
-      if [[ ${mantis_env_config_var} != ${mantis_env_path} ]]; then
-        mantis_env_name=$(python -c "print(\"${mantis_env_path}\".split('/')[-1])")
-        mantis_env_parent=$(python -c "print(\"${mantis_env_path}\".replace(\"${mantis_env_name}\", ''))")
-        conda config --append envs_dirs ${mantis_env_parent}
-        # Hack to prevent source file not found error?
-        ln -s ${mantis_env_parent} ${DIR}/conda/${mantis_env_name}
-      else
-        mantis_env_name=${mantis_env_path}
-      fi
-      mantis_env=${mantis_env_name}
-      echo "Using existing Mantis env: ${mantis_env}"
-    fi
-
-#    echo "snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --verbose --cores 1 -s $DIR/Snakefile --conda-create-envs-only --use-conda \
-#              --conda-prefix $DIR/conda --local-cores 1 --configfile $CONFIGFILE"
-#    which snakemake
     snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --verbose --cores 1 -s $DIR/Snakefile --conda-create-envs-only --use-conda \
-              --conda-prefix $DIR/conda --local-cores 1 --configfile $CONFIGFILE
+              --conda-prefix ${CONDA_SOURCE} --local-cores 1 --configfile $CONFIGFILE
     DB_PATH=`grep "db_path:" $CONFIGFILE | cut -f 2 -d " "`
     temp="${DB_PATH%\"}"
     DB_PATH="${temp#\"}"
@@ -245,18 +257,18 @@ elif [ "$LAPTOP" = true ]; then
     eval $LOADING_MODULES
     eval $CONDA_START
     if [ "$REPORT" = true ]; then
-        snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS -s $DIR/Snakefile --keep-going --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda
-        snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS -s $DIR/Snakefile --configfile $CONFIGFILE --use-conda --conda-prefix $DIR/conda --report report.html
+        snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS -s $DIR/Snakefile --keep-going --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix ${CONDA_SOURCE}
+        snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS -s $DIR/Snakefile --configfile $CONFIGFILE --use-conda --conda-prefix ${CONDA_SOURCE} --report report.html
         eval $CONDA_END
     else
-        snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS -s $DIR/Snakefile --keep-going --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda
+        snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS -s $DIR/Snakefile --keep-going --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix ${CONDA_SOURCE}
         eval $CONDA_END
     fi
 elif [ "$REPORT" = true ]; then
     echo "Writing report."
     eval $LOADING_MODULES
     eval $CONDA_START
-    snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores 1 -s $DIR/Snakefile --report report.html --configfile $CONFIGFILE --use-conda --conda-prefix $DIR/conda
+    snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores 1 -s $DIR/Snakefile --report report.html --configfile $CONFIGFILE --use-conda --conda-prefix ${CONDA_SOURCE}
     eval $CONDA_END
 else
     echo "Nothing was done, please give -u, -d, -r, -c, -i, or -l to start anything."
