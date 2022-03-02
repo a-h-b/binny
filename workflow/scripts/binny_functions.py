@@ -640,7 +640,11 @@ def write_bins(cluster_dict, assembly, min_comp=40, min_pur=90, bin_dir='bins'):
             bin_out_path = bin_dir / bin_file_name
             with open(bin_out_path, 'w') as out_file:
                 for contig in cluster_dict[cluster]['contigs']:
-                    out_file.write('>' + contig + '\n' + assembly_dict.get(contig) + '\n')
+                    try:
+                        out_file.write('>' + contig + '\n' + assembly_dict.get(contig) + '\n')
+                    except TypeError:
+                        logging.warning(f'{contig} in cluster_dict oif cluster {cluster} not in assembly_dict')
+                        logging.warning('{0}'.format(cluster_dict[cluster]['contigs']))
 
 
 ########################################################################################################################
