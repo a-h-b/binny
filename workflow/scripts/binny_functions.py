@@ -19,6 +19,8 @@ import pandas as pd
 import seaborn as sns
 from joblib import parallel_backend, Parallel, delayed
 from mpl_toolkits.mplot3d import Axes3D
+from openTSNE import TSNEEmbedding, affinity
+from openTSNE import initialization
 from skbio.stats.composition import clr, multiplicative_replacement
 from sklearn.decomposition import PCA
 from sklearn.neighbors import KNeighborsClassifier
@@ -514,15 +516,19 @@ def contig_df_from_cluster_dict(cluster_dict):
     clust_contig_df_ind = []
     clust_contig_df_ind_init = 0
     for cluster in cluster_dict:
+        warning_off = False
         for index, contig in enumerate(cluster_dict[cluster]['contigs']):
             try:
                 new_row = [contig, cluster_dict[cluster]['essential'][index]] \
                           + [cluster_dict[cluster][dim][index] for dim in dims] \
                           + [cluster_dict[cluster][depth][index] for depth in depths] \
-                          + [cluster, cluster_dict[cluster]['purity'], cluster_dict[cluster]['completeness']]
+                          + [cluster, cluster_dict[cluster].get('purity', 0), cluster_dict[cluster].get('completeness', 0)]
             except KeyError:
-                logging.warning('Something went wrong while fetching cluster data:'
-                                ' {0}, {1}'.format(str(cluster_dict[cluster]), str(cluster_dict.keys())))
+                if not warning_off:
+                    logging.warning('Something went wrong while fetching cluster data for cluster {0}:'
+                                    ' {1}'.format(cluster, [cluster_dict[cluster].get('purity'),
+                                                            cluster_dict[cluster].get('completeness')]))
+                warning_off = True
                 new_row = [contig, cluster_dict[cluster]['essential'][index]] \
                           + [cluster_dict[cluster][dim][index] for dim in dims] \
                           + [cluster_dict[cluster][depth][index] for depth in depths] \
@@ -640,7 +646,6 @@ def write_bins(cluster_dict, assembly, min_comp=40, min_pur=90, bin_dir='bins'):
             bin_out_path = bin_dir / bin_file_name
             with open(bin_out_path, 'w') as out_file:
                 for contig in cluster_dict[cluster]['contigs']:
-                    if assembly_dict.get(contig, 'TEST') == 'TEST':
                     try:
                         out_file.write('>' + contig + '\n' + assembly_dict.get(contig) + '\n')
                     except TypeError:
@@ -801,24 +806,29 @@ def mask_rep_featrues(contig_rep_feature_dict, contig_list):
 
 
 def binny_iterate(contig_data_df, threads, marker_sets_graph, tigrfam2pfam_data_dict, min_purity, min_completeness,
-                  max_iterations=10, embedding_iteration=1, max_tries=False, include_depth_initial=False,
-                  include_depth_main=True, hdbscan_epsilon=0.25, hdbscan_min_samples=2,
+                  max_iterations=4, embedding_iteration=1, max_tries=2, include_depth_initial=False,
+                  include_depth_main=True, hdbscan_epsilon=0.25, hdbscan_min_samples_range=(2, 3, 4, 5),
                   dist_metric='manhattan', contigs2clusters_out_path='intermediary'):
     leftovers_df = contig_data_df.copy()
     n_iterations = 1
-    n_new_clusters = 1
     good_clusters = {}
 
-    if not max_tries:
-        max_tries = 2
+    hdbs_min_samp_ind = 0
 
-    while n_iterations <= max_iterations and n_new_clusters > 0:
+    while n_iterations <= max_iterations:
+        logging.info(f'Clustering round {n_iterations}.')
+        hdbscan_min_samples = hdbscan_min_samples_range[hdbs_min_samp_ind]
+        hdbs_min_samp_ind += 1
+        if hdbs_min_samp_ind == len(hdbscan_min_samples_range):
+            hdbs_min_samp_ind = 0
+
         init_clust_dict, labels = run_initial_scan(leftovers_df, 'HDBSCAN', threads,
                                                    include_depth=include_depth_initial,
                                                    hdbscan_epsilon=hdbscan_epsilon,
                                                    hdbscan_min_samples=hdbscan_min_samples, dist_metric=dist_metric)
 
-        logging.info('Initial clustering resulted in {0} clusters.'.format(len(set(labels))))
+        logging.info('Initial clustering with HDBSCAN cluster selection epsilon of {0} and min_samples of {1} '
+                     'resulted in {2} clusters.'.format(hdbscan_epsilon, hdbscan_min_samples, len(set(labels))))
 
         if n_iterations == 1:
             for cluster in init_clust_dict:
@@ -835,7 +845,7 @@ def binny_iterate(contig_data_df, threads, marker_sets_graph, tigrfam2pfam_data_
                                                                   dist_metric=dist_metric)
         new_clust_dict = {'I{0}R{1}.'.format(embedding_iteration, n_iterations) + k: v for k, v in
                           new_clust_dict.items()}
-        n_new_clusters = len(set(new_clust_dict.keys()))
+        logging.info('Good bins this round: {0}.'.format(len(new_clust_dict.keys())))
         iteration_clust_dict = {**new_clust_dict, **init_clust_dict}
 
         good_clusters.update(new_clust_dict)
@@ -845,7 +855,6 @@ def binny_iterate(contig_data_df, threads, marker_sets_graph, tigrfam2pfam_data_
         iteration_clust_df = cluster_df_from_dict(iteration_clust_dict)
         iteration_clust_df.to_csv('{0}/iteration_{1}_contigs2clusters.tsv'.format(contigs2clusters_out_path,
                                                                                   n_iterations), sep='\t', index=False)
-
         iteration_clust_contig_df = contig_df_from_cluster_dict(iteration_clust_dict)
 
         # Plot sub-clustering
@@ -869,6 +878,9 @@ def binny_iterate(contig_data_df, threads, marker_sets_graph, tigrfam2pfam_data_
         if list(good_clusters.keys()):
             leftovers_df = leftovers_df[~leftovers_df['contig'].isin(good_clust_contig_df['contig'].tolist())]
         n_iterations += 1
+        if len(leftovers_df.index) == 0:
+            logging.info('No leftover contigs to cluster. Exiting.')
+            break
     return good_clusters, init_clust_dict
 
 
@@ -1206,17 +1218,17 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
                         threads, n_dim, annot_file, mg_depth_file, single_contig_bins, taxon_marker_sets,
                         tigrfam2pfam_data, main_contig_data_dict, assembly_dict, max_contig_threshold=3.0e5,
                         internal_min_marker_cont_size=0, include_depth_initial=False, max_embedding_tries=50,
-                        include_depth_main=True, hdbscan_epsilon_range=[0.250, 0.125], hdbscan_min_samples=2,
-                        dist_metric='euclidean', contigs2clusters_out_path='intermediary'):
+                        include_depth_main=True, hdbscan_epsilon_range=(0.250, 0.125), hdbscan_min_samples_range=(2, 3, 4, 5),
+                        dist_metric='euclidean', contigs2clusters_out_path='intermediary',
+                        tsne_early_exag_iterations=250, tsne_main_iterations=750):
     np.random.seed(0)
     embedding_tries = 1
     internal_completeness = starting_completeness
     final_try_counter = 0
-    tsne_perp_ind = 0
-    perp_range = list(range(15, 31, 5))[::-1]  # [30, 15] list(range(10, 21))
     pk_factor = 1
     hdbscan_epsilon = hdbscan_epsilon_range[0]
-    high_exagg = False
+    perp_1 = 10
+    perp_2 = 100
     while embedding_tries <= max_embedding_tries:
         if embedding_tries == 1:
             internal_min_marker_cont_size = check_sustainable_contig_number(x_contigs, internal_min_marker_cont_size,
@@ -1297,29 +1309,82 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         logging.info(f'PCA stats: Dimensions: {n_comp}; Amount of variation explained: {var_exp}%.')
         x_pca = transformer.transform(x_scaled)
 
-        perp = perp_range[tsne_perp_ind]
-        tsne_perp_ind += 1
-        if tsne_perp_ind == len(perp_range):
-            tsne_perp_ind = 0
+        # perp = perp_range[tsne_perp_ind]
+        # tsne_perp_ind += 1
+        # if tsne_perp_ind == len(perp_range):
+        #     tsne_perp_ind = 0
+        if embedding_tries > 1:
+            if perp_1 < 20:
+                perp_1 += 2
+            else:
+                perp_1 = 10
+            if perp_2 < 130:
+                perp_2 += 5
+            else:
+                perp_2 = 100
+        perplexities = [perp_1, perp_2]
 
+        early_exagg = max(4, min(200, int(len(x_pca) * 0.00025)))
 
-        if not high_exagg:
-            early_exagg = 12
-            high_exagg = True
-        else:
-            early_exagg = max(12, min(100, int(len(x_pca) * 0.0001)))
-            high_exagg = False
 
         learning_rate = max(2, int(len(x_pca) / early_exagg))  # learning_rate_factor
-        logging.info(f'optSNE learning rate: {learning_rate}, early_exagg: {early_exagg},'
-                     f' perplexity: {perp}, pk_factor: {pk_factor}')
+        logging.info(f'tSNE learning rate: {learning_rate}, early_exagg: {early_exagg},'
+                     f' perplexies: {perplexities}, pk_factor: {pk_factor}')
 
-        tsne = TSNE(n_jobs=threads, verbose=50, random_state=0, auto_iter=True, perplexity=perp,
-                    learning_rate=learning_rate, early_exaggeration=early_exagg)
-        tsne_result = tsne.fit_transform(x_pca)
-        embedding_multiscale = tsne_result
+        logging.info(f'Initializing embedding.')
+        affinities_multiscale_mixture = affinity.Multiscale(x_pca, perplexities=perplexities, metric=dist_metric,
+                                                            n_jobs=threads, random_state=0, verbose=0)
+        init = initialization.pca(x_pca, random_state=0, verbose=0)
+        embedding = TSNEEmbedding(init, affinities_multiscale_mixture, negative_gradient_method="fft", n_jobs=threads,
+                                  random_state=0, verbose=0)
+        # embedding1 = embedding.optimize(n_iter=tsne_early_exag_iterations, exaggeration=early_exagg,
+        #                                 learning_rate=learning_rate, momentum=0.5, n_jobs=threads, verbose=2)
+        # print(embedding1.kl_divergence)
+        # embedding2 = embedding1.optimize(n_iter=tsne_main_iterations, exaggeration=1, learning_rate=learning_rate,
+        #                                  momentum=0.8, n_jobs=threads, verbose=2)
 
-        logging.info('Finished t-SNE dimensionality-reduction.')
+
+        opt_cycle_iter = 250
+        ee_iter = 0
+        # maxKLDRC = 0
+
+        # Early exagg
+        embedding = embedding.optimize(n_iter=3, exaggeration=early_exagg,
+                                       learning_rate=learning_rate, momentum=0.5, n_jobs=threads, verbose=0)
+        KLD_prev = embedding.kl_divergence
+        ee_iter += opt_cycle_iter
+        logging.info('EE iteration {0} - KLD: {1}'.format(ee_iter, round(KLD_prev, 4)))
+
+        while ee_iter <= 750 or KLD_DIFF > KLD * 0.01:  # or KLDRC < maxKLDRC:
+            embedding = embedding.optimize(n_iter=opt_cycle_iter, exaggeration=early_exagg,
+                                            learning_rate=learning_rate, momentum=0.5, n_jobs=threads, verbose=0)
+            KLD = embedding.kl_divergence
+            KLD_DIFF = abs(KLD_prev - KLD)
+            KLDRC = 100 * KLD_DIFF / KLD_prev
+            KLD_prev = KLD
+
+            ee_iter += opt_cycle_iter
+            logging.info('EE iteration {0} - KLD: {1}, KLDRC: {2}%'.format(ee_iter, round(KLD, 4), round(KLDRC, 2)))
+
+        # Main cycle
+        opt_cycle_iter = 250
+        main_iter = 0
+
+        while main_iter <= 1000 or KLD_DIFF > KLD * 0.01:
+            embedding = embedding.optimize(n_iter=opt_cycle_iter, exaggeration=1,
+                                            learning_rate=learning_rate, momentum=0.5, n_jobs=threads, verbose=0)
+            KLD = embedding.kl_divergence
+            KLD_DIFF = abs(KLD_prev - KLD)
+            KLDRC = 100 * KLD_DIFF / KLD_prev
+            KLD_prev = KLD
+
+            main_iter += opt_cycle_iter
+            logging.info('Main iteration {0} - KLD: {1}, KLDRC: {2}%'.format(main_iter, round(KLD, 4), round(KLDRC, 2)))
+        embedding_multiscale = embedding.view(np.ndarray)
+
+        total_iter = ee_iter + main_iter
+
+        logging.info(f'Finished t-SNE dimensionality-reduction in {total_iter} iterations.')
         # Create coordinate df.
         dim_range = [i + 1 for i in range(n_dim)]
         coord_df = pd.DataFrame(data=embedding_multiscale, index=None, columns=['dim' + str(i) for i in dim_range])
@@ -1348,12 +1413,12 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
 
         # Find bins
         good_bins, final_init_clust_dict = binny_iterate(contig_data_df, threads, taxon_marker_sets, tigrfam2pfam_data,
-                                                         min_purity, internal_completeness, 1,
+                                                         min_purity, internal_completeness, len(hdbscan_min_samples_range),
                                                          embedding_iteration=embedding_tries, max_tries=2,
                                                          include_depth_initial=include_depth_initial,
                                                          include_depth_main=include_depth_main,
                                                          hdbscan_epsilon=hdbscan_epsilon,
-                                                         hdbscan_min_samples=hdbscan_min_samples,
+                                                         hdbscan_min_samples_range=hdbscan_min_samples_range,
                                                          dist_metric=dist_metric,
                                                          contigs2clusters_out_path=contigs2clusters_out_path)
 
@@ -1361,7 +1426,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
 
         if len(list(good_bins.keys())) < 3 and internal_completeness > min_completeness and final_try_counter == 0:
             internal_completeness -= 2.5
-            logging.info(f'Found no good bins. Minimum completeness lowered to {internal_completeness}.')
+            logging.info(f'Found < 3 good bins. Minimum completeness lowered to {internal_completeness}.')
         elif len(list(good_bins.keys())) < 3 and final_try_counter <= 10 \
                 and not internal_min_marker_cont_size > prev_round_internal_min_marker_cont_size:
             if final_try_counter == 0:

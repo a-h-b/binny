@@ -32,7 +32,7 @@ max_embedding_tries = int(snakemake.params['max_embedding_tries'])
 include_depth_initial = eval(snakemake.params['include_depth_initial'])
 include_depth_main = eval(snakemake.params['include_depth_main'])
 hdbscan_epsilon_range = [float(epsilon) for epsilon in snakemake.params['hdbscan_epsilon_range'].split(',')]
-hdbscan_min_samples = int(snakemake.params['hdbscan_min_samples'])
+hdbscan_min_samples_range = [int(min_sample) for min_sample in snakemake.params['hdbscan_min_samples_range'].split(',')]
 dist_metric = snakemake.params['distance_metric']
 
 intermediary_file_dir = 'intermediary'
@@ -123,7 +123,7 @@ all_good_bins, contig_data_df_org = iterative_embedding(x_contigs, depth_dict, a
                                                         max_contig_threshold, min_contig_length_marker,
                                                         include_depth_initial, max_embedding_tries,
                                                         include_depth_main, hdbscan_epsilon_range,
-                                                        hdbscan_min_samples, dist_metric,
+                                                        hdbscan_min_samples_range, dist_metric,
                                                         contigs2clusters_out_path='intermediary')
 
 all_contigs = []

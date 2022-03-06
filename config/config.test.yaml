@@ -48,19 +48,20 @@ binning:
     # memory on large assemblies. Default should ensure adequate performance, adjust e.g. according to available memory.
     max_n_contigs: 3.0e5
     # Distance metric for opentSNE and HDBSCAN.
-    distance_metric: 'euclidean'
+    distance_metric: 'manhattan'
     embedding:
       # Maximum number of binny iterations.
       max_iterations: 50
     clustering:
       # Increasing the HDBSCAN cluster selection epsilon beyond 0.5
-      # is not advised as it might massively increase run time, but it might
+      # is not advised as it might massively increase run time and memory consumption, but it might
       # help recover genomes that would be missed with lower settings.
-      hdbscan_epsilon: 0.25
+      hdbscan_epsilon_range: '0.250,0.000'
       # Adapted from the HDBSCAN manual: 'Measure of how conservative the
       # clustering should be. With larger values, more points will be declared
       # as noise, and clusters will be restricted to progressively more dense areas.'.
-      hdbscan_min_samples: 2
+      # Input a list, e.g. '2,3,4'.
+      hdbscan_min_samples_range: '2,4,6,8'
       # Use depth as additional dimension during the initial clustering.
       include_depth_initial: 'False'
       # Use depth as additional dimension during the main clusterings.
