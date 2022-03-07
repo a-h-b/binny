@@ -41,12 +41,12 @@ binning:
     min_cont_length_cutoff: 500
     max_cont_length_cutoff: 1000
     # Minimum and maximum length of contigs containing CheckM markers. Caps value from NX filtering (initial value is NX_value / 2).
-    min_cont_length_cutoff_marker: 200
+    min_cont_length_cutoff_marker: 100
     max_cont_length_cutoff_marker: 300
     # Maximum number of contigs binny uses. If the number of available contigs after minimum size filtering exceeds this,
     # binny will increase the minimum size threshold until the maximum is reached. Prevents use of excessive amounts of
     # memory on large assemblies. Default should ensure adequate performance, adjust e.g. according to available memory.
-    max_n_contigs: 3.0e5
+    max_n_contigs: 3.5e5
     # Distance metric for opentSNE and HDBSCAN.
     distance_metric: 'manhattan'
     embedding:
@@ -61,7 +61,7 @@ binning:
       # clustering should be. With larger values, more points will be declared
       # as noise, and clusters will be restricted to progressively more dense areas.'.
       # Input a list, e.g. '2,3,4'.
-      hdbscan_min_samples_range: '2,4,6,8'
+      hdbscan_min_samples_range: '2,3,4,5,6,8,10'
       # Use depth as additional dimension during the initial clustering.
       include_depth_initial: 'False'
       # Use depth as additional dimension during the main clusterings.
@@ -72,4 +72,4 @@ binning:
       # Completness threshold binny wilt begin with.
       start_completeness: 90
       # Minimum purity for bins to be selected.
-      purity: 87.5
+      purity: 90
