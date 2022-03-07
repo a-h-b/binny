@@ -27,7 +27,6 @@ from sklearn.neighbors import KNeighborsClassifier
 
 bin_dir = '/'.join(os.path.dirname(__file__).split('/')[:-1])
 sys.path.append('{0}/bin/Multicore-opt-SNE'.format(bin_dir))
-from MulticoreTSNE import MulticoreTSNE as TSNE
 
 
 def unify_multi_model_genes(gene, markers='essential'):
@@ -369,12 +368,12 @@ def get_sub_clusters(cluster_dicts, threads_for_dbscan, marker_sets_graph, tigrf
         elif 0.750 < clust_comp <= 0.850:
             if cluster_pur_thresh < 0.925:
                 cluster_pur_thresh = 0.925
-        elif 0.700 < clust_comp <= 0.750:
-            if cluster_pur_thresh < 0.950:
-                cluster_pur_thresh = 0.950
-        elif clust_comp <= 0.700:
-            if cluster_pur_thresh < 0.975:
-                cluster_pur_thresh = 0.975
+        # elif 0.700 < clust_comp <= 0.750:
+        #     if cluster_pur_thresh < 0.950:
+        #         cluster_pur_thresh = 0.950
+        elif clust_comp <= 0.750:
+            if cluster_pur_thresh < 0.95:
+                cluster_pur_thresh = 0.95
 
         # if clust_taxon == 'Bacteria':
         #     if purity_threshold < 0.975:
@@ -992,9 +991,6 @@ def load_checkm_markers(marker_file):
 
 
 def get_marker_set_quality(marker_set, marker_list, tigrfam2pfam_data_dict):
-    # marker_set_markers_found = [marker for marker in marker_list
-    #                      for t2p_marker in [marker] + tigrfam2pfam_data_dict.get(marker, [])
-    #                      if t2p_marker in marker_set]
     marker_set_markers_found = [t2p_marker for marker in marker_list
                          for t2p_marker in [marker] + tigrfam2pfam_data_dict.get(marker, [])
                          if t2p_marker in marker_set]
@@ -1067,6 +1063,7 @@ def choose_checkm_marker_set(marker_list, marker_sets_graph, tigrfam2pfam_data_d
     previous_nodes = None
     best_marker_set = []
     depth_grace_count = 0
+    king_lvl_stats = None
     # 0: 'domain', 1: 'phylum', 2: 'class', 3: 'order', 4: 'family', 5: 'genus', 6: 'species'
     current_depth_level = 0
     while list(marker_sets_graph[current_node]) and depth_grace_count < 2 and current_depth_level <= 6:
@@ -1097,16 +1094,21 @@ def choose_checkm_marker_set(marker_list, marker_sets_graph, tigrfam2pfam_data_d
             node_marker_set_completeness = node_stats[0]
             node_marker_set_purity = node_stats[1]
 
-            # Minimize use of Kingdom level sets, which are most error prone
-            if node in ['Bacteria', 'Archaea']:
-                node_marker_set_completeness -= 0.05
-                node_marker_set_purity -= 0.05
+            # # Minimize use of Kingdom level sets, which are most error prone
+            # if node in ['Bacteria', 'Archaea']:
+                # node_marker_set_completeness -= 0.05
+                # node_marker_set_purity -= 0.05
 
             node_marker_set_completeness_score = round(node_marker_set_completeness
                                                        * node_n_marker_sets / node_n_markers * 100, 3)
 
-            current_marker_set = [node, node_marker_set_completeness, node_marker_set_purity,
-                                  node_marker_set_completeness_score]
+            if king_lvl_stats and node not in ['Bacteria', 'Archaea']:
+                current_marker_set = [node, ((node_marker_set_completeness + king_lvl_stats[0]) / 2),
+                                      ((node_marker_set_purity + king_lvl_stats[1]) / 2),
+                                      node_marker_set_completeness_score]
+            else:
+                current_marker_set = [node, node_marker_set_completeness, node_marker_set_purity,
+                                      node_marker_set_completeness_score]
 
             if not best_marker_set:
                 best_marker_set = [node, node_marker_set_completeness,
@@ -1129,6 +1131,10 @@ def choose_checkm_marker_set(marker_list, marker_sets_graph, tigrfam2pfam_data_d
         nodes = list(marker_sets_graph[current_level_best_marker_set[0]])
 
         current_node = current_level_best_marker_set[0]
+
+        if current_level_best_marker_set[0] in ['Bacteria', 'Archaea']:
+            king_lvl_stats = [node_marker_set_completeness, node_marker_set_purity]
+
         current_depth_level += 1
 
     if best_marker_set:
@@ -1324,7 +1330,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
                 perp_2 = 100
         perplexities = [perp_1, perp_2]
 
-        early_exagg = max(4, min(200, int(len(x_pca) * 0.00025)))
+        early_exagg = max(4, min(100, int(len(x_pca) * 0.00025)))
 
 
         learning_rate = max(2, int(len(x_pca) / early_exagg))  # learning_rate_factor
@@ -1337,16 +1343,8 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         init = initialization.pca(x_pca, random_state=0, verbose=0)
         embedding = TSNEEmbedding(init, affinities_multiscale_mixture, negative_gradient_method="fft", n_jobs=threads,
                                   random_state=0, verbose=0)
-        # embedding1 = embedding.optimize(n_iter=tsne_early_exag_iterations, exaggeration=early_exagg,
-        #                                 learning_rate=learning_rate, momentum=0.5, n_jobs=threads, verbose=2)
-        # print(embedding1.kl_divergence)
-        # embedding2 = embedding1.optimize(n_iter=tsne_main_iterations, exaggeration=1, learning_rate=learning_rate,
-        #                                  momentum=0.8, n_jobs=threads, verbose=2)
-
-
         opt_cycle_iter = 250
         ee_iter = 0
-        # maxKLDRC = 0
 
         # Early exagg
         embedding = embedding.optimize(n_iter=3, exaggeration=early_exagg,
@@ -1370,9 +1368,12 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         opt_cycle_iter = 250
         main_iter = 0
 
+        learning_rate = max(200, min(64e3, int(len(x_pca) * 0.1)))
+        logging.info(f'Main iteration learning rate: {learning_rate}')
+
         while main_iter <= 1000 or KLD_DIFF > KLD * 0.01:
             embedding = embedding.optimize(n_iter=opt_cycle_iter, exaggeration=1,
-                                            learning_rate=learning_rate, momentum=0.5, n_jobs=threads, verbose=0)
+                                            learning_rate=learning_rate, momentum=0.8, n_jobs=threads, verbose=0)
             KLD = embedding.kl_divergence
             KLD_DIFF = abs(KLD_prev - KLD)
             KLDRC = 100 * KLD_DIFF / KLD_prev
@@ -1383,8 +1384,8 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         embedding_multiscale = embedding.view(np.ndarray)
 
         total_iter = ee_iter + main_iter
-
         logging.info(f'Finished t-SNE dimensionality-reduction in {total_iter} iterations.')
+
         # Create coordinate df.
         dim_range = [i + 1 for i in range(n_dim)]
         coord_df = pd.DataFrame(data=embedding_multiscale, index=None, columns=['dim' + str(i) for i in dim_range])
