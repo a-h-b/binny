@@ -957,11 +957,14 @@ def load_checkm_markers(marker_file):
                     or 'Chlamydiae' in line[2]):
                 logging.debug('Skipping loading of markers from {0}.'.format(line[1]))
                 continue
-            marker_sets = line[-1].replace(']), set([', ';')
-            for char in '[](\'() \"':
-                marker_sets = marker_sets.replace(char, '').replace('set', '')
-            marker_sets = [[marker.split('.')[0] for marker in marker_set.split(',')] for marker_set in
-                           marker_sets.split(';') if not marker_set.split(',') == ['']]
+            # marker_sets = line[-1].replace(']), set([', ';')
+            # for char in '[](\'() \"':
+            #     marker_sets = marker_sets.replace(char, '').replace('set', '')
+            # marker_sets = [[marker.split('.')[0] for marker in marker_set.split(',')] for marker_set in
+            #                marker_sets.split(';') if not marker_set.split(',') == ['']]
+            marker_sets = eval(line[-1])
+            marker_sets = [{marker.split('.')[0] for marker in marker_set} for marker_set in
+                           marker_sets]
             lineage = line[2].split(';')
             lineage = [tax + '[' + linegae_dict[tax_ind] + ']' if tax == lineage[tax_ind - 1] and len(lineage) > 1
                        else tax for tax_ind, tax in enumerate(lineage)]
@@ -981,7 +984,7 @@ def load_checkm_markers(marker_file):
                     for level in lineage[:-1]:
                         try:
                             if tms_data.nodes[level]['marker_sets'] == marker_sets:
-                                tms_data.nodes[lineage[-1]]['marker_sets'] = [['is_' + level]]
+                                tms_data.nodes[lineage[-1]]['marker_sets'] = 'is_' + level
                                 break
                         except KeyError:
                             logging.warning(lineage)
@@ -991,19 +994,28 @@ def load_checkm_markers(marker_file):
 
 
 def get_marker_set_quality(marker_set, marker_list, tigrfam2pfam_data_dict):
-    marker_set_markers_found = [t2p_marker for marker in marker_list
+    marker_set_t2p_markers_found = [t2p_marker for marker in marker_list
                          for t2p_marker in [marker] + tigrfam2pfam_data_dict.get(marker, [])
                          if t2p_marker in marker_set]
 
-    if not marker_set_markers_found:
+    if not marker_set_t2p_markers_found:
         return [0, '']
 
     node_markers_list_t2p = []
-    for marker in set(marker_set_markers_found):
+    for marker in set(marker_set_t2p_markers_found):
         node_markers_list_t2p += tigrfam2pfam_data_dict.get(marker, [])
 
-    node_markers_list_set = set(marker_set_markers_found).union(node_markers_list_t2p)
-    n_set_markers_found = marker_set.intersection(node_markers_list_set)
+    node_t2p_markers_list_set = set(marker_set_t2p_markers_found).union(node_markers_list_t2p)
+
+    marker_set_markers_found = [marker for marker in marker_list
+                                if marker in marker_set]
+    node_markers_list_set = set(marker_set_markers_found)
+
+    if not marker_set_markers_found:
+        marker_set_markers_found = marker_set_t2p_markers_found
+        node_markers_list_set = set(node_t2p_markers_list_set).intersection(set(marker_set_t2p_markers_found))
+
+    n_set_markers_found = marker_set.intersection(node_t2p_markers_list_set)
 
     marker_set_completeness = round(len(n_set_markers_found) / len(marker_set), 3)
 
@@ -1011,16 +1023,24 @@ def get_marker_set_quality(marker_set, marker_list, tigrfam2pfam_data_dict):
         marker_set_completeness = 1
 
     marker_set_marker_purities = [round(1 / marker_set_markers_found.count(marker), 3)
-                                  for marker in set(node_markers_list_set).intersection(set(marker_set_markers_found))]
-                                  # for marker in set(marker_set_markers_found)]
-    marker_set_average_purity = round(sum(marker_set_marker_purities)
-                                      / len(marker_set_marker_purities), 3)
+                                  # for marker in set(node_t2p_markers_list_set).intersection(set(marker_set_t2p_markers_found))]
+                                  for marker in node_markers_list_set]
+    try:
+        marker_set_average_purity = round(sum(marker_set_marker_purities)
+                                          / len(marker_set_marker_purities), 3)
+    except ZeroDivisionError:
+        print(marker_set_markers_found)
+        print(node_markers_list_set)
+        print(marker_set_marker_purities)
+        print(marker_set_t2p_markers_found)
+        raise ZeroDivisionError
 
     return [marker_set_completeness, marker_set_average_purity]
 
 
 def get_marker_list_node_quality(marker_list, node, marker_sets_graph, tigrfam2pfam_data_dict):
-    node_marker_sets = [set(marker_set) for marker_set in marker_sets_graph.nodes.data()[node]['marker_sets']]
+    # node_marker_sets = [set(marker_set) for marker_set in marker_sets_graph.nodes.data()[node]['marker_sets']]
+    node_marker_sets = marker_sets_graph.nodes.data()[node]['marker_sets']
 
     node_marker_sets_completenesses = []
     node_marker_sets_purities = []
@@ -1051,8 +1071,8 @@ def get_marker_list_node_quality(marker_list, node, marker_sets_graph, tigrfam2p
     return [node_marker_set_completeness, node_marker_set_purity]
 
 
-def compare_marker_set_stats(marker_set, current_best_marker_set, completenes_variability):
-    if marker_set[1] >= current_best_marker_set[1] * completenes_variability:
+def compare_marker_set_stats(marker_set, current_best_marker_set, completeness_variability):
+    if marker_set[1] >= current_best_marker_set[1] * completeness_variability:
         current_best_marker_set = marker_set
     return current_best_marker_set
 
@@ -1073,15 +1093,15 @@ def choose_checkm_marker_set(marker_list, marker_sets_graph, tigrfam2pfam_data_d
             nodes = [sub_node for node in nodes for sub_node in list(marker_sets_graph[node])]
         previous_nodes = nodes
         for index, node in enumerate(nodes):
-            if marker_sets_graph.nodes.data()[node]['marker_sets'][0][0].startswith('is_'):
+            if isinstance(marker_sets_graph.nodes.data()[node]['marker_sets'], str):
                 logging.debug('Marker set of {0} identical to higher level set {1}.'
                               ' Skipping.'.format(node,
-                                                  marker_sets_graph.nodes.data()[node]['marker_sets'][0][0].split('_')[
+                                                  marker_sets_graph.nodes.data()[node]['marker_sets'].split('_')[
                                                       1]))
                 if not best_marker_set:
-                    best_marker_set = [node, 0.00, 0.00, 0.00]
+                    best_marker_set = [node, 0.00, 0.00, 0.00, current_depth_level]
                 if not current_level_best_marker_set:
-                    current_level_best_marker_set = [node, 0.00, 0.00, 0.00]
+                    current_level_best_marker_set = [node, 0.00, 0.00, 0.00, current_depth_level]
                 continue
 
             node_n_markers = marker_sets_graph.nodes.data()[node]['markers']
@@ -1105,26 +1125,35 @@ def choose_checkm_marker_set(marker_list, marker_sets_graph, tigrfam2pfam_data_d
             if king_lvl_stats and node not in ['Bacteria', 'Archaea']:
                 current_marker_set = [node, ((node_marker_set_completeness + king_lvl_stats[0]) / 2),
                                       ((node_marker_set_purity + king_lvl_stats[1]) / 2),
-                                      node_marker_set_completeness_score]
+                                      node_marker_set_completeness_score, current_depth_level]
             else:
                 current_marker_set = [node, node_marker_set_completeness, node_marker_set_purity,
-                                      node_marker_set_completeness_score]
+                                      node_marker_set_completeness_score, current_depth_level]
 
             if not best_marker_set:
-                best_marker_set = [node, node_marker_set_completeness,
-                                   node_marker_set_purity, node_marker_set_completeness_score]
+                best_marker_set = [node, node_marker_set_completeness, node_marker_set_purity,
+                                   node_marker_set_completeness_score, current_depth_level]
             else:
+                # Check if comparing same level sets, if so dont give completeness leeway
+                if current_marker_set[-1] == best_marker_set[-1]:
+                    completeness_variability = 1.0
+                else:
+                    completeness_variability = 0.975
                 best_marker_set = compare_marker_set_stats(current_marker_set,
-                                                              best_marker_set, 0.975)
+                                                              best_marker_set, completeness_variability)
                 # best_marker_set = compare_marker_set_stats_v2(current_marker_set, best_marker_set)
 
             if not current_level_best_marker_set:
-                current_level_best_marker_set = [node, node_marker_set_completeness,
-                                                 node_marker_set_purity, node_marker_set_completeness_score]
+                current_level_best_marker_set = [node, node_marker_set_completeness, node_marker_set_purity,
+                                                 node_marker_set_completeness_score, current_depth_level]
             else:
+                if current_marker_set[-1] == current_level_best_marker_set[-1]:
+                    completeness_variability = 1.0
+                else:
+                    completeness_variability = 0.975
                 current_level_best_marker_set = compare_marker_set_stats(current_marker_set,
                                                                          current_level_best_marker_set,
-                                                                         0.975)
+                                                                         completeness_variability)
                 # current_level_best_marker_set = compare_marker_set_stats_v2(current_marker_set,
                 #                                                          current_level_best_marker_set)
 
@@ -1138,9 +1167,10 @@ def choose_checkm_marker_set(marker_list, marker_sets_graph, tigrfam2pfam_data_d
         current_depth_level += 1
 
     if best_marker_set:
+        print(best_marker_set)
         return best_marker_set
     else:
-        logging.debug('Something went wrong while chosing the best marker set. Markers:'
+        logging.debug('Something went wrong while choosing the best marker set. Markers:'
                       ' {0}; unique: {1}; total {2}.'.format(set(marker_list),
                                                              len(set(marker_list)), len(marker_list)))
         return ['None', 0, 0, 0]
@@ -1426,7 +1456,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         logging.info('Good bins this embedding iteration: {0}.'.format(len(good_bins.keys())))
 
         if len(list(good_bins.keys())) < 3 and internal_completeness > min_completeness and final_try_counter == 0:
-            internal_completeness -= 2.5
+            internal_completeness -= 5
             logging.info(f'Found < 3 good bins. Minimum completeness lowered to {internal_completeness}.')
         elif len(list(good_bins.keys())) < 3 and final_try_counter <= 10 \
                 and not internal_min_marker_cont_size > prev_round_internal_min_marker_cont_size:
