@@ -1458,11 +1458,11 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         if len(list(good_bins.keys())) < 3 and internal_completeness > min_completeness and final_try_counter == 0:
             internal_completeness -= 5
             logging.info(f'Found < 3 good bins. Minimum completeness lowered to {internal_completeness}.')
-        elif len(list(good_bins.keys())) < 3 and final_try_counter <= 10 \
+        elif len(list(good_bins.keys())) < 3 and final_try_counter <= 5 \
                 and not internal_min_marker_cont_size > prev_round_internal_min_marker_cont_size:
             if final_try_counter == 0:
                 max_contig_threshold *= 1.25
-            internal_min_marker_cont_size = 2500 - 250 * final_try_counter
+            internal_min_marker_cont_size = 2500 - 500 * final_try_counter
             final_try_counter += 1
             logging.info(f'Running with contigs >= {internal_min_marker_cont_size}bp, minimum completeness {internal_completeness}.')
         elif len(list(good_bins.keys())) < 2:
