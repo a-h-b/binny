@@ -10,9 +10,9 @@ mem:
 tmp_dir: tmp
 raws:
   # Path to test assembly fasta.
-  assembly:  "test/contigs_3bins.fa"
+  assembly:  "test/contigs_4bins.fa"
   # Path to a test bam files to calculate depth from.
-  metagenomics_alignment: "test/reads_3bins*.bam"
+  metagenomics_alignment: "test/reads_4bins*.bam"
   # Path to an average depth per contig tsv file. Leave empty for initialization.
   contig_depth: ""
 # Sample name

@@ -376,6 +376,7 @@ rule binny:
         binnydir="intermediary/",
         t2p=DBPATH + "/pfam/tigrfam2pfam.tsv",
         marker_sets=DBPATH + "/taxon_marker_sets_lineage_sorted.tsv",
+        gff="intermediary/annotation_CDS_RNA_hmms_checkm.gff",
         min_completeness=config["binning"]["binny"]["bin_quality"]["min_completeness"],
         start_completeness=config["binning"]["binny"]["bin_quality"]["start_completeness"],
         purity=config["binning"]["binny"]["bin_quality"]["purity"],
@@ -391,8 +392,7 @@ rule binny:
         include_depth_initial=config["binning"]["binny"]["clustering"]["include_depth_initial"],
         include_depth_main=config["binning"]["binny"]["clustering"]["include_depth_main"],
         hdbscan_min_samples_range=config["binning"]["binny"]["clustering"]["hdbscan_min_samples_range"],
-        hdbscan_epsilon_range=config["binning"]["binny"]["clustering"]["hdbscan_epsilon_range"],
-        gff="intermediary/annotation_CDS_RNA_hmms_checkm.gff"
+        hdbscan_epsilon_range=config["binning"]["binny"]["clustering"]["hdbscan_epsilon_range"]
     resources:
         runtime = "12:00:00",
         mem = BIGMEMCORE if BIGMEMCORE else MEMCORE

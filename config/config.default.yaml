@@ -9,7 +9,7 @@ mem:
 # Path to a temporary directory to write to.
 tmp_dir: tmp
 raws:
-  # Path to a assembly fasta.
+  # Path to an assembly fasta.
   assembly: "path/to/assembly"
   # Path to a bam file(s) to calculate depth from. Use wildcards for multiple samples, e.g.:
   # "path/to/my/mappings/*.bam" or "path/to/my/mappings/with/*/different/folder/*/structure/*.bam" or "path/to/my/mappings/my_mapping.bam"

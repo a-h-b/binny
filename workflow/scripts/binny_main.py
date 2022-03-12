@@ -145,10 +145,15 @@ for contig, k_freq in main_contig_data_dict.items():
                                   'k-mer_freqs': ';'.join([str(k) for k in list(k_freq)]),
                                   'depths': ';'.join([str(d) for d in list(depth_dict.get(contig))])}
 
-compression_opts = dict(method='zip', archive_name='contig_data.tsv')
+all_cont_data_dict.update({contig: {'bin': contig,
+                                  'k-mer_freqs': '',
+                                  'depths': ';'.join([str(d) for d in list(depth_dict.get(contig))])}
+                           for contig in single_contig_bins})
+
+compression_opts = dict(method='gzip')
 
 contig_data_df = pd.DataFrame.from_dict(all_cont_data_dict, orient='index', columns=['bin', 'k-mer_freqs', 'depths'])
 
-contig_data_df.to_csv('contig_data.zip', header=True, index=True, index_label='contig', chunksize=1000, compression=compression_opts, sep='\t')
+contig_data_df.to_csv('contig_data.tsv.gz', header=True, index=True, index_label='contig', chunksize=1000, compression=compression_opts, sep='\t')
 
 logging.info('Run finished.')

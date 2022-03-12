@@ -1167,7 +1167,6 @@ def choose_checkm_marker_set(marker_list, marker_sets_graph, tigrfam2pfam_data_d
         current_depth_level += 1
 
     if best_marker_set:
-        print(best_marker_set)
         return best_marker_set
     else:
         logging.debug('Something went wrong while choosing the best marker set. Markers:'
@@ -1255,8 +1254,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
                         tigrfam2pfam_data, main_contig_data_dict, assembly_dict, max_contig_threshold=3.0e5,
                         internal_min_marker_cont_size=0, include_depth_initial=False, max_embedding_tries=50,
                         include_depth_main=True, hdbscan_epsilon_range=(0.250, 0.125), hdbscan_min_samples_range=(2, 3, 4, 5),
-                        dist_metric='euclidean', contigs2clusters_out_path='intermediary',
-                        tsne_early_exag_iterations=250, tsne_main_iterations=750):
+                        dist_metric='euclidean', contigs2clusters_out_path='intermediary'):
     np.random.seed(0)
     embedding_tries = 1
     internal_completeness = starting_completeness
