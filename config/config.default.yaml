@@ -72,8 +72,8 @@ binning:
       include_depth_main: 'True'
     bin_quality:
       # Minimum value binny will lower completeness to while running.
-      min_completeness: 70
+      min_completeness: 72.5
       # Completness threshold binny wilt begin with.
-      start_completeness: 90
+      start_completeness: 92.5
       # Minimum purity for bins to be selected.
-      purity: 90
+      purity: 92.5

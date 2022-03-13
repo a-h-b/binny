@@ -363,11 +363,11 @@ def get_sub_clusters(cluster_dicts, threads_for_dbscan, marker_sets_graph, tigrf
         cluster_pur_thresh = purity_threshold
 
         if 0.850 < clust_comp <= 0.900:
-            if cluster_pur_thresh < 0.900:
-                cluster_pur_thresh = 0.900
-        elif 0.750 < clust_comp <= 0.850:
             if cluster_pur_thresh < 0.925:
                 cluster_pur_thresh = 0.925
+        elif 0.750 < clust_comp <= 0.850:
+            if cluster_pur_thresh < 0.95:
+                cluster_pur_thresh = 0.95
         # elif 0.700 < clust_comp <= 0.750:
         #     if cluster_pur_thresh < 0.950:
         #         cluster_pur_thresh = 0.950
@@ -916,7 +916,7 @@ def asses_contig_completeness_purity(essential_gene_lol, n_dims, marker_sets_gra
         all_ess = contig_data[1]
         marker_set = choose_checkm_marker_set(all_ess, marker_sets_graph, tigrfam2pfam_data_dict)
         taxon, comp, pur = marker_set[0], marker_set[1], marker_set[2]
-        if pur > 0.80 and comp > 0.875:
+        if pur > 0.90 and comp > 0.925:
             bin_dict = {contig_data[0]: {'depth1': np.array([None]), 'contigs': np.array([contig_data[0]]),
                                          'essential': np.array(all_ess), 'purity': pur, 'completeness': comp,
                                          'taxon': taxon}}
@@ -1130,7 +1130,7 @@ def choose_checkm_marker_set(marker_list, marker_sets_graph, tigrfam2pfam_data_d
                 current_marker_set = [node, node_marker_set_completeness, node_marker_set_purity,
                                       node_marker_set_completeness_score, current_depth_level]
 
-            if not best_marker_set:
+            if not best_marker_set or (best_marker_set[0] in ['Bacteria', 'Archaea'] and current_depth_level > 0):
                 best_marker_set = [node, node_marker_set_completeness, node_marker_set_purity,
                                    node_marker_set_completeness_score, current_depth_level]
             else:
@@ -1143,7 +1143,8 @@ def choose_checkm_marker_set(marker_list, marker_sets_graph, tigrfam2pfam_data_d
                                                               best_marker_set, completeness_variability)
                 # best_marker_set = compare_marker_set_stats_v2(current_marker_set, best_marker_set)
 
-            if not current_level_best_marker_set:
+            if not current_level_best_marker_set or (current_level_best_marker_set[0] in ['Bacteria', 'Archaea']
+                                                     and current_depth_level > 0):
                 current_level_best_marker_set = [node, node_marker_set_completeness, node_marker_set_purity,
                                                  node_marker_set_completeness_score, current_depth_level]
             else:
@@ -1453,14 +1454,14 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
 
         logging.info('Good bins this embedding iteration: {0}.'.format(len(good_bins.keys())))
 
-        if len(list(good_bins.keys())) < 3 and internal_completeness > min_completeness and final_try_counter == 0:
-            internal_completeness -= 5
+        if len(list(good_bins.keys())) < 4 and internal_completeness > min_completeness and final_try_counter == 0:
+            internal_completeness -= 10
             logging.info(f'Found < 3 good bins. Minimum completeness lowered to {internal_completeness}.')
-        elif len(list(good_bins.keys())) < 3 and final_try_counter <= 5 \
+        elif len(list(good_bins.keys())) < 4 and final_try_counter <= 3 \
                 and not internal_min_marker_cont_size > prev_round_internal_min_marker_cont_size:
             if final_try_counter == 0:
                 max_contig_threshold *= 1.25
-            internal_min_marker_cont_size = 2500 - 500 * final_try_counter
+            internal_min_marker_cont_size = 2250 - 750 * final_try_counter
             final_try_counter += 1
             logging.info(f'Running with contigs >= {internal_min_marker_cont_size}bp, minimum completeness {internal_completeness}.')
         elif len(list(good_bins.keys())) < 2:
