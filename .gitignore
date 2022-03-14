@@ -10,4 +10,9 @@ test_output
 jobs.tsv
 install.log
 test_run.log
+run_gomico_test.sh
+gomico_test_G64/
+test_output/
+config/c2_t_oral_s17_config.yaml
+config/config.gomico.G64.yaml
 !.gitignore
