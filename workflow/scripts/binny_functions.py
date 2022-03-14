@@ -362,18 +362,18 @@ def get_sub_clusters(cluster_dicts, threads_for_dbscan, marker_sets_graph, tigrf
 
         cluster_pur_thresh = purity_threshold
 
-        if 0.850 < clust_comp <= 0.900:
-            if cluster_pur_thresh < 0.925:
-                cluster_pur_thresh = 0.925
-        elif 0.750 < clust_comp <= 0.850:
-            if cluster_pur_thresh < 0.95:
-                cluster_pur_thresh = 0.95
+        # if 0.850 < clust_comp <= 0.900:
+        #     if cluster_pur_thresh < 0.925:
+        #         cluster_pur_thresh = 0.925
+        # elif 0.750 < clust_comp <= 0.850:
+        #     if cluster_pur_thresh < 0.95:
+        #         cluster_pur_thresh = 0.95
         # elif 0.700 < clust_comp <= 0.750:
         #     if cluster_pur_thresh < 0.950:
         #         cluster_pur_thresh = 0.950
-        elif clust_comp <= 0.750:
-            if cluster_pur_thresh < 0.95:
-                cluster_pur_thresh = 0.95
+        # elif clust_comp <= 0.750:
+        #     if cluster_pur_thresh < 0.95:
+        #         cluster_pur_thresh = 0.95
 
         # if clust_taxon == 'Bacteria':
         #     if purity_threshold < 0.975:
@@ -1254,7 +1254,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
                         threads, n_dim, annot_file, mg_depth_file, single_contig_bins, taxon_marker_sets,
                         tigrfam2pfam_data, main_contig_data_dict, assembly_dict, max_contig_threshold=3.0e5,
                         internal_min_marker_cont_size=0, include_depth_initial=False, max_embedding_tries=50,
-                        include_depth_main=True, hdbscan_epsilon_range=(0.250, 0.125), hdbscan_min_samples_range=(2, 3, 4, 5),
+                        include_depth_main=True, hdbscan_epsilon_range=(0.250, 0.125), hdbscan_min_samples_range=(0, 2, 4, 6, 8),
                         dist_metric='euclidean', contigs2clusters_out_path='intermediary'):
     np.random.seed(0)
     embedding_tries = 1
@@ -1456,12 +1456,14 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
 
         if len(list(good_bins.keys())) < 4 and internal_completeness > min_completeness and final_try_counter == 0:
             internal_completeness -= 10
-            logging.info(f'Found < 3 good bins. Minimum completeness lowered to {internal_completeness}.')
-        elif len(list(good_bins.keys())) < 4 and final_try_counter <= 3 \
+            if internal_completeness < 90:
+                min_purity = 90
+            logging.info(f'Found < 4 good bins. Minimum completeness lowered to {internal_completeness}.')
+        elif len(list(good_bins.keys())) < 4 and final_try_counter <= 4 \
                 and not internal_min_marker_cont_size > prev_round_internal_min_marker_cont_size:
             if final_try_counter == 0:
                 max_contig_threshold *= 1.25
-            internal_min_marker_cont_size = 2250 - 750 * final_try_counter
+            internal_min_marker_cont_size = 2000 - 500 * final_try_counter
             final_try_counter += 1
             logging.info(f'Running with contigs >= {internal_min_marker_cont_size}bp, minimum completeness {internal_completeness}.')
         elif len(list(good_bins.keys())) < 2:
