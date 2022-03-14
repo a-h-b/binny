@@ -150,7 +150,11 @@ else
     done
 fi
 # Set conda source path to existing Prokka/Mantis source path if exists
-if  [[ ( -n  ${mantis_env_parent} && -n  ${prokka_env_parent} ) && (${prokka_env_parent} == ${mantis_env_parent}) ]]; then
+conda_source_config_var=$(grep 'conda_source:' ${CONFIGFILE} | cut -d' ' -f2 | sed -e 's/"//g')
+if [[ -n  ${conda_source_config_var} ]]; then
+  CONDA_SOURCE=${conda_source_config_var}
+  echo "Using ${CONDA_SOURCE} as Conda source folder"
+elif  [[ ( -n  ${mantis_env_parent} && -n  ${prokka_env_parent} ) && (${prokka_env_parent} == ${mantis_env_parent}) ]]; then
   CONDA_SOURCE=${mantis_env_parent}
 elif [[ ( -n  ${mantis_env_parent} && -n  ${prokka_env_parent} ) ]]; then
   echo "Existing Prokka and Mantis env sources must currently be identical (Snakemake limitation)." \

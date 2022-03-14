@@ -28,6 +28,7 @@ db_path: "database"
 snakemake_env: ""
 prokka_env: ""
 mantis_env: ""
+conda_source: ""
 binning:
   binny:
     # Input a list, e.g. '2,3,4'.
