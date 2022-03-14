@@ -141,7 +141,7 @@ if [[ -n  ${mantis_env_config_var} ]]; then
   fi
   mantis_env=${mantis_env_name}
   echo "Using existing Mantis env: ${mantis_env}"
-else:
+else
     for i in ${DIR}/conda/*.yaml; do
       env_name=$(head -n 1 ${i} | cut -d' ' -f2)
       if [[ ${env_name} == 'mantis' ]]; then
