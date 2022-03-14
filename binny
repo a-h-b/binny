@@ -141,6 +141,13 @@ if [[ -n  ${mantis_env_config_var} ]]; then
   fi
   mantis_env=${mantis_env_name}
   echo "Using existing Mantis env: ${mantis_env}"
+else:
+    for i in ${DIR}/conda/*.yaml; do
+      env_name=$(head -n 1 ${i} | cut -d' ' -f2)
+      if [[ ${env_name} == 'mantis' ]]; then
+        mantis_env=${i%.yaml}
+      fi
+    done
 fi
 # Set conda source path to existing Prokka/Mantis source path if exists
 if  [[ ( -n  ${mantis_env_parent} && -n  ${prokka_env_parent} ) && (${prokka_env_parent} == ${mantis_env_parent}) ]]; then
@@ -192,15 +199,7 @@ elif [ "$INITIAL" = true ]; then
       then
       DB_PATH=${DIR}/$DB_PATH
     fi
-    # Get Mantis and binny conda envs
-    for i in ${DIR}/conda/*.yaml; do
-      env_name=$(head -n 1 ${i} | cut -d' ' -f2)
-      if [[ ${env_name} == 'mantis' ]]; then
-        mantis_env=${i%.yaml}
-      elif [[ ${env_name} == 'binny_linux' ]]; then
-        binny_env=${i%.yaml}
-      fi
-    done
+
     echo "Setting up Mantis with the CheckM databases"
     conda activate ${mantis_env}
     # Make sure a compiler for cython is available
