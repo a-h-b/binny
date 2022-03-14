@@ -149,11 +149,28 @@ else
       fi
     done
 fi
-# Set conda source path to existing Prokka/Mantis source path if exists
+# Set conda source path to target path or existing Prokka/Mantis source path if exists
 conda_source_config_var=$(grep 'conda_source:' ${CONFIGFILE} | cut -d' ' -f2 | sed -e 's/"//g')
 if [[ -n  ${conda_source_config_var} ]]; then
+  # Set conda source
   CONDA_SOURCE=${conda_source_config_var}
-  echo "Using ${CONDA_SOURCE} as Conda source folder"
+  # Find path to mantis env
+  if [[  ${conda_source_config_var}} != ${mantis_env_path} ]]; then
+    for i in ${CONDA_SOURCE}/*.yaml; do
+      env_name=$(grep -l 'mantis' ${i})
+      if [[ -n ${env_name} ]]; then
+        mantis_env=${i%.yaml}
+      fi
+    done
+  fi
+#  if [[  ${conda_source_config_var}} != ${prokka_env_path} ]]; then
+#    for i in ${CONDA_SOURCE}/*.yaml; do
+#      env_name=$(grep -l 'prokka' ${i})
+#      if [[ -n ${env_name} ]]; then
+#        prokka_env=${i%.yaml}
+#      fi
+#    done
+#  fi
 elif  [[ ( -n  ${mantis_env_parent} && -n  ${prokka_env_parent} ) && (${prokka_env_parent} == ${mantis_env_parent}) ]]; then
   CONDA_SOURCE=${mantis_env_parent}
 elif [[ ( -n  ${mantis_env_parent} && -n  ${prokka_env_parent} ) ]]; then
