@@ -120,12 +120,12 @@ if [[ -n  ${prokka_env_config_var} ]]; then
     prokka_env_name=$(python -c "print(\"${prokka_env_path}\".split('/')[-1])")
     prokka_env_parent=$(python -c "print(\"${prokka_env_path}\".replace(\"${prokka_env_name}\", ''))")
     conda config --append envs_dirs ${prokka_env_parent}
-    # Hack to prevent source file not found error?
-    ln -s ${prokka_env_path} ${DIR}/${prokka_env_name}
+#    # Hack to prevent source file not found error?
+#    ln -s ${prokka_env_path} ${DIR}/${prokka_env_name}
   else
-    prokka_env_name=${mantis_env_path}
+    prokka_env_name=${prokka_env_path}
   fi
-  echo "Using existing Prokka env: ${prokka_env}"
+  echo "Using existing Prokka env: ${prokka_env_name}"
 fi
 # Same for mantis
 mantis_env_config_var=$(grep 'mantis_env:' ${CONFIGFILE} | cut -d' ' -f2 | sed -e 's/"//g')
