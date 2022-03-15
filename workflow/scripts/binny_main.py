@@ -8,7 +8,9 @@ Created on Wed Feb 22 10:50:35 2021
 
 import logging
 import sys
+import os
 
+binny_out = snakemake.input['binny_out']
 sample = snakemake.params['sample']
 mg_depth_file = snakemake.input['mgdepth']
 assembly = snakemake.input['assembly']
@@ -61,7 +63,8 @@ logging.info('Starting Binny run for sample {0}.'.format(sample))
 tigrfam2pfam_data = tigrfam2pfam_dict(tigrfam2pfam_file)
 
 # Merge Prokka gff with marker set data, load annotation df, and load assembly.
-checkm_hmmer_search2prokka_gff(prokka_checkm_marker_hmm_out, raw_annot, gff_out_path='intermediary')
+checkm_hmmer_search2prokka_gff(prokka_checkm_marker_hmm_out, raw_annot, gff_out_path=os.path.join(binny_out,
+                                                                                                  'intermediary'))
 annot_df, annot_dict = gff2ess_gene_df(annot_file, target_attribute='checkm_marker', get_dict=True)
 assembly_dict = load_fasta(assembly)
 
@@ -124,7 +127,8 @@ all_good_bins, contig_data_df_org, min_purity = iterative_embedding(x_contigs, d
                                                         include_depth_initial, max_embedding_tries,
                                                         include_depth_main, hdbscan_epsilon_range,
                                                         hdbscan_min_samples_range, dist_metric,
-                                                        contigs2clusters_out_path='intermediary')
+                                                        contigs2clusters_out_path=os.path.join(binny_out,
+                                                                                               'intermediary'))
 
 all_contigs = []
 for bin in all_good_bins:
@@ -134,7 +138,7 @@ if len(all_contigs) != len(set(all_contigs)):
 
 # Write bin fastas.
 write_bins(all_good_bins, assembly, min_comp=int(min_completeness), min_pur=int(min_purity),
-           bin_dir='bins')
+           bin_dir=os.path.join(binny_out, 'bins'))
 
 bin_dict = {contig: bin for bin, bin_data in all_good_bins.items() for contig in bin_data['contigs']}
 
@@ -154,6 +158,7 @@ compression_opts = dict(method='gzip')
 
 contig_data_df = pd.DataFrame.from_dict(all_cont_data_dict, orient='index', columns=['bin', 'k-mer_freqs', 'depths'])
 
-contig_data_df.to_csv('contig_data.tsv.gz', header=True, index=True, index_label='contig', chunksize=1000, compression=compression_opts, sep='\t')
+contig_data_df.to_csv(os.path.join(binny_out, 'contig_data.tsv.gz'), header=True, index=True, index_label='contig',
+                      chunksize=1000, compression=compression_opts, sep='\t')
 
 logging.info('Run finished.')

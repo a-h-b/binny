@@ -39,6 +39,9 @@ if os.path.isabs(os.path.expandvars(config['outputdir'])):
 else:
     OUTPUTDIR = os.path.join(os.getcwd() , os.path.expandvars(config['outputdir']))
 
+if not os.path.exists(OUTPUTDIR):
+            os.makedirs(OUTPUTDIR)
+
 # input
 if os.path.isabs(os.path.expandvars(config['raws']['assembly'])):
     CONTIGS = os.path.expandvars(config['raws']['assembly'])
@@ -184,7 +187,8 @@ localrules: prepare_input_data, ALL
 
 rule ALL:
     input:
-        "bins/"
+        os.path.join(OUTPUTDIR,'contig_data.tsv.gz')
+
 
 yaml.add_representer(OrderedDict, lambda dumper, data: dumper.represent_mapping('tag:yaml.org,2002:map', data.items()))
 yaml.add_representer(tuple, lambda dumper, data: dumper.represent_sequence('tag:yaml.org,2002:seq', data))
@@ -333,12 +337,12 @@ rule annotate:
 # Find markers on contigs
 rule mantis_checkm_marker_sets:
     input:
-        proteins="intermediary/prokka.faa"
+        proteins=os.path.join(OUTPUTDIR, "intermediary/prokka.faa")
     output:
-        "intermediary/mantis_out/output_annotation.tsv",
-        "intermediary/mantis_out/integrated_annotation.tsv",
-        "intermediary/mantis_out/consensus_annotation.tsv",
-        out_dir=directory("intermediary/mantis_out")
+        os.path.join(OUTPUTDIR, "intermediary/mantis_out/output_annotation.tsv"),
+        os.path.join(OUTPUTDIR, "intermediary/mantis_out/integrated_annotation.tsv"),
+        os.path.join(OUTPUTDIR, "intermediary/mantis_out/consensus_annotation.tsv"),
+        out_dir=directory(os.path.join(OUTPUTDIR, "intermediary/mantis_out"))
     params:
         binny_cfg=srcdir("config/binny_mantis.cfg")
     resources:
@@ -368,9 +372,10 @@ rule binny:
         mgdepth='intermediary/assembly.contig_depth.txt',
         raw_gff='intermediary/annotation.filt.gff',
         assembly="intermediary/assembly.formatted.fa",
-        hmm_markers="intermediary/mantis_out/consensus_annotation.tsv"
+        hmm_markers="intermediary/mantis_out/consensus_annotation.tsv",
+        binny_out=OUTPUTDIR
     output:
-        directory("bins")
+        os.path.join(OUTPUTDIR,'contig_data.tsv.gz')
     params:
         sample=SAMPLE,
         py_functions = SRCDIR + "/binny_functions.py",
