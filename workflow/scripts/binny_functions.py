@@ -362,6 +362,13 @@ def get_sub_clusters(cluster_dicts, threads_for_dbscan, marker_sets_graph, tigrf
 
         cluster_pur_thresh = purity_threshold
 
+        if 0.700 < clust_comp <= 0.800:
+            if cluster_pur_thresh < 0.925:
+                cluster_pur_thresh = 0.925
+        elif clust_comp <= 0.700:
+            if cluster_pur_thresh < 0.95:
+                cluster_pur_thresh = 0.95
+
         # if 0.850 < clust_comp <= 0.900:
         #     if cluster_pur_thresh < 0.925:
         #         cluster_pur_thresh = 0.925
@@ -371,9 +378,6 @@ def get_sub_clusters(cluster_dicts, threads_for_dbscan, marker_sets_graph, tigrf
         # elif 0.700 < clust_comp <= 0.750:
         #     if cluster_pur_thresh < 0.950:
         #         cluster_pur_thresh = 0.950
-        # elif clust_comp <= 0.750:
-        #     if cluster_pur_thresh < 0.95:
-        #         cluster_pur_thresh = 0.95
 
         # if clust_taxon == 'Bacteria':
         #     if purity_threshold < 0.975:
@@ -1376,15 +1380,15 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         ee_iter = 0
 
         # Early exagg
-        embedding = embedding.optimize(n_iter=3, exaggeration=early_exagg,
-                                       learning_rate=learning_rate, momentum=0.5, n_jobs=threads, verbose=0)
+        embedding.optimize(n_iter=3, exaggeration=early_exagg, inplace=True, learning_rate=learning_rate, momentum=0.5,
+                           n_jobs=threads, verbose=0)
         KLD_prev = embedding.kl_divergence
         ee_iter += opt_cycle_iter
         logging.info('EE iteration {0} - KLD: {1}'.format(ee_iter, round(KLD_prev, 4)))
 
         while ee_iter <= 750 or KLD_DIFF > KLD * 0.01:  # or KLDRC < maxKLDRC:
-            embedding = embedding.optimize(n_iter=opt_cycle_iter, exaggeration=early_exagg,
-                                            learning_rate=learning_rate, momentum=0.5, n_jobs=threads, verbose=0)
+            embedding.optimize(n_iter=opt_cycle_iter, exaggeration=early_exagg, inplace=True, learning_rate=learning_rate,
+                               momentum=0.5, n_jobs=threads, verbose=0)
             KLD = embedding.kl_divergence
             KLD_DIFF = abs(KLD_prev - KLD)
             KLDRC = 100 * KLD_DIFF / KLD_prev
@@ -1401,8 +1405,8 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         logging.info(f'Main iteration learning rate: {learning_rate}')
 
         while main_iter <= 1000 or KLD_DIFF > KLD * 0.01:
-            embedding = embedding.optimize(n_iter=opt_cycle_iter, exaggeration=1,
-                                            learning_rate=learning_rate, momentum=0.8, n_jobs=threads, verbose=0)
+            embedding.optimize(n_iter=opt_cycle_iter, exaggeration=1, inplace=True, learning_rate=learning_rate,
+                               momentum=0.8, n_jobs=threads, verbose=0)
             KLD = embedding.kl_divergence
             KLD_DIFF = abs(KLD_prev - KLD)
             KLDRC = 100 * KLD_DIFF / KLD_prev
@@ -1516,4 +1520,4 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         logging.info('Good bins so far: {0}.'.format(len(all_good_bins.keys())))
         if len(round_leftovers.index) == 0:
             break
-    return all_good_bins, contig_data_df_org
+    return all_good_bins, contig_data_df_org, min_purity

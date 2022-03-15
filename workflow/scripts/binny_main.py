@@ -116,7 +116,7 @@ main_contig_data_dict = {cont: seq for cont, seq in zip(x_contigs, x)}
 depth_dict = load_depth_dict(mg_depth_file)
 
 # Run iterative dimension reduction, manifold learning, cluster detection and assessment.
-all_good_bins, contig_data_df_org = iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completeness,
+all_good_bins, contig_data_df_org, min_purity = iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completeness,
                                                         min_purity, min_completeness, threads, n_dim, annot_file,
                                                         mg_depth_file, single_contig_bins, taxon_marker_sets,
                                                         tigrfam2pfam_data, main_contig_data_dict, assembly_dict,

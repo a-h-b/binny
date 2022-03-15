@@ -1,74 +1,158 @@
+steps: "preprocessing assembly analysis binning taxonomy summary"
+email: ""
+sessionName: ""
+sessionKind: ""
+settingsLocked: "false"
+preprocessing_filtering: true
 mem:
-  # If your HPC resource has a high memory capacity node you can set this to
-  # TRUE and specify the amount of memory per core (e.g. if a node has 260 gb of
-  # RAM and 10 cores it would be 26).
-  big_mem_avail: FALSE
-  big_mem_per_core_gb: 26
-  # Memory per core of your computing resource.
-  normal_mem_per_core_gb: 4
-# Path to a temporary directory to write to.
+  normal_mem_per_core_gb: 8
+  big_mem_total_gb: 180
+  big_mem_cores: 5
+  big_mem_per_core_gb: 36
 tmp_dir: tmp
 raws:
-  # Path to test assembly fasta.
-  assembly:  "test/contigs_4bins.fa"
-  # Path to a test bam file to calculate depth from (single sample mode only atm).
-  metagenomics_alignment: "test/reads_4bins.bam"
-  # Path to an average depth per contig tsv file. Leave empty for initialization.
-  contig_depth: ""
-# Sample name
-sample: "test"
-# Path to desired output dir binny should create and store results in.
-outputdir: "binny_initialized"
-# Path to binny dbs, leave at default if you performed the default install.
-db_path: "database"
-# If you want to use existing environments containing the environments for Snakemake, Prokka
-# and/or Mantis you can either input the absolute paths to yaml files or env names here.
-# Otherwise, leave empty and binny will take care of the installations.
-# If you already have Snakemake in your path set: snakemake_env="in_path".
-snakemake_env: ""
-prokka_env: ""
-mantis_env: ""
-conda_source: ""
+  Metagenomics: "test/Reads/test.mg.1.fastq test/Reads/test.mg.2.fastq"
+  Metatranscriptomics: ""
+  LongReads: ""
+  LongReadTech: ""
+  Contigs: ""
+  Alignment_metagenomics: ""
+  Alignment_metatranscriptomics: ""
+  Gff: ""
+sample: test
+outputdir: "IMP3.initialised"
+summarydir: ""
+summary_steps: "stats vis"
+mongo_user: "myUserAdmin"
+mongo_port: 16626
+mongo_password: "testMongo"
+compress_level: "mid"
+db_path: "databases"
+trimmomatic:
+  adapter:
+    mg: "TruSeq3-PE"
+    mt: "TruSeq3-PE"
+  leading: 20
+  minlen: 40
+  palindrome_clip_threshold: 30
+  simple_clip_threshold: 10
+  trailing: 20
+  seed_mismatch: 2
+  window_size: 1
+  window_quality: 3
+  strictness: 0.5
+  target_length: 40
+nextseq: false
+filtering:
+  filter: PhiX # phiX174  Not downloaded?
+sortmerna:
+  files:
+    - rfam-5.8s-database-id98
+    - silva-arc-16s-id95
+    - silva-bac-16s-id90
+    - silva-euk-18s-id95
+    - rfam-5s-database-id98
+    - silva-arc-23s-id98
+    - silva-bac-23s-id98
+    - silva-euk-28s-id98
+assembly:
+  hybrid: true
+  assembler: megahit
+  merge: "cap3" # how to do merge(assembly A, assembly B from reads not mapping to A); none or "" = use only assembly A
+  mink: 25
+  maxk: 99
+  step: 4
+  cap3:
+    identity: 98
+    overlap: 100
+hmm_DBs: "KEGG essential Pfam_A Resfams Cas dbCAN metacyc SwissProt TIGRPFAM"
+hmm_settings:
+  KEGG:
+    cutoff: ""
+    trim: "--trimall"
+  essential:
+    cutoff: "--cut_tc"
+    trim: ""
+  metacyc:
+    cutoff: ""
+    trim: "--trimall"
+  Cas:
+    cutoff: ""
+    trim: ""
+  Pfam_A:
+    cutoff: "--cut_tc"
+    trim: ""
+  SwissProt:
+    cutoff: ""
+    trim: "--trimall"
+  TIGRPFAM:
+    cutoff: ""
+    trim: ""
+  dbCAN:
+    cutoff: ""
+    trim: ""
+  Resfams:
+    cutoff: ""
+    trim: ""
+COGS: "COG0012 COG0018 COG0215 COG0525 COG0541 COG0016 COG0172 COG0495 COG0533 COG0552"
+featureCountsStranding:
+  mt: 2
+  mg: 0
+proteomics:
+  filter_N_peptides: 2
+  host_proteome: ""
+  insert_variants: false
 binning:
+  binners: "CONCOCT MaxBin MetaBAT binny"
+  CONCOCT:
+    cutoff: 1000
+  MaxBin:
+    cutoff: 1000
+  MetaBAT:
+    cutoff: 1500
   binny:
-    # Input a list, e.g. '2,3,4'.
-    kmers: '2,3,4'
-    # Binny prefilters assemblies based on NX vale to try and take as much information as possible into account,
-    # while minimizing the amount of noise. Be aware that, depending on the assembly quality, low values as the N50
-    # might results in leaving out a large proportion of the assembly (if the max_cont_length cutoffs are set high).
-    NX_value: 95
-    # Minimum and maximum contig length. Caps value from NX filtering.
-    min_cont_length_cutoff: 500
-    max_cont_length_cutoff: 1000
-    # Minimum and maximum length of contigs containing CheckM markers. Caps value from NX filtering (initial value is NX_value / 2).
-    min_cont_length_cutoff_marker: 200
-    max_cont_length_cutoff_marker: 300
-    # Maximum number of contigs binny uses. If the number of available contigs after minimum size filtering exceeds this,
-    # binny will increase the minimum size threshold until the maximum is reached. Prevents use of excessive amounts of
-    # memory on large assemblies. Default should ensure adequate performance, adjust e.g. according to available memory.
-    max_n_contigs: 3.0e5
-    # Distance metric for opentSNE and HDBSCAN.
-    distance_metric: 'euclidean'
-    embedding:
-      # Maximum number of binny iterations.
-      max_iterations: 50
-    clustering:
-      # Increasing the HDBSCAN cluster selection epsilon beyond 0.5
-      # is not advised as it might massively increase run time, but it might
-      # help recover genomes that would be missed with lower settings.
-      hdbscan_epsilon: 0.25
-      # Adapted from the HDBSCAN manual: 'Measure of how conservative the
-      # clustering should be. With larger values, more points will be declared
-      # as noise, and clusters will be restricted to progressively more dense areas.'.
-      hdbscan_min_samples: 2
-      # Use depth as additional dimension during the initial clustering.
-      include_depth_initial: 'False'
-      # Use depth as additional dimension during the main clusterings.
-      include_depth_main: 'True'
-    bin_quality:
-      # Minimum value binny will lower completeness to while running.
-      min_completeness: 70
-      # Completness threshold binny wilt begin with.
-      start_completeness: 90
-      # Minimum purity for bins to be selected.
-      purity: 87.5
+#    mem:
+#      big_mem_avail: TRUE
+#      big_mem_per_core_gb: *big_mem_total_gb
+#      normal_mem_per_core_gb: *normal_mem_per_core_gb
+#    tmp_dir: *tmp_dir
+#    sample: *sample
+#    db_path: "submodules/binny/database"
+#    snakemake_env: "conda/snakemake_env"
+#    prokka_env: "workflow/envs/IMP_annotation.yaml"
+#    mantis_env: "workflow/envs/IMP_mantis.yaml"
+    binning:
+      binny:
+        kmers: '2,3,4'
+        NX_value: 95
+        min_cont_length_cutoff: 500
+        max_cont_length_cutoff: 1000
+        min_cont_length_cutoff_marker: 100
+        max_cont_length_cutoff_marker: 300
+        max_n_contigs: 3.5e5
+        distance_metric: 'manhattan'
+        embedding:
+          max_iterations: 50
+        clustering:
+          hdbscan_epsilon_range: '0.500,0.000'
+          hdbscan_min_samples_range: '1,2,4,6,8'
+          include_depth_initial: 'False'
+          include_depth_main: 'True'
+        bin_quality:
+          min_completeness: 62.5
+          start_completeness: 92.5
+          purity: 92.5
+  MetaWrap:
+    min_completeness: 70
+    max_contamination: 10
+annotation: "mantis" # hmmer (default) / mantis
+krakendb: minikraken2
+eukdetect:
+  run_eukdetect: false
+  eukdetect_dir: ../EukDetect
+  database_dir: eukdetect_database_v1
+  min_readlen: 60 #eukdetect does not recommend pre-trimming, but I don't see why we should keep stuff we don't want
+locked_normalMem: 0
+locked_bigMem: 0
+locked_bigCores: 0
+locked_bigTotal: 0

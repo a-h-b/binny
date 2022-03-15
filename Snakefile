@@ -333,11 +333,12 @@ rule annotate:
 # Find markers on contigs
 rule mantis_checkm_marker_sets:
     input:
-        "intermediary/prokka.faa"
+        proteins="intermediary/prokka.faa"
     output:
         "intermediary/mantis_out/output_annotation.tsv",
         "intermediary/mantis_out/integrated_annotation.tsv",
-        "intermediary/mantis_out/consensus_annotation.tsv"
+        "c/consensus_annotation.tsv",
+        out_dir=directory("intermediary/mantis_out")
     params:
         binny_cfg=srcdir("config/binny_mantis.cfg")
     resources:
@@ -353,10 +354,10 @@ rule mantis_checkm_marker_sets:
     shell:
         """
         if [ -d intermediary/mantis_out ]; then rm intermediary/mantis_out/* || true ; fi >> {log} 2>&1
-        mantis run -i {input[0]} \
+        mantis run -i {input.proteins} \
                    -da heuristic \
                    -mc {params.binny_cfg} \
-                   -o intermediary/mantis_out \
+                   -o {output.out_dir} \
                    -c {threads} \
                    --no_taxonomy \
                    -et 1e-3 >> {log} 2>&1

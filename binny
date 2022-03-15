@@ -163,14 +163,6 @@ if [[ -n  ${conda_source_config_var} ]]; then
       fi
     done
   fi
-#  if [[  ${conda_source_config_var}} != ${prokka_env_path} ]]; then
-#    for i in ${CONDA_SOURCE}/*.yaml; do
-#      env_name=$(grep -l 'prokka' ${i})
-#      if [[ -n ${env_name} ]]; then
-#        prokka_env=${i%.yaml}
-#      fi
-#    done
-#  fi
 elif  [[ ( -n  ${mantis_env_parent} && -n  ${prokka_env_parent} ) && (${prokka_env_parent} == ${mantis_env_parent}) ]]; then
   CONDA_SOURCE=${mantis_env_parent}
 elif [[ ( -n  ${mantis_env_parent} && -n  ${prokka_env_parent} ) ]]; then
