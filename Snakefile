@@ -337,7 +337,7 @@ rule mantis_checkm_marker_sets:
     output:
         "intermediary/mantis_out/output_annotation.tsv",
         "intermediary/mantis_out/integrated_annotation.tsv",
-        "c/consensus_annotation.tsv",
+        "intermediary/mantis_out//consensus_annotation.tsv",
         out_dir=directory("intermediary/mantis_out")
     params:
         binny_cfg=srcdir("config/binny_mantis.cfg")
