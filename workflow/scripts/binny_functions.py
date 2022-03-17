@@ -380,7 +380,13 @@ def get_sub_clusters(cluster_dicts, threads_for_dbscan, marker_sets_graph, tigrf
         #         cluster_pur_thresh = 0.950
 
         if clust_taxon in ['Bacteria', 'Archaea']:
-            if 0.700 < clust_comp <= 0.800:
+            if 0.850 < clust_comp <= 0.900:
+                if cluster_pur_thresh < 0.925:
+                    cluster_pur_thresh = 0.925
+            elif 0.800 < clust_comp <= 0.850:
+                if cluster_pur_thresh < 0.95:
+                    cluster_pur_thresh = 0.95
+            elif 0.700 < clust_comp <= 0.800:
                 if cluster_pur_thresh < 0.975:
                     cluster_pur_thresh = 0.975
             elif clust_comp <= 0.700:
