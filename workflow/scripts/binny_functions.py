@@ -379,9 +379,13 @@ def get_sub_clusters(cluster_dicts, threads_for_dbscan, marker_sets_graph, tigrf
         #     if cluster_pur_thresh < 0.950:
         #         cluster_pur_thresh = 0.950
 
-        # if clust_taxon == 'Bacteria':
-        #     if purity_threshold < 0.975:
-        #         purity_threshold += 0.025
+        if clust_taxon in ['Bacteria', 'Archaea']:
+            if 0.700 < clust_comp <= 0.800:
+                if cluster_pur_thresh < 0.975:
+                    cluster_pur_thresh = 0.975
+            elif clust_comp <= 0.700:
+                if cluster_pur_thresh < 0.99:
+                    cluster_pur_thresh = 0.99
 
         if clust_pur < cluster_pur_thresh and isinstance(clust_pur, float) and clust_comp >= completeness_threshold:
             logging.debug('Cluster {0} below purity of {1} with {2} and matches completeness of {3} with {4}. '
@@ -1126,7 +1130,7 @@ def choose_checkm_marker_set(marker_list, marker_sets_graph, tigrfam2pfam_data_d
             node_marker_set_completeness_score = round(node_marker_set_completeness
                                                        * node_n_marker_sets / node_n_markers * 100, 3)
 
-            if king_lvl_stats and node not in ['Bacteria', 'Archaea']:
+            if king_lvl_stats: # and node not in ['Bacteria', 'Archaea']:
                 current_marker_set = [node, ((node_marker_set_completeness + king_lvl_stats[0]) / 2),
                                       ((node_marker_set_purity + king_lvl_stats[1]) / 2),
                                       node_marker_set_completeness_score, current_depth_level]
@@ -1134,7 +1138,7 @@ def choose_checkm_marker_set(marker_list, marker_sets_graph, tigrfam2pfam_data_d
                 current_marker_set = [node, node_marker_set_completeness, node_marker_set_purity,
                                       node_marker_set_completeness_score, current_depth_level]
 
-            if not best_marker_set or (best_marker_set[0] in ['Bacteria', 'Archaea'] and current_depth_level > 0):
+            if not best_marker_set: # or (best_marker_set[0] in ['Bacteria', 'Archaea'] and current_depth_level > 0):
                 best_marker_set = [node, node_marker_set_completeness, node_marker_set_purity,
                                    node_marker_set_completeness_score, current_depth_level]
             else:
@@ -1145,10 +1149,9 @@ def choose_checkm_marker_set(marker_list, marker_sets_graph, tigrfam2pfam_data_d
                     completeness_variability = 0.975
                 best_marker_set = compare_marker_set_stats(current_marker_set,
                                                               best_marker_set, completeness_variability)
-                # best_marker_set = compare_marker_set_stats_v2(current_marker_set, best_marker_set)
 
-            if not current_level_best_marker_set or (current_level_best_marker_set[0] in ['Bacteria', 'Archaea']
-                                                     and current_depth_level > 0):
+            if not current_level_best_marker_set:  #  or (current_level_best_marker_set[0] in ['Bacteria', 'Archaea']
+                                                   # and current_depth_level > 0):
                 current_level_best_marker_set = [node, node_marker_set_completeness, node_marker_set_purity,
                                                  node_marker_set_completeness_score, current_depth_level]
             else:
@@ -1159,8 +1162,6 @@ def choose_checkm_marker_set(marker_list, marker_sets_graph, tigrfam2pfam_data_d
                 current_level_best_marker_set = compare_marker_set_stats(current_marker_set,
                                                                          current_level_best_marker_set,
                                                                          completeness_variability)
-                # current_level_best_marker_set = compare_marker_set_stats_v2(current_marker_set,
-                #                                                          current_level_best_marker_set)
 
         nodes = list(marker_sets_graph[current_level_best_marker_set[0]])
 
