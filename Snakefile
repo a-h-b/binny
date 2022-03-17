@@ -12,7 +12,7 @@ import yaml
 
 
 def open_output(filename):
-    return open(OUTPUTDIR+'/'+filename, 'w+')
+    return open(OUTPUTDIR + '/' + filename, 'w+')
 
 # default executable for snakmake
 shell.executable("bash")
@@ -60,9 +60,6 @@ else:
         MGaln = [os.path.expandvars(path) for path in glob.glob(config['raws']['metagenomics_alignment'])]
     else:
         MGaln = [os.path.join(os.getcwd(), os.path.expandvars(path)) for path in glob.glob(config['raws']['metagenomics_alignment'])]
-    # print(MGaln)
-    # print(config['raws']['metagenomics_alignment'])
-    # print(glob.glob(config['raws']['metagenomics_alignment']))
     # Get filenames of all bam files without extension, even if the name contains '.'
     mappings_ids = ['.'.join(bam.split('/')[-1].split('.')[:-1]) for bam in MGaln]
     # print(mappings_ids)
@@ -73,7 +70,6 @@ else:
     # The best solution is to have a dictionary that translates a sample id to the inconsistently named files and
     # use a function (see Functions as Input Files) to provide an input file ...
     garbage_dict_so_snakemake_gets_it = {map_id: 'sample_%06.d' % (index + 1) for index, map_id in enumerate(mappings_ids)}
-    # print(garbage_dict_so_snakemake_gets_it)
 
 # Use existing env for Prokka if specified
 if config['prokka_env'] and config['prokka_env'].split('.')[-1] in ['yaml', 'yml']:
@@ -152,9 +148,9 @@ if not os.path.isabs(TMPDIR):
 if not os.path.exists(TMPDIR):
     os.makedirs(TMPDIR)
 
-# set working directory and dump output
-workdir:
-    OUTPUTDIR
+# # set working directory and dump output
+# workdir:
+#     OUTPUTDIR
 
 def prepare_input_files(inputs, outputs):
     """
@@ -187,72 +183,69 @@ localrules: prepare_input_data, ALL
 
 rule ALL:
     input:
-        os.path.join(OUTPUTDIR,'contig_data.tsv.gz')
+        os.path.join(OUTPUTDIR, 'contig_data.tsv.gz')
 
 
 yaml.add_representer(OrderedDict, lambda dumper, data: dumper.represent_mapping('tag:yaml.org,2002:map', data.items()))
 yaml.add_representer(tuple, lambda dumper, data: dumper.represent_sequence('tag:yaml.org,2002:seq', data))
-yaml.dump(config, open_output('binny.config.yaml'), allow_unicode=True,default_flow_style=False)
+yaml.dump(config, open_output('binny.config.yaml'), allow_unicode=True, default_flow_style=False)
 
 rule prepare_input_data:
     input:
         CONTIGS,
         CONTIG_DEPTH if CONTIG_DEPTH else MGaln
     output:
-        "intermediary/assembly.fa",
-        # "intermediary/assembly.contig_depth.txt" if CONTIG_DEPTH else expand("intermediary/reads_{mappings_id}_sorted.bam", mappings_id=mappings_ids)
-        "intermediary/assembly.contig_depth.txt" if CONTIG_DEPTH else ["intermediary/reads_{0}_sorted.bam".format(garbage_dict_so_snakemake_gets_it[mappings_id]) for mappings_id in mappings_ids]
-    threads: 1
+        os.path.join(OUTPUTDIR, "intermediary/assembly.fa"),
+        os.path.join(OUTPUTDIR, "intermediary/assembly.contig_depth.txt") if CONTIG_DEPTH
+        else [os.path.join(OUTPUTDIR, "intermediary/reads_{0}_sorted.bam".format(garbage_dict_so_snakemake_gets_it[mappings_id]))
+              for mappings_id in mappings_ids]
+    threads:
+        1
     resources:
         runtime = "4:00:00",
         mem = MEMCORE
-    message: "Preparing input."
+    message:
+        "Preparing input."
     run:
         prepare_input_files(input, output)
 
 rule format_assembly:
     input:
-        "intermediary/assembly.fa"
+        os.path.join(OUTPUTDIR, "intermediary/assembly.fa")
     output:
-        "intermediary/assembly.formatted.fa"
+        os.path.join(OUTPUTDIR, "intermediary/assembly.formatted.fa")
     threads:
         workflow.cores
     resources:
         runtime = "2:00:00",
         mem = MEMCORE
-    message: "Preparing assembly."
+    message:
+        "Preparing assembly."
     conda:
        os.path.join(ENVDIR, "fasta_processing.yaml")
     shell:
        "seqkit seq {input} -o {output} -w 80"
 
-# print([f"intermediary/reads_{mappings_id}_sorted.bam" for mappings_id in mappings_ids])
-# print([f"intermediary/assembly_contig_depth_{mappings_id}.txt" for mappings_id in mappings_ids])
-# print(expand(["intermediary/reads_{mappings_id}_sorted.bam", "intermediary/assembly.formatted.fa"], mappings_id=mappings_ids))
-
 # contig depth
 if not CONTIG_DEPTH:
     rule call_contig_depth:
         input:
-            # "intermediary/reads_{sample}_sorted.bam"
-            # [f"intermediary/reads_{mappings_id}_sorted.bam" for mappings_id in mappings_ids]
-            # expand(["intermediary/reads_{mappings_id}_sorted.bam"], mappings_id=mappings_ids)
-            assembly = "intermediary/assembly.formatted.fa",
-            mapping=lambda wildcards: "intermediary/reads_{0}_sorted.bam".format(garbage_dict_so_snakemake_gets_it[wildcards.sample])
+            assembly=os.path.join(OUTPUTDIR, "intermediary/assembly.formatted.fa"),
+            mapping=lambda wildcards: os.path.join(OUTPUTDIR,
+                "intermediary/reads_{0}_sorted.bam".format(garbage_dict_so_snakemake_gets_it[wildcards.sample]))
         output:
-            "intermediary/assembly_contig_depth_{sample}.txt"
-            # [f"intermediary/assembly_contig_depth_{mappings_id}.txt" for mappings_id in mappings_ids]
-            # expand("intermediary/assembly_contig_depth_{mappings_id}.txt", mappings_id=mappings_ids)
+            os.path.join(OUTPUTDIR, "intermediary/assembly_contig_depth_{sample}.txt")
         resources:
             runtime = "4:00:00",
             mem = BIGMEMCORE if BIGMEMCORE else MEMCORE
         threads:
-            # getThreads(2) if BIGMEMCORE else getThreads(8)
             max(1, int(workflow.cores / len(mappings_ids))) if mappings_ids else 1
         conda:
             os.path.join(ENVDIR, "mapping.yaml")
-        log: "logs/analysis_call_contig_depth_{sample}.log"
-        message: "call_contig_depth: Getting data on assembly coverage with mg reads."
+        log:
+            os.path.join(OUTPUTDIR, "logs/analysis_call_contig_depth_{sample}.log")
+        message:
+            os.path.join(OUTPUTDIR, "call_contig_depth: Getting data on assembly coverage with mg reads.")
         shell:
             """
             echo "Running BEDTools for average depth in each position" >> {log}
@@ -269,9 +262,12 @@ if not CONTIG_DEPTH:
 
     rule merge_contig_depths:
         input:
-            [f"intermediary/assembly_contig_depth_{mappings_id}.txt" for mappings_id in mappings_ids]
+            [os.path.join(OUTPUTDIR, f"intermediary/assembly_contig_depth_{mappings_id}.txt")
+             for mappings_id in mappings_ids]
         output:
-            "intermediary/assembly.contig_depth.txt"
+            os.path.join(OUTPUTDIR, "intermediary/assembly.contig_depth.txt")
+        params:
+            int_dir=os.path.join(OUTPUTDIR, "intermediary")
         resources:
             runtime = "1:00:00",
             mem = MEMCORE
@@ -279,8 +275,10 @@ if not CONTIG_DEPTH:
             getThreads(1)
         conda:
             os.path.join(ENVDIR, "mapping.yaml")
-        log: "logs/merge_contig_depth.log"
-        message: "Merging depth files."
+        log:
+            os.path.join(OUTPUTDIR, "logs/merge_contig_depth.log")
+        message:
+            "Merging depth files."
         shell:
             """
             first_file=true
@@ -296,42 +294,47 @@ if not CONTIG_DEPTH:
                       && mv $TMP_DEPTH {output}
               fi
             done
-            rm intermediary/assembly_contig_depth_*.txt
+            rm {params.int_dir}/assembly_contig_depth_*.txt
             """
 
 #gene calling
 rule annotate:
     input:
-        'intermediary/assembly.formatted.fa'
+        assembly=os.path.join(OUTPUTDIR, 'intermediary/assembly.formatted.fa')
     output:
-        "intermediary/annotation.filt.gff",
-        "intermediary/prokka.faa",
-        "intermediary/prokka.fna",
-        "intermediary/prokka.ffn",
-        "intermediary/prokka.fsa"
+        gff=os.path.join(OUTPUTDIR, "intermediary/prokka.gff"),
+        gff_filt=os.path.join(OUTPUTDIR, "intermediary/annotation.filt.gff"),
+        faa=os.path.join(OUTPUTDIR, "intermediary/prokka.faa"),
+    params:
+        int_dir=os.path.join(OUTPUTDIR, "intermediary")
     threads:
         # getThreads(20)
         workflow.cores
     resources:
         runtime = "120:00:00",
         mem = MEMCORE
-    log: "logs/analysis_annotate.log"
-    benchmark: "logs/analysis_annotate_benchmark.txt"
+    log:
+        os.path.join(OUTPUTDIR, "logs/analysis_annotate.log")
+    benchmark:
+        os.path.join(OUTPUTDIR, "logs/analysis_annotate_benchmark.")
     conda:
         PROKKA_ENV if PROKKA_ENV else os.path.join(ENVDIR, "prokka.yaml")
-    message: "annotate: Running prokkaP."
+    message:
+        "annotate: Running prokkaP."
     shell:
         """
         export PERL5LIB=$CONDA_PREFIX/lib/site_perl/5.26.2
         export LC_ALL=en_US.utf-8
-	{BINDIR}/prokkaP --dbdir $CONDA_PREFIX/db --force --outdir intermediary/ --tmpdir {TMPDIR} --prefix prokka --noanno --cpus {threads} --metagenome {input[0]} >> {log} 2>&1
+	    {BINDIR}/prokkaP --dbdir $CONDA_PREFIX/db --force --outdir {params.int_dir} --tmpdir {TMPDIR} --prefix prokka \
+	                     --noanno --cpus {threads} --metagenome {input.assembly} >> {log} 2>&1
+        
+	    # Prokka gives a gff file with a long header and with all the contigs at the bottom.  The command below keeps
+	    # only the gff table.
 
-	# Prokka gives a gff file with a long header and with all the contigs at the bottom.  The command below keeps only the gff table.
-
-        LN=`grep -Hn "^>" intermediary/prokka.gff | head -n1 | cut -f2 -d ":" || if [[ $? -eq 141 ]]; then true; else exit $?; fi`
+        LN=`grep -Hn "^>" {output.gff} | head -n1 | cut -f2 -d ":" || if [[ $? -eq 141 ]]; then true; else exit $?; fi`
         LN1=1
         LN=$(($LN-$LN1))
-        head -n $LN intermediary/prokka.gff | grep -v "^#" | sort | uniq | grep -v "^==" > {output[0]}
+        head -n $LN {output.gff} | grep -v "^#" | sort | uniq | grep -v "^==" > {output.gff_filt}
         """
 
 # Find markers on contigs
@@ -352,12 +355,15 @@ rule mantis_checkm_marker_sets:
         MANTIS_ENV if MANTIS_ENV else os.path.join(ENVDIR, "mantis.yaml")
     threads:
         workflow.cores
-    log: "logs/analysis_checkm_markers.log"
-    benchmark: "logs/analysis_checkm_markers_benchmark.txt"
-    message: "MANTIS: Running MANTIS with CheckM marker sets."
+    log:
+        os.path.join(OUTPUTDIR, "logs/analysis_checkm_markers.log")
+    benchmark:
+        os.path.join(OUTPUTDIR, "logs/analysis_checkm_markers_benchmark.txt")
+    message:
+        "MANTIS: Running MANTIS with CheckM marker sets."
     shell:
         """
-        if [ -d intermediary/mantis_out ]; then rm intermediary/mantis_out/* || true ; fi >> {log} 2>&1
+        if [ -d {output.out_dir} ]; then rm {output.out_dir}/* || true ; fi >> {log} 2>&1
         mantis run -i {input.proteins} \
                    -da heuristic \
                    -mc {params.binny_cfg} \
@@ -369,20 +375,19 @@ rule mantis_checkm_marker_sets:
 
 rule binny:
     input:
-        mgdepth='intermediary/assembly.contig_depth.txt',
-        raw_gff='intermediary/annotation.filt.gff',
-        assembly="intermediary/assembly.formatted.fa",
-        hmm_markers="intermediary/mantis_out/consensus_annotation.tsv",
-        binny_out=OUTPUTDIR
+        mgdepth=os.path.join(OUTPUTDIR, 'intermediary/assembly.contig_depth.txt'),
+        raw_gff=os.path.join(OUTPUTDIR, 'intermediary/annotation.filt.gff'),
+        assembly=os.path.join(OUTPUTDIR, "intermediary/assembly.formatted.fa"),
+        hmm_markers=os.path.join(OUTPUTDIR, "intermediary/mantis_out/consensus_annotation.tsv")
     output:
-        os.path.join(OUTPUTDIR,'contig_data.tsv.gz')
+        os.path.join(OUTPUTDIR, 'contig_data.tsv.gz')
     params:
+        binny_out=OUTPUTDIR,
         sample=SAMPLE,
-        py_functions = SRCDIR + "/binny_functions.py",
-        binnydir="intermediary/",
+        py_functions=SRCDIR + "/binny_functions.py",
         t2p=DBPATH + "/pfam/tigrfam2pfam.tsv",
         marker_sets=DBPATH + "/taxon_marker_sets_lineage_sorted.tsv",
-        gff="intermediary/annotation_CDS_RNA_hmms_checkm.gff",
+        gff=os.path.join(OUTPUTDIR, "intermediary/annotation_CDS_RNA_hmms_checkm.gff"),
         min_completeness=config["bin_quality"]["min_completeness"],
         start_completeness=config["bin_quality"]["start_completeness"],
         purity=config["bin_quality"]["purity"],
@@ -407,8 +412,11 @@ rule binny:
         workflow.cores
     conda:
         os.path.join(ENVDIR, "binny_linux.yaml")
-    log: "logs/binning_binny.log"
-    benchmark: "logs/binning_binny_benchmark.txt"
-    message: "binny: Running Python Binny."
+    log:
+        os.path.join(OUTPUTDIR, "logs/binning_binny.log")
+    benchmark:
+        os.path.join(OUTPUTDIR, "logs/binning_binny_benchmark.txt")
+    message:
+            "binny: Running Python Binny."
     script:
         os.path.join(SRCDIR, "binny_main.py")

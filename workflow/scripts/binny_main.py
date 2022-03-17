@@ -10,7 +10,7 @@ import logging
 import sys
 import os
 
-binny_out = snakemake.input['binny_out']
+binny_out = snakemake.params['binny_out']
 sample = snakemake.params['sample']
 mg_depth_file = snakemake.input['mgdepth']
 assembly = snakemake.input['assembly']
