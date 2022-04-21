@@ -403,7 +403,8 @@ rule binny:
         include_depth_initial=config["clustering"]["include_depth_initial"],
         include_depth_main=config["clustering"]["include_depth_main"],
         hdbscan_min_samples_range=config["clustering"]["hdbscan_min_samples_range"],
-        hdbscan_epsilon_range=config["clustering"]["hdbscan_epsilon_range"]
+        hdbscan_epsilon_range=config["clustering"]["hdbscan_epsilon_range"],
+        write_contig_data=config["write_contig_data"]
     resources:
         runtime = "12:00:00",
         mem = BIGMEMCORE if BIGMEMCORE else MEMCORE

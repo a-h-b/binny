@@ -70,7 +70,7 @@ def gff2ess_gene_df(annotation_file, target_attribute='essential', get_dict=Fals
                             contig_dict[contig].append(attribute_id)
     # Create list of lists to join dict items as string and build data frame
     annot_cont_line_list = [[contig, ','.join(contig_dict.get(contig))] for contig in contig_dict]
-    annot_cont_df = pd.DataFrame(annot_cont_line_list, columns=['contig', 'essential'])
+    annot_cont_df = pd.DataFrame(annot_cont_line_list, columns=['contig', 'essential'], dtype='string[pyarrow]')
     if get_dict:
         return annot_cont_df, contig_dict
     else:
@@ -83,7 +83,10 @@ def load_and_merge_cont_data(annot_file, depth_file, coords, dims, coords_from_f
     logging.info('Reading embedding coordinates.')
     dim_range = [i + 1 for i in range(dims)]
     if coords_from_file:
-        coord_df = pd.read_csv(coords, sep='\t', names=['contig'] + ['dim' + str(i) for i in dim_range])
+        coord_cols = ['contig'] + ['dim' + str(i) for i in dim_range]
+        coord_dtypes = ['string[pyarrow]'] + ['float32' for i in dim_range]
+        coord_dtype_dict = {col: dtype for col, dtype in zip(coord_cols, coord_dtypes)}
+        coord_df = pd.read_csv(coords, sep='\t', names=coord_cols, dtype=coord_dtype_dict)
     else:
         coord_df = coords
     logging.info('Reading average depth.')
@@ -92,14 +95,22 @@ def load_and_merge_cont_data(annot_file, depth_file, coords, dims, coords_from_f
             first_line = line.strip(' \t\n').split('\t')
             n_depths = len(first_line[1:])
             break
-    logging.info('{0} samples for depth data found.'.format(n_depths))
-    # depth_df = pd.read_csv(depth_file, sep='\t', names=['contig', 'depth'])
-    depth_df = pd.read_csv(depth_file, sep='\t', low_memory=False,
-                           names=['contig'] + ['depth' + str(depth_ind + 1) for depth_ind in range(n_depths)])
-    logging.info('Merging data.')
+    logging.info(f'{n_depths} samples for depth data found.')
+
+    depth_cols = ['contig'] + ['depth' + str(depth_ind + 1) for depth_ind in range(n_depths)]
+    depth_dtypes = ['string[pyarrow]'] + ['float32' for i in range(n_depths)]
+    depth_dtype_dict = {col: dtype for col, dtype in zip(depth_cols, depth_dtypes)}
+    depth_df = pd.read_csv(depth_file, sep='\t', low_memory=False, names=depth_cols, dtype=depth_dtype_dict)
+
+    annot_df['contig'] = annot_df['contig'].astype('string')
+    coord_df['contig'] = coord_df['contig'].astype('string')
+    depth_df['contig'] = depth_df['contig'].astype('string')
+
     # Merge annotation data and coords_file first, keeping only contigs with coords, then merge with depth data
     cont_data_df = annot_df.merge(coord_df, how='right', on='contig') \
         .merge(depth_df, how='inner', on='contig').sort_values(by='contig')
+    downcast_pd_df(cont_data_df)
+
     return cont_data_df
 
 
@@ -131,7 +142,7 @@ def knn_sne_coords(contig_info_df, knn_sne_pk, dims):
             bin_kneighbors = knn_c.kneighbors(n_neighbors=knn_sne_pk - 1)
         else:
             bin_kneighbors = knn_c.kneighbors(n_neighbors=1)
-    skn = pd.Series(sorted([row[-1] for row in bin_kneighbors[0]]))
+    skn = pd.Series(sorted([row[-1] for row in bin_kneighbors[0]]), dtype='float32')
     # calculate running standard deviation between 10 neighbouring points
     sdkn = skn.rolling(10, center=True, min_periods=0).std()
     # find the first jump in distances at the higher end
@@ -149,20 +160,30 @@ def contig_df2cluster_dict(contig_info_df, dbscan_labels, use_noise=False):
     else:
         use_noise = '-1'
     cluster_dict = {}
+
     dims = [i for i in contig_info_df.columns if 'dim' in i]
     depths = [i for i in contig_info_df.columns if 'depth' in i]
     contig_info_df = contig_info_df.loc[:, ['contig', 'essential'] + depths + dims]
     contig_info_data = ['contigs', 'essential'] + depths + dims
+
+    # Using pd.Series with dtype='string[pyarrow]' leads to wrong clusters in initial round?????
     contig_info_df['cluster'] = dbscan_labels
-    tmp_contig_dict = contig_info_df.fillna('non_essential').set_index('contig').to_dict('index')
-    for contig in tmp_contig_dict:
-        contig_cluster = shorten_cluster_names(str(tmp_contig_dict.get(contig, {}).get('cluster')))
-        contig_data = [contig] + [tmp_contig_dict.get(contig, {}).get(i) for i in contig_info_data[1:]]
+    contig_info_df['cluster'] = contig_info_df['cluster'].astype('string[pyarrow]')
+
+    contig_info_df['essential'] = contig_info_df['essential'].astype('string').fillna('non_essential').astype('string[pyarrow]')
+
+    tmp_contig_dict = contig_info_df.set_index('contig').to_dict('index')
+
+    for contig, contig_data in tmp_contig_dict.items():
+        # contig_cluster = shorten_cluster_names(contig_data.get('cluster'))
+        contig_cluster = shorten_cluster_names(contig_data['cluster'])
+        contig_data_list = [contig] + [contig_data.get(i) for i in contig_info_data[1:]]
         if not cluster_dict.get(contig_cluster) and use_noise not in contig_cluster:
-            cluster_dict[contig_cluster] = {info: [data] for info, data in zip(contig_info_data, contig_data)}
+            cluster_dict[contig_cluster] = {info: [data] for info, data in zip(contig_info_data, contig_data_list)}
         elif use_noise not in contig_cluster:
-            for info, data in zip(contig_info_data, contig_data):
+            for info, data in zip(contig_info_data, contig_data_list):
                 cluster_dict.get(contig_cluster, {}).get(info).append(data)
+
     return cluster_dict
 
 
@@ -170,26 +191,40 @@ def hdbscan_cluster(contig_data_df, pk=None, include_depth=False, n_jobs=1, hdbs
                     dist_metric='manhattan'):
     dims = [i for i in contig_data_df.columns if 'dim' in i and '_' not in i]
     depths = [i for i in contig_data_df.columns if 'depth' in i]
+
     if not include_depth:
-        dim_df = contig_data_df.loc[:, dims].to_numpy(dtype=np.float64)
+        dim_df = contig_data_df.loc[:, dims]
     else:
-        dim_df = contig_data_df.loc[:, dims + depths].to_numpy(dtype=np.float64)
+        dim_df = contig_data_df.loc[:, dims + depths]
     if not pk:
         pk = get_perp(contig_data_df['contig'].size)
         if pk < len(dims) * 2:
             pk = len(dims) * 2
 
+
+    test_it = '03'
+    from datetime import datetime
+    dt_string = datetime.now().strftime("%d%m%Y_%H%M%S")
+
+    contig_data_df.to_csv(f'hdbscan_cluster_contig_data_df_{test_it}_{dt_string}.tsv', sep='\t', index=False)
+
     with parallel_backend('threading'):
         np.random.seed(0)
-        logging.info(f'HDBSCAN params: min_cluster_size={pk}, min_samples={hdbscan_min_samples}, '
+        logging.debug(f'HDBSCAN params: min_cluster_size={pk}, min_samples={hdbscan_min_samples}, '
                      f'cluster_selection_epsilon={hdbscan_epsilon}, metric={dist_metric}.')
+
         hdbsc = hdbscan.HDBSCAN(core_dist_n_jobs=n_jobs, min_cluster_size=pk, min_samples=hdbscan_min_samples,
                                 cluster_selection_epsilon=hdbscan_epsilon, metric=dist_metric).fit(dim_df)
+
     cluster_labels = hdbsc.labels_
+
+    with open(f'hdbscan_cluster_cluster_labels_{test_it}_{dt_string}.tsv', 'w') as f:
+        for i in cluster_labels:
+            f.write(f'{i}\n')
 
     while len(set(cluster_labels)) == 1 and str(list(set(cluster_labels))[0]) == '-1' and pk >= len(dims) * 2:
         pk = int(pk * 0.75)
-        logging.debug('HDBSCAN found only noise trying with lower min_cluster_size={0}.'.format(pk))
+        logging.info('HDBSCAN found only noise trying with lower min_cluster_size={0}.'.format(pk))
         with parallel_backend('threading'):
             np.random.seed(0)
             hdbsc = hdbscan.HDBSCAN(core_dist_n_jobs=n_jobs, min_cluster_size=pk, min_samples=hdbscan_min_samples,
@@ -200,16 +235,26 @@ def hdbscan_cluster(contig_data_df, pk=None, include_depth=False, n_jobs=1, hdbs
         cluster_dict = contig_df2cluster_dict(contig_data_df, cluster_labels, use_noise=True)
     else:
         cluster_dict = contig_df2cluster_dict(contig_data_df, cluster_labels)
+
+    with open(f'hdbscan_cluster_cluster_dict_{test_it}_{dt_string}.tsv', 'w') as f:
+        for k, v in cluster_dict.items():
+            cont_data = v['contigs'][:10]
+            f.write(f'{k}: {cont_data}\n')
+
+    with open(f'hdbscan_cluster_comp_cluster_dict_{test_it}_{dt_string}.tsv', 'w') as f:
+        for k, v in cluster_dict.items():
+            f.write(f'{k}: {v}\n')
+
     return cluster_dict, cluster_labels
 
 
 def run_initial_scan(contig_data_df, initial_cluster_mode, dbscan_threads, pk=None, include_depth=False,
                      hdbscan_epsilon=0.25, hdbscan_min_samples=2, dist_metric='manhattan'):
+
     if not pk:
         pk = get_perp(contig_data_df['contig'].size)
     first_clust_dict, labels = {}, []
     if initial_cluster_mode == 'HDBSCAN' or not initial_cluster_mode:
-        logging.info('Running initial scan with HDBSCAN.')
         first_clust_dict, labels = hdbscan_cluster(contig_data_df, pk=pk, n_jobs=dbscan_threads,
                                                    include_depth=include_depth, hdbscan_epsilon=hdbscan_epsilon,
                                                    hdbscan_min_samples=hdbscan_min_samples, dist_metric=dist_metric)
@@ -221,7 +266,8 @@ def cluster_df_from_dict(cluster_dict):
     if len(set(list(cluster_dict.keys()))) == 1 and str(list(set(list(cluster_dict.keys())))[0]) == '-1':
         cluster_df['cluster'] = [cluster for cluster in cluster_dict]
     else:
-        cluster_df['cluster'] = [cluster for cluster in cluster_dict if not cluster == '-1']
+        cluster_df['cluster'] = pd.Series([cluster for cluster in cluster_dict if not cluster == '-1'],
+                                          dtype='string[pyarrow]')
     for metric in ['contigs', 'essential', 'completeness', 'purity']:
         metric_list = []
         metric_uniq_list = None
@@ -236,10 +282,13 @@ def cluster_df_from_dict(cluster_dict):
                     metric_uniq_list.append(len(set(data_list)))
             else:
                 metric_list.append(cluster_dict.get(cluster, {}).get(metric, 0))
-        cluster_df[metric] = metric_list
+        if metric in ['contigs', 'essential']:
+            cluster_df[metric] = pd.Series(metric_list, dtype='string[pyarrow]')
+        else:
+            cluster_df[metric] = pd.Series(metric_list, dtype='float32')
         if metric_uniq_list:
             try:
-                cluster_df['unique_' + metric] = metric_uniq_list
+                cluster_df['unique_' + metric] = pd.Series(metric_uniq_list, dtype='string[pyarrow]')
             except ValueError:
                 logging.warning(metric_uniq_list, metric, cluster_df, cluster_dict)
                 raise Exception
@@ -274,7 +323,7 @@ def gather_cluster_data(cluster, cluster_dict, marker_sets_graph, tigrfam2pfam_d
     cluster_essential_genes = [gene for genes in cluster_dict.get(cluster, {}).get('essential')
                                for gene in genes.split(',') if not gene == 'non_essential']
     if cluster_essential_genes:
-        marker_set = choose_checkm_marker_set(cluster_essential_genes, marker_sets_graph, tigrfam2pfam_data_dict)
+        marker_set = choose_checkm_marker_set(cluster_essential_genes, marker_sets_graph, tigrfam2pfam_data_dict, max_depth_lvl=4)
         taxon, cluster_completeness, cluster_purity = marker_set[0], round(marker_set[1], 3), round(marker_set[2], 3)
     else:
         cluster_purity = 0
@@ -303,7 +352,7 @@ def hdbscan_sub_clusters(cluster_contig_df, cluster, pk, threads_for_dbscan, dep
             depths = [i for i in cluster_contig_df.columns if 'depth' in i]
             dims += depths
 
-        df_coords = cluster_contig_df.loc[:, dims].to_numpy(dtype=np.float64)
+        df_coords = cluster_contig_df.loc[:, dims].to_numpy(dtype=np.float32)
 
         if cluster_contig_df['contig'].size == 1:
             new_clusters = contig_df2cluster_dict(cluster_contig_df, [cluster + '.' + str(0)])
@@ -339,11 +388,11 @@ def hdbscan_sub_clusters(cluster_contig_df, cluster, pk, threads_for_dbscan, dep
     return [{}, cluster]
 
 
-def get_sub_clusters(cluster_dicts, threads_for_dbscan, marker_sets_graph, tigrfam2pfam_data_dict,
-                     purity_threshold=0.95,
+def get_sub_clusters(cluster_dicts, threads_for_dbscan, marker_sets_graph, tigrfam2pfam_data_dict, purity_threshold=0.95,
                      completeness_threshold=0.9, pk=None, cluster_mode=None, include_depth=True, hdbscan_epsilon=0.25,
                      hdbscan_min_samples=2, dist_metric='manhattan'):
     outputs = []
+
     for cluster_dict in cluster_dicts:
         cluster = list(cluster_dict.keys())[0]
         # Create dict with just cluster and sort again, to ensure order by depth is
@@ -369,16 +418,6 @@ def get_sub_clusters(cluster_dicts, threads_for_dbscan, marker_sets_graph, tigrf
             if cluster_pur_thresh < 0.95:
                 cluster_pur_thresh = 0.95
 
-        # if 0.850 < clust_comp <= 0.900:
-        #     if cluster_pur_thresh < 0.925:
-        #         cluster_pur_thresh = 0.925
-        # elif 0.750 < clust_comp <= 0.850:
-        #     if cluster_pur_thresh < 0.95:
-        #         cluster_pur_thresh = 0.95
-        # elif 0.700 < clust_comp <= 0.750:
-        #     if cluster_pur_thresh < 0.950:
-        #         cluster_pur_thresh = 0.950
-
         if clust_taxon in ['Bacteria', 'Archaea']:
             if 0.850 < clust_comp <= 0.900:
                 if cluster_pur_thresh < 0.925:
@@ -400,6 +439,7 @@ def get_sub_clusters(cluster_dicts, threads_for_dbscan, marker_sets_graph, tigrf
 
             # initialise some stuff
             cluster_contig_df = contig_df_from_cluster_dict(cluster_dict)
+
             dims = [i for i in cluster_contig_df.columns if 'dim' in i]
             min_dims = 2 * len(dims)
             if min_dims > cluster_contig_df['contig'].size:
@@ -452,6 +492,7 @@ def get_sub_clusters(cluster_dicts, threads_for_dbscan, marker_sets_graph, tigrf
 def divide_clusters_by_depth(ds_clstr_dict, threads, marker_sets_graph, tigrfam2pfam_data_dict, min_purity=90,
                              min_completeness=50, pk=None, cluster_mode=None, include_depth=False, max_tries=15,
                              hdbscan_epsilon=0.25, hdbscan_min_samples=2, dist_metric='manhattan'):
+
     min_purity = min_purity / 100
     min_completeness = min_completeness / 100
     dict_cp = ds_clstr_dict.copy()
@@ -460,7 +501,9 @@ def divide_clusters_by_depth(ds_clstr_dict, threads, marker_sets_graph, tigrfam2
     cluster_list = [[i] + [len(dict_cp[i]['contigs'])] for i in list(dict_cp.keys())]
     cluster_list.sort(key=lambda i: i[1], reverse=True)
 
-    chunks_to_process = [[] for i in range(threads)]
+    threads_needed = min(threads, len(cluster_list))
+    logging.debug(f'Threads needed: {threads_needed}')
+    chunks_to_process = [[] for i in range(threads_needed)]
     for i in cluster_list:
         chunks_to_process.sort(key=lambda i: sum([len(cluster_dict[list(cluster_dict.keys())[0]]['contigs'])
                                                   for cluster_dict in i]))
@@ -471,14 +514,14 @@ def divide_clusters_by_depth(ds_clstr_dict, threads, marker_sets_graph, tigrfam2
         inner_max_threads = 1
 
     previous_dict_keys = list(dict_cp.keys())
+
     no_progress = False
     split_contigs = []
 
     with parallel_backend("loky", inner_max_num_threads=inner_max_threads):
         while n_tries <= max_tries and chunks_to_process and not no_progress:
-            logging.info('Clustering iteration: {0}.'.format(n_tries))
             n_tries += 1
-            sub_clstr_res = Parallel(n_jobs=threads) \
+            sub_clstr_res = Parallel(n_jobs=threads_needed) \
                 (delayed(get_sub_clusters)(cluster_dict_list, inner_max_threads, marker_sets_graph,
                                            tigrfam2pfam_data_dict, purity_threshold=min_purity,
                                            completeness_threshold=min_completeness,
@@ -488,6 +531,7 @@ def divide_clusters_by_depth(ds_clstr_dict, threads, marker_sets_graph, tigrfam2
                                            hdbscan_min_samples=hdbscan_min_samples,
                                            dist_metric=dist_metric)
                  for cluster_dict_list in chunks_to_process)
+
             for outputs in sub_clstr_res:
                 for output in outputs:
                     if output:
@@ -526,6 +570,8 @@ def contig_df_from_cluster_dict(cluster_dict):
     dims = [i for i in list(cluster_dict[list(cluster_dict.keys())[0]].keys()) if 'dim' in i]
     depths = [i for i in list(cluster_dict[list(cluster_dict.keys())[0]].keys()) if 'depth' in i]
     clust_contig_df_cols = ['contig', 'essential'] + dims + depths + ['cluster', 'purity', 'completeness']
+    # clust_contig_df_col_dtypes = ['string[pyarrow]', 'string[pyarrow]'] + ['float32' for i in dims] \
+    #                              + ['float32' for i in depths] + ['string[pyarrow]', 'float32', 'float32']
     clust_contig_df_ind = []
     clust_contig_df_ind_init = 0
     for cluster in cluster_dict:
@@ -551,6 +597,7 @@ def contig_df_from_cluster_dict(cluster_dict):
             clust_contig_df_ind.append(clust_contig_df_ind_init)
             clust_contig_df_ind_init += 1
     clust_contig_df = pd.DataFrame(clust_contig_df_rows, clust_contig_df_ind, clust_contig_df_cols)
+    downcast_pd_df(clust_contig_df)
     return clust_contig_df
 
 
@@ -647,9 +694,9 @@ def write_bins(cluster_dict, assembly, min_comp=40, min_pur=90, bin_dir='bins'):
             new_cluster_name = shorten_cluster_names(cluster)
             if re.match(r"I[0-9]+R[0-9]+\.[0-9]+", cluster):
                 new_cluster_name = re.split(r'\D+', new_cluster_name)[1:]
-                new_cluster_name = 'I{0}R{1}.{2}'.format('%05.d' % (int(new_cluster_name[0])),
-                                                         '%05.d' % (int(new_cluster_name[1])),
-                                                         '.'.join(['%05.d' % (int(e)) for e in new_cluster_name[2:]]))
+                new_cluster_name = 'I{0}R{1}.{2}'.format('%02.d' % (int(new_cluster_name[0])),
+                                                         '%02.d' % (int(new_cluster_name[1])),
+                                                         '.'.join(['%06.d' % (int(e)) for e in new_cluster_name[2:]]))
             bin_name = '_'.join(['binny']
                                 + [new_cluster_name]
                                 + ['C' + str(int(round(cluster_dict[cluster]['completeness'] * 100, 0)))]
@@ -818,6 +865,94 @@ def mask_rep_featrues(contig_rep_feature_dict, contig_list):
                                         + contig[1][region[1]:]
 
 
+def downcast_pd_df(df):
+    for column in df:
+        if df[column].dtype == 'float64':
+            df[column] = pd.to_numeric(df[column], downcast='float')
+        if df[column].dtype == 'int64':
+            df[column] = pd.to_numeric(df[column], downcast='integer')
+        if df[column].dtype == 'object':
+            df[column] = df[column].astype('string[pyarrow]')
+
+
+def get_initial_clusters(contig_df, cluster_alg, threads, include_depth, hdbscan_epsilon, hdbscan_min_samples,
+                         dist_metric, marker_sets_graph, tigrfam2pfam_data_dict):
+    init_hdbscan_epsilon = hdbscan_epsilon
+    init_hdbscan_min_samples = hdbscan_min_samples
+    init_pk = get_perp(contig_df['contig'].size)
+    dims = [i for i in contig_df.columns if 'dim' in i and '_' not in i]
+    if init_pk < len(dims) * 2:
+        init_pk = len(dims) * 2
+    init_clust_dict = {}
+    # overfull_clusters = True
+    ic_attempts = 0
+    cluster_counter = 0
+    max_init_clstr_tries = 5
+    working_df = contig_df
+    logging.info('Running initial clustering.')
+    while not working_df.empty and ic_attempts <= max_init_clstr_tries:
+        if ic_attempts > 0:
+            logging.info('Splitting highly contaminated clusters again with adjusted parameters')
+        # Get some clusters
+        clust_dict, labels = run_initial_scan(working_df, cluster_alg, threads, include_depth=include_depth, pk=init_pk,
+                                              hdbscan_epsilon=init_hdbscan_epsilon, hdbscan_min_samples=init_hdbscan_min_samples,
+                                              dist_metric=dist_metric)
+
+        if ic_attempts > 0:
+            logging.info('New clusters after adjusting: {}'.format(len(clust_dict.keys())))
+        if ic_attempts == 0:
+            initial_clusters = len(clust_dict.keys())
+        working_df = pd.DataFrame()
+        # Check if clusters are massively contaminated and thus might take a long time to assess
+        # with divide_clusters_by_depth
+        for cluster in clust_dict.keys():
+            n_markers = len([marker for marker_list in clust_dict[cluster]['essential'] for marker in marker_list.split(',')])
+            if len(clust_dict.keys()) < 10:
+                logging.debug('cluster: {}, n_contigs: {}, n_markers: {}.'.format(cluster, len(clust_dict[cluster]['contigs']),
+                                                                                 n_markers))
+            if n_markers > 20000:
+                cluster_essential_genes = [gene for genes in clust_dict.get(cluster, {}).get('essential')
+                                           for gene in genes.split(',') if not gene == 'non_essential']
+                marker_set = choose_checkm_marker_set(cluster_essential_genes, marker_sets_graph,
+                                                      tigrfam2pfam_data_dict, max_depth_lvl=0)
+                taxon, comp, pur = marker_set[0], marker_set[1], marker_set[2]
+
+                if comp >= 0.80 and pur <= 0.20:
+                    if comp == 1.00:
+                        comp = '>= 1.00'
+                    logging.debug(f'Cluster {cluster} is massive and heavily contaminated with completeness {comp} '
+                                  f'and purity {pur}.')
+                    # Set contaminated large clusters as working_df
+                    working_df = contig_df[contig_df['contig'].isin(clust_dict[cluster]['contigs'])]
+                else:
+                    new_clust_id = str(cluster_counter)
+                    init_clust_dict[new_clust_id] = clust_dict[cluster]
+                    cluster_counter += 1
+            else:
+                new_clust_id = str(cluster_counter)
+                init_clust_dict[new_clust_id] = clust_dict[cluster]
+                cluster_counter += 1
+        # Adjust clustering params
+        init_hdbscan_epsilon = max(0, init_hdbscan_epsilon - 0.125)
+        init_hdbscan_min_samples = hdbscan_min_samples - 1 if hdbscan_min_samples > 1 else None
+        init_pk = max(2, init_pk - 2)
+        cluster_counter += 1
+        ic_attempts += 1
+    if ic_attempts > 1:
+        # Add leftover unsplittable clusters ba
+        if not working_df.empty and ic_attempts > max_init_clstr_tries:
+            logging.info(f'Could not split contaminated clusters further with {max_init_clstr_tries} attempts.'
+                         f' Passing them on.')
+            for cluster in clust_dict.keys():
+                new_clust_id = str(cluster_counter)
+                init_clust_dict[new_clust_id] = clust_dict[cluster]
+                cluster_counter += 1
+        logging.info(f'Initially created {initial_clusters} clusters.')
+    logging.info('Final number of clusters: {}.'.format(len(init_clust_dict.keys())))
+
+    return init_clust_dict
+
+
 def binny_iterate(contig_data_df, threads, marker_sets_graph, tigrfam2pfam_data_dict, min_purity, min_completeness,
                   max_iterations=4, embedding_iteration=1, max_tries=2, include_depth_initial=False,
                   include_depth_main=True, hdbscan_epsilon=0.25, hdbscan_min_samples_range=(2, 3, 4, 5),
@@ -825,8 +960,16 @@ def binny_iterate(contig_data_df, threads, marker_sets_graph, tigrfam2pfam_data_
     leftovers_df = contig_data_df.copy()
     n_iterations = 1
     good_clusters = {}
+    all_binned = False
 
     hdbs_min_samp_ind = 0
+    if embedding_iteration == 1:
+        logging.info('Running first round with minimum purity of 95% and extended clustering.')
+        hdbscan_min_samples_range = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20]
+        max_iterations = len(hdbscan_min_samples_range)
+        min_purity = 95
+
+    good_bins_per_round_list = []
 
     while n_iterations <= max_iterations:
         logging.info(f'Clustering round {n_iterations}.')
@@ -835,19 +978,16 @@ def binny_iterate(contig_data_df, threads, marker_sets_graph, tigrfam2pfam_data_
         if hdbs_min_samp_ind == len(hdbscan_min_samples_range):
             hdbs_min_samp_ind = 0
 
-        init_clust_dict, labels = run_initial_scan(leftovers_df, 'HDBSCAN', threads,
-                                                   include_depth=include_depth_initial,
-                                                   hdbscan_epsilon=hdbscan_epsilon,
-                                                   hdbscan_min_samples=hdbscan_min_samples, dist_metric=dist_metric)
-
-        logging.info('Initial clustering with HDBSCAN cluster selection epsilon of {0} and min_samples of {1} '
-                     'resulted in {2} clusters.'.format(hdbscan_epsilon, hdbscan_min_samples, len(set(labels))))
+        init_clust_dict = get_initial_clusters(leftovers_df, 'HDBSCAN', threads, include_depth_initial,
+                                                       hdbscan_epsilon, hdbscan_min_samples, dist_metric,
+                                                       marker_sets_graph, tigrfam2pfam_data_dict)
 
         if n_iterations == 1:
             for cluster in init_clust_dict:
                 init_clust_dict[cluster]['purity'] = 0
                 init_clust_dict[cluster]['completeness'] = 0
                 init_clust_dict[cluster]['taxon'] = 'none'
+
         logging.info('Attempting to find sub-clusters using HDBSCAN.')
         new_clust_dict, split_clusters = divide_clusters_by_depth(init_clust_dict, threads, marker_sets_graph,
                                                                   tigrfam2pfam_data_dict, int(min_purity),
@@ -856,9 +996,13 @@ def binny_iterate(contig_data_df, threads, marker_sets_graph, tigrfam2pfam_data_
                                                                   hdbscan_epsilon=hdbscan_epsilon,
                                                                   hdbscan_min_samples=hdbscan_min_samples,
                                                                   dist_metric=dist_metric)
+
+
         new_clust_dict = {'I{0}R{1}.'.format(embedding_iteration, n_iterations) + k: v for k, v in
                           new_clust_dict.items()}
-        logging.info('Good bins this round: {0}.'.format(len(new_clust_dict.keys())))
+        n_good_bins_round = len(new_clust_dict.keys())
+        good_bins_per_round_list.append(n_good_bins_round)
+        logging.info(f'Good bins this round: {n_good_bins_round}.')
         iteration_clust_dict = {**new_clust_dict, **init_clust_dict}
 
         good_clusters.update(new_clust_dict)
@@ -869,6 +1013,7 @@ def binny_iterate(contig_data_df, threads, marker_sets_graph, tigrfam2pfam_data_
         iteration_clust_df.to_csv('{0}/iteration_{1}_contigs2clusters.tsv'.format(contigs2clusters_out_path,
                                                                                   n_iterations), sep='\t', index=False)
         iteration_clust_contig_df = contig_df_from_cluster_dict(iteration_clust_dict)
+        downcast_pd_df(iteration_clust_contig_df)
 
         # Plot sub-clustering
         conditions = [(iteration_clust_contig_df['purity'] >= min_purity / 100) & (
@@ -893,8 +1038,33 @@ def binny_iterate(contig_data_df, threads, marker_sets_graph, tigrfam2pfam_data_
         n_iterations += 1
         if len(leftovers_df.index) == 0:
             logging.info('No leftover contigs to cluster. Exiting.')
+            all_binned = True
             break
-    return good_clusters, init_clust_dict
+    downcast_pd_df(iteration_clust_contig_df)
+
+    good_bins_per_round_list.sort()
+    mid = len(good_bins_per_round_list) // 2
+    median_bins_per_round = (good_bins_per_round_list[mid] + good_bins_per_round_list[~mid]) / 2
+
+    # Cheat a bit on first round
+    if embedding_iteration == 1:
+        if sum(good_bins_per_round_list) >= 4:
+            median_bins_per_round = 2
+
+    test_it = '03'
+    from datetime import datetime
+    dt_string = datetime.now().strftime("%d%m%Y_%H%M%S")
+
+    with open(f'binny_iterate_good_clusters_{test_it}_{dt_string}.tsv', 'w') as f:
+        for k, v in good_clusters.items():
+            cont_data = v['contigs'][:10]
+            f.write(f'{k}: {cont_data}\n')
+
+    with open(f'binny_iterate_comp_good_clusters_{test_it}_{dt_string}.tsv', 'w') as f:
+        for k, v in good_clusters.items():
+            f.write(f'{k}: {v}\n')
+
+    return good_clusters, init_clust_dict, all_binned, median_bins_per_round
 
 
 def get_single_contig_bins(essential_gene_df, good_bins_dict, n_dims, marker_sets_graph, tigrfam2pfam_data_dict,
@@ -928,7 +1098,7 @@ def asses_contig_completeness_purity(essential_gene_lol, n_dims, marker_sets_gra
     single_contig_bins = []
     for contig_data in essential_gene_lol:
         all_ess = contig_data[1]
-        marker_set = choose_checkm_marker_set(all_ess, marker_sets_graph, tigrfam2pfam_data_dict)
+        marker_set = choose_checkm_marker_set(all_ess, marker_sets_graph, tigrfam2pfam_data_dict, max_depth_lvl=4)
         taxon, comp, pur = marker_set[0], marker_set[1], marker_set[2]
         if pur > 0.90 and comp > 0.925:
             bin_dict = {contig_data[0]: {'depth1': np.array([None]), 'contigs': np.array([contig_data[0]]),
@@ -1091,7 +1261,7 @@ def compare_marker_set_stats(marker_set, current_best_marker_set, completeness_v
     return current_best_marker_set
 
 
-def choose_checkm_marker_set(marker_list, marker_sets_graph, tigrfam2pfam_data_dict):
+def choose_checkm_marker_set(marker_list, marker_sets_graph, tigrfam2pfam_data_dict, max_depth_lvl=6):
     nodes = [n for n, d in marker_sets_graph.in_degree() if d == 0]
     current_node = nodes[0]
     previous_nodes = None
@@ -1100,7 +1270,7 @@ def choose_checkm_marker_set(marker_list, marker_sets_graph, tigrfam2pfam_data_d
     king_lvl_stats = None
     # 0: 'domain', 1: 'phylum', 2: 'class', 3: 'order', 4: 'family', 5: 'genus', 6: 'species'
     current_depth_level = 0
-    while list(marker_sets_graph[current_node]) and depth_grace_count < 2 and current_depth_level <= 6:
+    while list(marker_sets_graph[current_node]) and depth_grace_count < 2 and current_depth_level <= max_depth_lvl:
         current_level_best_marker_set = []
         if previous_nodes == nodes:
             depth_grace_count += 1
@@ -1285,6 +1455,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
             round_leftovers_contig_list = [cont for cont in x_contigs
                                            if len(assembly_dict[cont]) < internal_min_marker_cont_size]
         else:
+            round_leftovers_contig_list_backup = round_leftovers_contig_list.copy()
             internal_min_marker_cont_size = check_sustainable_contig_number(round_leftovers_contig_list,
                                                                             internal_min_marker_cont_size,
                                                                             assembly_dict, max_contig_threshold)
@@ -1294,7 +1465,6 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
                                if len(assembly_dict[cont]) >= internal_min_marker_cont_size]
             round_leftovers_contig_list = [cont for cont in round_leftovers_contig_list
                                            if len(assembly_dict[cont]) < internal_min_marker_cont_size]
-            round_leftovers_contig_list_backup = round_leftovers_contig_list.copy()
             while ((max_contig_threshold < len(round_x_contigs) or len(round_x_contigs) < 5)
                    and internal_min_marker_cont_size > 0):
                 if len(round_x_contigs) < 5:
@@ -1306,9 +1476,9 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
                     logging.info('More than {0} contigs to bin. Increasing min length threshold.'.format(
                         max_contig_threshold))
                     internal_min_marker_cont_size += 250
-                round_x = [main_contig_data_dict.get(cont) for cont in round_leftovers_contig_list
+                round_x = [main_contig_data_dict.get(cont) for cont in round_leftovers_contig_list_backup
                            if len(assembly_dict[cont]) >= internal_min_marker_cont_size]
-                round_x_contigs = [cont for cont in round_leftovers_contig_list
+                round_x_contigs = [cont for cont in round_leftovers_contig_list_backup
                                    if len(assembly_dict[cont]) >= internal_min_marker_cont_size]
                 round_leftovers_contig_list = [cont for cont in round_leftovers_contig_list_backup
                                                if len(assembly_dict[cont]) < internal_min_marker_cont_size]
@@ -1352,7 +1522,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
             n_comp += 2
             n_pca_tries += 1
         var_exp = int(round(sum(pca.explained_variance_ratio_), 3) * 100)
-        logging.info(f'PCA stats: Dimensions: {n_comp}; Amount of variation explained: {var_exp}%.')
+        logging.debug(f'PCA stats: Dimensions: {n_comp}; Amount of variation explained: {var_exp}%.')
         x_pca = transformer.transform(x_scaled)
 
         # perp = perp_range[tsne_perp_ind]
@@ -1374,10 +1544,19 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
 
 
         learning_rate = max(2, int(len(x_pca) / early_exagg))  # learning_rate_factor
-        logging.info(f'tSNE learning rate: {learning_rate}, early_exagg: {early_exagg},'
+        logging.debug(f'tSNE learning rate: {learning_rate}, early_exagg: {early_exagg},'
                      f' perplexies: {perplexities}, pk_factor: {pk_factor}')
 
         logging.info(f'Initializing embedding.')
+
+        test_it = '03'
+        from datetime import datetime
+        dt_string = datetime.now().strftime("%d%m%Y_%H%M%S")
+
+        with open(f'iterative_embedding_x_pca_{test_it}_{dt_string}.tsv', 'w') as f:
+            for i in x_pca:
+                f.write(f'{i}\n')
+
         affinities_multiscale_mixture = affinity.Multiscale(x_pca, perplexities=perplexities, metric=dist_metric,
                                                             n_jobs=threads, random_state=0, verbose=0)
         init = initialization.pca(x_pca, random_state=0, verbose=0)
@@ -1386,20 +1565,34 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         opt_cycle_iter = 250
         ee_iter = 0
 
+        with open(f'iterative_embedding_init_{test_it}_{dt_string}.tsv', 'w') as f:
+            for i in init:
+                f.write(f'{i}\n')
+
+        with open(f'iterative_embedding_embedding_{test_it}_{dt_string}.tsv', 'w') as f:
+            for i in embedding:
+                f.write(f'{i}\n')
+
         # Early exagg
         embedding.optimize(n_iter=3, exaggeration=early_exagg, inplace=True, learning_rate=learning_rate, momentum=0.5,
                            n_jobs=threads, verbose=0)
         KLD_prev = embedding.kl_divergence
+        # KLD_DIFF = 1e10
         ee_iter += opt_cycle_iter
         logging.info('EE iteration {0} - KLD: {1}'.format(ee_iter, round(KLD_prev, 4)))
 
-        while ee_iter <= 750 or KLD_DIFF > KLD * 0.01:  # or KLDRC < maxKLDRC:
+        while 2000 >= ee_iter <= 750 or KLD_DIFF > KLD * 0.01:  # or KLDRC < maxKLDRC:
             embedding.optimize(n_iter=opt_cycle_iter, exaggeration=early_exagg, inplace=True, learning_rate=learning_rate,
                                momentum=0.5, n_jobs=threads, verbose=0)
             KLD = embedding.kl_divergence
-            KLD_DIFF = abs(KLD_prev - KLD)
+            KLD_DIFF = KLD_prev - KLD
             KLDRC = 100 * KLD_DIFF / KLD_prev
             KLD_prev = KLD
+
+            if KLD_DIFF >= 0:
+                embedding_prev = embedding
+            else:
+                embedding = embedding_prev
 
             ee_iter += opt_cycle_iter
             logging.info('EE iteration {0} - KLD: {1}, KLDRC: {2}%'.format(ee_iter, round(KLD, 4), round(KLDRC, 2)))
@@ -1411,27 +1604,44 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         learning_rate = max(200, min(64e3, int(len(x_pca) * 0.1)))
         logging.info(f'Main iteration learning rate: {learning_rate}')
 
-        while main_iter <= 1000 or KLD_DIFF > KLD * 0.01:
+        while 10000 >= main_iter <= 1000 or KLD_DIFF > KLD * 0.01:
             embedding.optimize(n_iter=opt_cycle_iter, exaggeration=1, inplace=True, learning_rate=learning_rate,
                                momentum=0.8, n_jobs=threads, verbose=0)
             KLD = embedding.kl_divergence
-            KLD_DIFF = abs(KLD_prev - KLD)
+            KLD_DIFF = KLD_prev - KLD
             KLDRC = 100 * KLD_DIFF / KLD_prev
+
+            if KLD_DIFF >= 0:
+                embedding_res_prev = embedding.view(np.ndarray)
+                KLD_FIN = KLD
+            else:
+                KLD_FIN = KLD_prev
+
             KLD_prev = KLD
 
             main_iter += opt_cycle_iter
             logging.info('Main iteration {0} - KLD: {1}, KLDRC: {2}%'.format(main_iter, round(KLD, 4), round(KLDRC, 2)))
-        embedding_multiscale = embedding.view(np.ndarray)
+
+        if KLD_DIFF >= 0:
+            embedding_result = embedding.view(np.ndarray)
+        else:
+            embedding_result = embedding_res_prev
 
         total_iter = ee_iter + main_iter
-        logging.info(f'Finished t-SNE dimensionality-reduction in {total_iter} iterations.')
+        logging.info(f'Finished t-SNE dimensionality-reduction in {total_iter} iterations.'
+                     f' Final KLD: {round(KLD_FIN, 4)}')
 
         # Create coordinate df.
         dim_range = [i + 1 for i in range(n_dim)]
-        coord_df = pd.DataFrame(data=embedding_multiscale, index=None, columns=['dim' + str(i) for i in dim_range])
-        coord_df['contig'] = round_x_contigs  # _good
+        coord_df = pd.DataFrame(data=embedding_result, index=None, columns=['dim' + str(i) for i in dim_range],
+                                dtype='float32')
+        coord_df['contig'] = round_x_contigs
+        coord_df['contig'] = coord_df['contig'].astype('string[pyarrow]')
+
         # Reorder
         coord_df = coord_df[['contig'] + ['dim' + str(i) for i in dim_range]]
+
+        coord_df.to_csv(f'iterative_embedding_coord_df_{test_it}_{dt_string}.tsv', sep='\t', index=False)
 
         # Load data
         contig_data_df = load_and_merge_cont_data(annot_file, mg_depth_file, coord_df, dims=n_dim,
@@ -1453,31 +1663,29 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
                 hdbscan_epsilon = hdbscan_epsilon_range[0]
 
         # Find bins
-        good_bins, final_init_clust_dict = binny_iterate(contig_data_df, threads, taxon_marker_sets, tigrfam2pfam_data,
-                                                         min_purity, internal_completeness, len(hdbscan_min_samples_range),
-                                                         embedding_iteration=embedding_tries, max_tries=2,
-                                                         include_depth_initial=include_depth_initial,
-                                                         include_depth_main=include_depth_main,
-                                                         hdbscan_epsilon=hdbscan_epsilon,
-                                                         hdbscan_min_samples_range=hdbscan_min_samples_range,
-                                                         dist_metric=dist_metric,
-                                                         contigs2clusters_out_path=contigs2clusters_out_path)
+        good_bins, final_init_clust_dict, all_binned, median_bins_per_round = binny_iterate(contig_data_df, threads,
+            taxon_marker_sets, tigrfam2pfam_data, min_purity, internal_completeness, len(hdbscan_min_samples_range),
+            embedding_iteration=embedding_tries, max_tries=2, include_depth_initial=include_depth_initial,
+            include_depth_main=include_depth_main, hdbscan_epsilon=hdbscan_epsilon,
+            hdbscan_min_samples_range=hdbscan_min_samples_range, dist_metric=dist_metric,
+            contigs2clusters_out_path=contigs2clusters_out_path)
 
         logging.info('Good bins this embedding iteration: {0}.'.format(len(good_bins.keys())))
 
-        if len(list(good_bins.keys())) < 4 and internal_completeness > min_completeness and final_try_counter == 0:
+        if median_bins_per_round < 1 and internal_completeness > min_completeness and final_try_counter == 0 \
+           and not all_binned:
             internal_completeness -= 10
-            if internal_completeness < 90:
+            if internal_completeness < 90 and min_purity < 90:
                 min_purity = 90
-            logging.info(f'Found < 4 good bins. Minimum completeness lowered to {internal_completeness}.')
-        elif len(list(good_bins.keys())) < 4 and final_try_counter <= 4 \
+            logging.info(f'Median of good bins per round < 1. Minimum completeness lowered to {internal_completeness}.')
+        elif median_bins_per_round < 1 and final_try_counter <= 4 and not all_binned \
                 and not internal_min_marker_cont_size > prev_round_internal_min_marker_cont_size:
             if final_try_counter == 0:
                 max_contig_threshold *= 1.25
             internal_min_marker_cont_size = 2000 - 500 * final_try_counter
             final_try_counter += 1
             logging.info(f'Running with contigs >= {internal_min_marker_cont_size}bp, minimum completeness {internal_completeness}.')
-        elif len(list(good_bins.keys())) < 2:
+        elif len(list(good_bins.keys())) < 2 and not all_binned:
             logging.info('Reached min completeness and min contig size. Exiting embedding iteration')
             break
 
@@ -1524,7 +1732,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
             logging.warning('WARNING: {0} duplicate contigs in bins found! Exiting.'.format(len(all_contigs)
                                                                                             - len(set(all_contigs))))
             raise Exception
-        logging.info('Good bins so far: {0}.'.format(len(all_good_bins.keys())))
+        logging.info('Total good bins: {0}.'.format(len(all_good_bins.keys())))
         if len(round_leftovers.index) == 0:
             break
     return all_good_bins, contig_data_df_org, min_purity

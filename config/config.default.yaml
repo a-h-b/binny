@@ -42,8 +42,8 @@ NX_value: 95
 min_cont_length_cutoff: 500
 max_cont_length_cutoff: 1000
 # Minimum and maximum length of contigs containing CheckM markers. Caps value from NX filtering (initial value is NX_value / 2).
-min_cont_length_cutoff_marker: 100
-max_cont_length_cutoff_marker: 300
+min_cont_length_cutoff_marker: 250
+max_cont_length_cutoff_marker: 400
 # Maximum number of contigs binny uses. If the number of available
 # contigs after minimum size filtering exceeds this, binny will
 # increase the minimum size threshold until the maximum is reached.
@@ -71,8 +71,9 @@ clustering:
   include_depth_main: 'True'
 bin_quality:
   # Minimum value binny will lower completeness to while running.
-  min_completeness: 62.5
+  min_completeness: 70
   # Completness threshold binny wilt begin with.
-  start_completeness: 92.5
+  start_completeness: 90
   # Minimum purity for bins to be selected.
-  purity: 92.5
+  purity: 90
+write_contig_data: 'True'

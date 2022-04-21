@@ -6,9 +6,14 @@ Created on Wed Feb 22 10:50:35 2021
 @author: oskar.hickl
 """
 
+print('test 01')
+
 import logging
 import sys
 import os
+import glob
+
+print('test 02')
 
 binny_out = snakemake.params['binny_out']
 sample = snakemake.params['sample']
@@ -36,6 +41,7 @@ include_depth_main = eval(snakemake.params['include_depth_main'])
 hdbscan_epsilon_range = [float(epsilon) for epsilon in snakemake.params['hdbscan_epsilon_range'].split(',')]
 hdbscan_min_samples_range = [int(min_sample) for min_sample in snakemake.params['hdbscan_min_samples_range'].split(',')]
 dist_metric = snakemake.params['distance_metric']
+write_contig_data = eval(snakemake.params['write_contig_data'])
 
 intermediary_file_dir = 'intermediary'
 
@@ -44,8 +50,12 @@ log = snakemake.log[0]
 
 n_dim = 2
 
+print('test 03')
+
 sys.path.append(functions)
 from binny_functions import *
+
+print('test 04')
 
 # To achieve reproducible results with HDBSCAN and ensure same seed, because other tools that accept seed arguments,
 # might mess with the global numpy seed
@@ -58,6 +68,12 @@ numba_logger = logging.getLogger('numba')
 numba_logger.setLevel(logging.WARNING)
 
 logging.info('Starting Binny run for sample {0}.'.format(sample))
+
+
+# Check if bin dir empty
+if glob.glob(os.path.join(binny_out, "bins/*.fasta")):
+    logging.error('Bin dir contains fasta files. Move or delete. Exiting.')
+    raise Exception
 
 # Load TIGRFAMs to PFAMs conversion table.
 tigrfam2pfam_data = tigrfam2pfam_dict(tigrfam2pfam_file)
@@ -154,11 +170,14 @@ all_cont_data_dict.update({contig: {'bin': contig,
                                   'depths': ';'.join([str(d) for d in list(depth_dict.get(contig))])}
                            for contig in single_contig_bins})
 
-compression_opts = dict(method='gzip')
-
 contig_data_df = pd.DataFrame.from_dict(all_cont_data_dict, orient='index', columns=['bin', 'k-mer_freqs', 'depths'])
+# Downcast df
+downcast_pd_df(contig_data_df)
 
-contig_data_df.to_csv(os.path.join(binny_out, 'contig_data.tsv.gz'), header=True, index=True, index_label='contig',
-                      chunksize=1000, compression=compression_opts, sep='\t')
+if write_contig_data:
+    logging.info('Writing contig data to file.')
+    compression_opts = dict(method='gzip')
+    contig_data_df.to_csv(os.path.join(binny_out, 'contig_data.tsv.gz'), header=True, index=True, index_label='contig',
+                          chunksize=100000, compression=compression_opts, sep='\t')
 
 logging.info('Run finished.')
