@@ -6,14 +6,10 @@ Created on Wed Feb 22 10:50:35 2021
 @author: oskar.hickl
 """
 
-print('test 01')
-
 import logging
 import sys
 import os
 import glob
-
-print('test 02')
 
 binny_out = snakemake.params['binny_out']
 sample = snakemake.params['sample']
@@ -179,5 +175,7 @@ if write_contig_data:
     compression_opts = dict(method='gzip')
     contig_data_df.to_csv(os.path.join(binny_out, 'contig_data.tsv.gz'), header=True, index=True, index_label='contig',
                           chunksize=100000, compression=compression_opts, sep='\t')
+
+os.mknod(os.path.join(binny_out, "binny.done"))
 
 logging.info('Run finished.')

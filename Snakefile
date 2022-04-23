@@ -69,7 +69,7 @@ else:
     # and
     # The best solution is to have a dictionary that translates a sample id to the inconsistently named files and
     # use a function (see Functions as Input Files) to provide an input file ...
-    garbage_dict_so_snakemake_gets_it = {map_id: 'sample_%06.d' % (index + 1) for index, map_id in enumerate(mappings_ids)}
+    sample_id_map_dict = {map_id: 'sample_%06.d' % (index + 1) for index, map_id in enumerate(mappings_ids)}
 
 # Use existing env for Prokka if specified
 if config['prokka_env'] and config['prokka_env'].split('.')[-1] in ['yaml', 'yml']:
@@ -183,7 +183,7 @@ localrules: prepare_input_data, ALL
 
 rule ALL:
     input:
-        os.path.join(OUTPUTDIR, 'contig_data.tsv.gz')
+        os.path.join(OUTPUTDIR, 'binny.done')
 
 
 yaml.add_representer(OrderedDict, lambda dumper, data: dumper.represent_mapping('tag:yaml.org,2002:map', data.items()))
@@ -197,7 +197,7 @@ rule prepare_input_data:
     output:
         os.path.join(OUTPUTDIR, "intermediary/assembly.fa"),
         os.path.join(OUTPUTDIR, "intermediary/assembly.contig_depth.txt") if CONTIG_DEPTH
-        else [os.path.join(OUTPUTDIR, "intermediary/reads_{0}_sorted.bam".format(garbage_dict_so_snakemake_gets_it[mappings_id]))
+        else [os.path.join(OUTPUTDIR, "intermediary/reads_{0}_sorted.bam".format(sample_id_map_dict[mappings_id]))
               for mappings_id in mappings_ids]
     threads:
         1
@@ -232,7 +232,7 @@ if not CONTIG_DEPTH:
         input:
             assembly=os.path.join(OUTPUTDIR, "intermediary/assembly.formatted.fa"),
             mapping=lambda wildcards: os.path.join(OUTPUTDIR,
-                "intermediary/reads_{0}_sorted.bam".format(garbage_dict_so_snakemake_gets_it[wildcards.sample]))
+                "intermediary/reads_{0}_sorted.bam".format(sample_id_map_dict[wildcards.sample]))
         output:
             os.path.join(OUTPUTDIR, "intermediary/assembly_contig_depth_{sample}.txt")
         resources:
@@ -380,7 +380,7 @@ rule binny:
         assembly=os.path.join(OUTPUTDIR, "intermediary/assembly.formatted.fa"),
         hmm_markers=os.path.join(OUTPUTDIR, "intermediary/mantis_out/consensus_annotation.tsv")
     output:
-        os.path.join(OUTPUTDIR, 'contig_data.tsv.gz')
+        os.path.join(OUTPUTDIR, 'binny.done')
     params:
         binny_out=OUTPUTDIR,
         sample=SAMPLE,

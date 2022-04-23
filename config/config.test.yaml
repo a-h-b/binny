@@ -19,8 +19,8 @@ raws:
 sample: "test"
 # Path to desired output dir binny should create and store results in.
 outputdir: "test_output"
-# Path to binny dbs, leave at default if you performed the default install.
-db_path: "database"
+# Path to put binny dbs in.
+db_path: "path/to/database/dir"
 # If you want to use existing environments containing the environments for Snakemake, Prokka
 # and/or Mantis you can either input the absolute paths to yaml files or env names here.
 # Otherwise, leave empty and binny will take care of the installations.

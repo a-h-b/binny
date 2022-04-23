@@ -15,4 +15,5 @@ gomico_test_G64/
 test_output/
 config/c2_t_oral_s17_config.yaml
 config/config.gomico.G64.yaml
+*gomico_G*_test*
 !.gitignore

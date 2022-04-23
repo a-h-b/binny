@@ -201,13 +201,6 @@ def hdbscan_cluster(contig_data_df, pk=None, include_depth=False, n_jobs=1, hdbs
         if pk < len(dims) * 2:
             pk = len(dims) * 2
 
-
-    test_it = '03'
-    from datetime import datetime
-    dt_string = datetime.now().strftime("%d%m%Y_%H%M%S")
-
-    contig_data_df.to_csv(f'hdbscan_cluster_contig_data_df_{test_it}_{dt_string}.tsv', sep='\t', index=False)
-
     with parallel_backend('threading'):
         np.random.seed(0)
         logging.debug(f'HDBSCAN params: min_cluster_size={pk}, min_samples={hdbscan_min_samples}, '
@@ -217,10 +210,6 @@ def hdbscan_cluster(contig_data_df, pk=None, include_depth=False, n_jobs=1, hdbs
                                 cluster_selection_epsilon=hdbscan_epsilon, metric=dist_metric).fit(dim_df)
 
     cluster_labels = hdbsc.labels_
-
-    with open(f'hdbscan_cluster_cluster_labels_{test_it}_{dt_string}.tsv', 'w') as f:
-        for i in cluster_labels:
-            f.write(f'{i}\n')
 
     while len(set(cluster_labels)) == 1 and str(list(set(cluster_labels))[0]) == '-1' and pk >= len(dims) * 2:
         pk = int(pk * 0.75)
@@ -235,15 +224,6 @@ def hdbscan_cluster(contig_data_df, pk=None, include_depth=False, n_jobs=1, hdbs
         cluster_dict = contig_df2cluster_dict(contig_data_df, cluster_labels, use_noise=True)
     else:
         cluster_dict = contig_df2cluster_dict(contig_data_df, cluster_labels)
-
-    with open(f'hdbscan_cluster_cluster_dict_{test_it}_{dt_string}.tsv', 'w') as f:
-        for k, v in cluster_dict.items():
-            cont_data = v['contigs'][:10]
-            f.write(f'{k}: {cont_data}\n')
-
-    with open(f'hdbscan_cluster_comp_cluster_dict_{test_it}_{dt_string}.tsv', 'w') as f:
-        for k, v in cluster_dict.items():
-            f.write(f'{k}: {v}\n')
 
     return cluster_dict, cluster_labels
 
@@ -965,9 +945,12 @@ def binny_iterate(contig_data_df, threads, marker_sets_graph, tigrfam2pfam_data_
     hdbs_min_samp_ind = 0
     if embedding_iteration == 1:
         logging.info('Running first round with minimum purity of 95% and extended clustering.')
-        hdbscan_min_samples_range = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20]
+        hdbscan_min_samples_range = [50, 20, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
         max_iterations = len(hdbscan_min_samples_range)
         min_purity = 95
+
+    if embedding_iteration % 2 != 0 and embedding_iteration > 1:
+        hdbscan_min_samples_range = hdbscan_min_samples_range[::-1]
 
     good_bins_per_round_list = []
 
@@ -1050,19 +1033,6 @@ def binny_iterate(contig_data_df, threads, marker_sets_graph, tigrfam2pfam_data_
     if embedding_iteration == 1:
         if sum(good_bins_per_round_list) >= 4:
             median_bins_per_round = 2
-
-    test_it = '03'
-    from datetime import datetime
-    dt_string = datetime.now().strftime("%d%m%Y_%H%M%S")
-
-    with open(f'binny_iterate_good_clusters_{test_it}_{dt_string}.tsv', 'w') as f:
-        for k, v in good_clusters.items():
-            cont_data = v['contigs'][:10]
-            f.write(f'{k}: {cont_data}\n')
-
-    with open(f'binny_iterate_comp_good_clusters_{test_it}_{dt_string}.tsv', 'w') as f:
-        for k, v in good_clusters.items():
-            f.write(f'{k}: {v}\n')
 
     return good_clusters, init_clust_dict, all_binned, median_bins_per_round
 
@@ -1549,14 +1519,6 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
 
         logging.info(f'Initializing embedding.')
 
-        test_it = '03'
-        from datetime import datetime
-        dt_string = datetime.now().strftime("%d%m%Y_%H%M%S")
-
-        with open(f'iterative_embedding_x_pca_{test_it}_{dt_string}.tsv', 'w') as f:
-            for i in x_pca:
-                f.write(f'{i}\n')
-
         affinities_multiscale_mixture = affinity.Multiscale(x_pca, perplexities=perplexities, metric=dist_metric,
                                                             n_jobs=threads, random_state=0, verbose=0)
         init = initialization.pca(x_pca, random_state=0, verbose=0)
@@ -1564,14 +1526,6 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
                                   random_state=0, verbose=0)
         opt_cycle_iter = 250
         ee_iter = 0
-
-        with open(f'iterative_embedding_init_{test_it}_{dt_string}.tsv', 'w') as f:
-            for i in init:
-                f.write(f'{i}\n')
-
-        with open(f'iterative_embedding_embedding_{test_it}_{dt_string}.tsv', 'w') as f:
-            for i in embedding:
-                f.write(f'{i}\n')
 
         # Early exagg
         embedding.optimize(n_iter=3, exaggeration=early_exagg, inplace=True, learning_rate=learning_rate, momentum=0.5,
@@ -1589,10 +1543,10 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
             KLDRC = 100 * KLD_DIFF / KLD_prev
             KLD_prev = KLD
 
-            if KLD_DIFF >= 0:
-                embedding_prev = embedding
-            else:
-                embedding = embedding_prev
+            # if KLD_DIFF >= 0:
+            #     embedding_prev = embedding
+            # else:
+            #     embedding = embedding_prev
 
             ee_iter += opt_cycle_iter
             logging.info('EE iteration {0} - KLD: {1}, KLDRC: {2}%'.format(ee_iter, round(KLD, 4), round(KLDRC, 2)))
@@ -1611,25 +1565,26 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
             KLD_DIFF = KLD_prev - KLD
             KLDRC = 100 * KLD_DIFF / KLD_prev
 
-            if KLD_DIFF >= 0:
-                embedding_res_prev = embedding.view(np.ndarray)
-                KLD_FIN = KLD
-            else:
-                KLD_FIN = KLD_prev
+            # if KLD_DIFF >= 0:
+            #     embedding_res_prev = embedding.view(np.ndarray)
+            #     KLD_FIN = KLD
+            # else:
+            #     KLD_FIN = KLD_prev
 
             KLD_prev = KLD
 
             main_iter += opt_cycle_iter
             logging.info('Main iteration {0} - KLD: {1}, KLDRC: {2}%'.format(main_iter, round(KLD, 4), round(KLDRC, 2)))
 
-        if KLD_DIFF >= 0:
-            embedding_result = embedding.view(np.ndarray)
-        else:
-            embedding_result = embedding_res_prev
+        # if KLD_DIFF >= 0:
+        #     embedding_result = embedding.view(np.ndarray)
+        # else:
+        #     embedding_result = embedding_res_prev
+        embedding_result = embedding.view(np.ndarray)
 
         total_iter = ee_iter + main_iter
         logging.info(f'Finished t-SNE dimensionality-reduction in {total_iter} iterations.'
-                     f' Final KLD: {round(KLD_FIN, 4)}')
+                     f' Final KLD: {round(KLD, 4)}')
 
         # Create coordinate df.
         dim_range = [i + 1 for i in range(n_dim)]
@@ -1640,8 +1595,6 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
 
         # Reorder
         coord_df = coord_df[['contig'] + ['dim' + str(i) for i in dim_range]]
-
-        coord_df.to_csv(f'iterative_embedding_coord_df_{test_it}_{dt_string}.tsv', sep='\t', index=False)
 
         # Load data
         contig_data_df = load_and_merge_cont_data(annot_file, mg_depth_file, coord_df, dims=n_dim,
