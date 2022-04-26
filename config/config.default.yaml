@@ -64,7 +64,7 @@ clustering:
   # Adapted from the HDBSCAN manual: 'Measure of how conservative the
   # clustering should be. With larger values, more points will be declared
   # as noise, and clusters will be restricted to progressively more dense areas.'.
-  hdbscan_min_samples_range: '1,2,4,6,8'
+  hdbscan_min_samples_range: '1,2,4,6,8,20'
   # Use depth as additional dimension during the initial clustering.
   include_depth_initial: 'False'
   # Use depth as additional dimension during the main clusterings.

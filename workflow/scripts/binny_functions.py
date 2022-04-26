@@ -89,7 +89,7 @@ def load_and_merge_cont_data(annot_file, depth_file, coords, dims, coords_from_f
         coord_df = pd.read_csv(coords, sep='\t', names=coord_cols, dtype=coord_dtype_dict)
     else:
         coord_df = coords
-    logging.info('Reading average depth.')
+
     with open(depth_file, 'r') as f:
         for line in f:
             first_line = line.strip(' \t\n').split('\t')
@@ -172,7 +172,12 @@ def contig_df2cluster_dict(contig_info_df, dbscan_labels, use_noise=False):
 
     contig_info_df['essential'] = contig_info_df['essential'].astype('string').fillna('non_essential').astype('string[pyarrow]')
 
-    tmp_contig_dict = contig_info_df.set_index('contig').to_dict('index')
+    try:
+        tmp_contig_dict = contig_info_df.set_index('contig').to_dict('index')
+    except ValueError:
+        print("contig_df2cluster_dict, contig_info_df['contig']:", len(contig_info_df['contig'].to_list()))
+        print("contig_df2cluster_dict, contig_info_df['contig']:", len(set(contig_info_df['contig'].to_list())))
+        raise Exception
 
     for contig, contig_data in tmp_contig_dict.items():
         # contig_cluster = shorten_cluster_names(contig_data.get('cluster'))
@@ -213,7 +218,7 @@ def hdbscan_cluster(contig_data_df, pk=None, include_depth=False, n_jobs=1, hdbs
 
     while len(set(cluster_labels)) == 1 and str(list(set(cluster_labels))[0]) == '-1' and pk >= len(dims) * 2:
         pk = int(pk * 0.75)
-        logging.info('HDBSCAN found only noise trying with lower min_cluster_size={0}.'.format(pk))
+        logging.warning('HDBSCAN found only noise trying with lower min_cluster_size={0}.'.format(pk))
         with parallel_backend('threading'):
             np.random.seed(0)
             hdbsc = hdbscan.HDBSCAN(core_dist_n_jobs=n_jobs, min_cluster_size=pk, min_samples=hdbscan_min_samples,
@@ -460,7 +465,7 @@ def get_sub_clusters(cluster_dicts, threads_for_dbscan, marker_sets_graph, tigrf
                     logging.warning(shorten_cluster_names(cluster), purity_threshold, clust_pur)
                     logging.warning(clust_dat)
                     raise Exception
-                logging.info('Cluster {0} meets purity threshold of {1} with'
+                logging.debug('Cluster {0} meets purity threshold of {1} with'
                              ' {2} and has completeness of {3}.'.format(shorten_cluster_names(cluster),
                                                                         purity_threshold,
                                                                         clust_pur, clust_comp))
@@ -535,7 +540,7 @@ def divide_clusters_by_depth(ds_clstr_dict, threads, marker_sets_graph, tigrfam2
                 chunks_to_process.sort(key=lambda i: sum(
                     [len(cluster_dict[list(cluster_dict.keys())[0]]['contigs']) for cluster_dict in i]))
                 chunks_to_process[0].append({i[0]: dict_cp[i[0]]})
-    logging.info('Clustering iterations until end: {0}'.format(n_tries - 1))
+    logging.debug('Clustering iterations until end: {0}'.format(n_tries - 1))
     start = timer()
     dict_cp = {k: v for k, v in dict_cp.items() if v.get('purity', 0) >= min_purity
                and v.get('completeness', 0) >= min_completeness}
@@ -762,11 +767,11 @@ def get_contig_kmer_matrix(contig_list, ksize_list, n_jobs=1):
         if list_pos + 1 > len(chunks_to_process):
             list_pos = 0
     end = timer()
-    logging.info('Created load balanced list in {0}s.'.format(int(end - start)))
+    logging.debug('Created load balanced list in {0}s.'.format(int(end - start)))
     # Try to free mem
     del contig_list
     n_rounds = 0
-    logging.info('k-mer sizes to count: {0}.'.format(', '.join([str(i) for i in ksize_list])))
+    logging.info('Calculating k-mer frequencies of sizes: {0}.'.format(', '.join([str(i) for i in ksize_list])))
     for ksize in ksize_list:
         d = {i: ['A', 'T', 'G', 'C'] for i in range(ksize)}
         kmer_list = [''.join(combination) for combination in itertools.product(*[d[k] for k in sorted(d.keys())])]
@@ -790,7 +795,7 @@ def get_contig_kmer_matrix(contig_list, ksize_list, n_jobs=1):
                         logging.warning(contig_kmer_freq_matrix[contig_counter][0], contig_freq[0])
                         raise Exception
                     contig_kmer_freq_matrix[contig_counter] = contig_kmer_freq_matrix[contig_counter] + contig_freq[1:]
-        logging.info('Finished counting k-mer frequencies for size {0}.'.format(ksize))
+        logging.debug('Finished counting k-mer frequencies for size {0}.'.format(ksize))
         n_rounds += 1
     return contig_kmer_freq_matrix
 
@@ -857,6 +862,13 @@ def downcast_pd_df(df):
 
 def get_initial_clusters(contig_df, cluster_alg, threads, include_depth, hdbscan_epsilon, hdbscan_min_samples,
                          dist_metric, marker_sets_graph, tigrfam2pfam_data_dict):
+
+    print("get_initial_clusters, contig_df['contig']:", len(contig_df['contig'].to_list()))
+    print("get_initial_clusters, contig_df['contig']:", len(set(contig_df['contig'].to_list())))
+
+    if len(contig_df['contig'].to_list()) != len(set(contig_df['contig'].to_list())):
+        raise Exception
+
     init_hdbscan_epsilon = hdbscan_epsilon
     init_hdbscan_min_samples = hdbscan_min_samples
     init_pk = get_perp(contig_df['contig'].size)
@@ -872,20 +884,20 @@ def get_initial_clusters(contig_df, cluster_alg, threads, include_depth, hdbscan
     logging.info('Running initial clustering.')
     while not working_df.empty and ic_attempts <= max_init_clstr_tries:
         if ic_attempts > 0:
-            logging.info('Splitting highly contaminated clusters again with adjusted parameters')
+            logging.debug('Splitting highly contaminated clusters again with adjusted parameters')
         # Get some clusters
         clust_dict, labels = run_initial_scan(working_df, cluster_alg, threads, include_depth=include_depth, pk=init_pk,
                                               hdbscan_epsilon=init_hdbscan_epsilon, hdbscan_min_samples=init_hdbscan_min_samples,
                                               dist_metric=dist_metric)
 
         if ic_attempts > 0:
-            logging.info('New clusters after adjusting: {}'.format(len(clust_dict.keys())))
+            logging.debug('New clusters after adjusting: {}'.format(len(clust_dict.keys())))
         if ic_attempts == 0:
             initial_clusters = len(clust_dict.keys())
         working_df = pd.DataFrame()
         # Check if clusters are massively contaminated and thus might take a long time to assess
         # with divide_clusters_by_depth
-        for cluster in clust_dict.keys():
+        for cluster in list(clust_dict.keys()):
             n_markers = len([marker for marker_list in clust_dict[cluster]['essential'] for marker in marker_list.split(',')])
             if len(clust_dict.keys()) < 10:
                 logging.debug('cluster: {}, n_contigs: {}, n_markers: {}.'.format(cluster, len(clust_dict[cluster]['contigs']),
@@ -906,11 +918,11 @@ def get_initial_clusters(contig_df, cluster_alg, threads, include_depth, hdbscan
                     working_df = contig_df[contig_df['contig'].isin(clust_dict[cluster]['contigs'])]
                 else:
                     new_clust_id = str(cluster_counter)
-                    init_clust_dict[new_clust_id] = clust_dict[cluster]
+                    init_clust_dict[new_clust_id] = clust_dict.pop(cluster)
                     cluster_counter += 1
             else:
                 new_clust_id = str(cluster_counter)
-                init_clust_dict[new_clust_id] = clust_dict[cluster]
+                init_clust_dict[new_clust_id] = clust_dict.pop(cluster)
                 cluster_counter += 1
         # Adjust clustering params
         init_hdbscan_epsilon = max(0, init_hdbscan_epsilon - 0.125)
@@ -919,15 +931,15 @@ def get_initial_clusters(contig_df, cluster_alg, threads, include_depth, hdbscan
         cluster_counter += 1
         ic_attempts += 1
     if ic_attempts > 1:
-        # Add leftover unsplittable clusters ba
+        # Add leftover unsplittable clusters back
         if not working_df.empty and ic_attempts > max_init_clstr_tries:
-            logging.info(f'Could not split contaminated clusters further with {max_init_clstr_tries} attempts.'
+            logging.debug(f'Could not split contaminated clusters further with {max_init_clstr_tries} attempts.'
                          f' Passing them on.')
-            for cluster in clust_dict.keys():
+            for cluster in list(clust_dict.keys()):
                 new_clust_id = str(cluster_counter)
-                init_clust_dict[new_clust_id] = clust_dict[cluster]
+                init_clust_dict[new_clust_id] = clust_dict.pop(cluster)
                 cluster_counter += 1
-        logging.info(f'Initially created {initial_clusters} clusters.')
+        logging.debug(f'Initially created {initial_clusters} clusters.')
     logging.info('Final number of clusters: {}.'.format(len(init_clust_dict.keys())))
 
     return init_clust_dict
@@ -938,19 +950,26 @@ def binny_iterate(contig_data_df, threads, marker_sets_graph, tigrfam2pfam_data_
                   include_depth_main=True, hdbscan_epsilon=0.25, hdbscan_min_samples_range=(2, 3, 4, 5),
                   dist_metric='manhattan', contigs2clusters_out_path='intermediary'):
     leftovers_df = contig_data_df.copy()
+
+    print("binny_iterate, contig_data_df['contig']:", len(contig_data_df['contig'].to_list()))
+    print("binny_iterate, contig_data_df['contig']:", len(set(contig_data_df['contig'].to_list())))
+
+    if len(contig_data_df['contig'].to_list()) != len(set(contig_data_df['contig'].to_list())):
+        raise Exception
+
     n_iterations = 1
     good_clusters = {}
     all_binned = False
 
     hdbs_min_samp_ind = 0
     if embedding_iteration == 1:
-        logging.info('Running first round with minimum purity of 95% and extended clustering.')
-        hdbscan_min_samples_range = [50, 20, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
+        logging.info('Running first round with minimum purity of 95% and extended number of iterations.')
+        hdbscan_min_samples_range = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 50]
         max_iterations = len(hdbscan_min_samples_range)
         min_purity = 95
 
-    if embedding_iteration % 2 != 0 and embedding_iteration > 1:
-        hdbscan_min_samples_range = hdbscan_min_samples_range[::-1]
+    # if embedding_iteration % 2 != 0 and embedding_iteration > 1:
+    #     hdbscan_min_samples_range = hdbscan_min_samples_range[::-1]
 
     good_bins_per_round_list = []
 
@@ -971,7 +990,7 @@ def binny_iterate(contig_data_df, threads, marker_sets_graph, tigrfam2pfam_data_
                 init_clust_dict[cluster]['completeness'] = 0
                 init_clust_dict[cluster]['taxon'] = 'none'
 
-        logging.info('Attempting to find sub-clusters using HDBSCAN.')
+        logging.debug('Attempting to find sub-clusters using HDBSCAN.')
         new_clust_dict, split_clusters = divide_clusters_by_depth(init_clust_dict, threads, marker_sets_graph,
                                                                   tigrfam2pfam_data_dict, int(min_purity),
                                                                   int(min_completeness), cluster_mode='HDBSCAN',
@@ -985,7 +1004,7 @@ def binny_iterate(contig_data_df, threads, marker_sets_graph, tigrfam2pfam_data_
                           new_clust_dict.items()}
         n_good_bins_round = len(new_clust_dict.keys())
         good_bins_per_round_list.append(n_good_bins_round)
-        logging.info(f'Good bins this round: {n_good_bins_round}.')
+        logging.debug(f'Good bins this round: {n_good_bins_round}.')
         iteration_clust_dict = {**new_clust_dict, **init_clust_dict}
 
         good_clusters.update(new_clust_dict)
@@ -1060,7 +1079,7 @@ def get_single_contig_bins(essential_gene_df, good_bins_dict, n_dims, marker_set
         for bin_dict in bin_dict_sub_list:
             good_bins_dict.update(bin_dict)
     end = timer()
-    logging.info('Finished searching for single contig bins in {0}s.'.format(int(end - start)))
+    logging.debug('Finished searching for single contig bins in {0}s.'.format(int(end - start)))
     return list(good_bins_dict.keys())
 
 
@@ -1473,7 +1492,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         # x_scaled = np.concatenate([round_x_depth, round_x], axis=1)
 
         # Manifold learning and dimension reduction.
-        logging.info('Running manifold learning and dimension reduction.')
+        logging.info('Running manifold learning and dimensionality-reduction.')
         n_pca_tries = 0
 
         if len(round_x_contigs) > 30:
@@ -1583,7 +1602,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         embedding_result = embedding.view(np.ndarray)
 
         total_iter = ee_iter + main_iter
-        logging.info(f'Finished t-SNE dimensionality-reduction in {total_iter} iterations.'
+        logging.info(f'Finished dimensionality-reduction in {total_iter} iterations.'
                      f' Final KLD: {round(KLD, 4)}')
 
         # Create coordinate df.
@@ -1685,7 +1704,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
             logging.warning('WARNING: {0} duplicate contigs in bins found! Exiting.'.format(len(all_contigs)
                                                                                             - len(set(all_contigs))))
             raise Exception
-        logging.info('Total good bins: {0}.'.format(len(all_good_bins.keys())))
+        logging.info('Total number of good bins: {0}.'.format(len(all_good_bins.keys())))
         if len(round_leftovers.index) == 0:
             break
     return all_good_bins, contig_data_df_org, min_purity
