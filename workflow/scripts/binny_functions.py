@@ -165,8 +165,6 @@ def contig_df2cluster_dict(contig_info_df, dbscan_labels, use_noise=False):
     depths = [i for i in contig_info_df.columns if 'depth' in i]
     contig_info_df = contig_info_df.loc[:, ['contig', 'essential'] + depths + dims]
     contig_info_data = ['contigs', 'essential'] + depths + dims
-
-    # Using pd.Series with dtype='string[pyarrow]' leads to wrong clusters in initial round?????
     contig_info_df['cluster'] = dbscan_labels
     contig_info_df['cluster'] = contig_info_df['cluster'].astype('string[pyarrow]')
 
@@ -951,22 +949,16 @@ def binny_iterate(contig_data_df, threads, marker_sets_graph, tigrfam2pfam_data_
                   dist_metric='manhattan', contigs2clusters_out_path='intermediary'):
     leftovers_df = contig_data_df.copy()
 
-    print("binny_iterate, contig_data_df['contig']:", len(contig_data_df['contig'].to_list()))
-    print("binny_iterate, contig_data_df['contig']:", len(set(contig_data_df['contig'].to_list())))
-
-    if len(contig_data_df['contig'].to_list()) != len(set(contig_data_df['contig'].to_list())):
-        raise Exception
-
     n_iterations = 1
     good_clusters = {}
     all_binned = False
 
     hdbs_min_samp_ind = 0
-    if embedding_iteration == 1:
-        logging.info('Running first round with minimum purity of 95% and extended number of iterations.')
-        hdbscan_min_samples_range = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 50]
-        max_iterations = len(hdbscan_min_samples_range)
-        min_purity = 95
+    # if embedding_iteration == 1:
+    #     logging.info('Running first round with minimum purity of 95% and extended number of iterations.')
+    #     hdbscan_min_samples_range = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 50]
+    #     max_iterations = len(hdbscan_min_samples_range)
+    #     min_purity = 95
 
     # if embedding_iteration % 2 != 0 and embedding_iteration > 1:
     #     hdbscan_min_samples_range = hdbscan_min_samples_range[::-1]

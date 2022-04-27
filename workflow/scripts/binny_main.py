@@ -46,12 +46,8 @@ log = snakemake.log[0]
 
 n_dim = 2
 
-print('test 03')
-
 sys.path.append(functions)
 from binny_functions import *
-
-print('test 04')
 
 # To achieve reproducible results with HDBSCAN and ensure same seed, because other tools that accept seed arguments,
 # might mess with the global numpy seed
