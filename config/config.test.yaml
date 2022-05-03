@@ -32,8 +32,8 @@ conda_source: ""
 # Input a list, e.g. '2,3,4'.
 kmers: '2,3,4'
 # Binny prefilters assemblies based on NX vale to try and take as much information as possible into account,
-# while minimizing the amount of noise. Be aware that, depending on the assembly quality, low values as the N50
-# might results in leaving out a large proportion of the assembly (if the max_cont_length cutoffs are set high).
+# while minimizing the amount of noise. Be aware that, depending on the assembly quality, low values as the NX
+# might results in leaving out a large proportion of the assembly (if the max_cont_length cutoffs are set high as well).
 NX_value: 95
 # Minimum and maximum contig length. Caps value from NX filtering.
 min_cont_length_cutoff: 500
