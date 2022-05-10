@@ -86,34 +86,13 @@ if [[ !  -e "$1" ]]; then
    exit 1
 fi
 
-if [ "$SNAKEMAKE_VIA_CONDA" = true ]; then
-  snakemake_env_config_var=$(grep 'snakemake_env:' ${CONFIGFILE} | cut -d' ' -f2 | sed -e 's/"//g')
-  echo ${snakemake_env_config_var}
-  if [[ ${snakemake_env_config_var} == "in_path" ]]; then
-    CONDA_START=""
-  elif [[ -n  ${snakemake_env_config_var} ]]; then
-    snakemake_env=${snakemake_env_config_var}
-    echo "Using existing Snakemake env: ${snakemake_env}"
-    CONDA_START="conda activate ${snakemake_env}"
-  else
-    if ! [ -x "$(command -v snakemake)" ]; then
-      mkdir -p conda
-      if ! [ -x "$(command -v mamba)" ]; then
-        env_manager="conda"
-      else
-        env_manager="mamba"
-      fi
-      echo "Creating snakemake environment"
-      ${env_manager} create --prefix $DIR/conda/snakemake_env snakemake=6.9.1 mamba unzip python=3.7 -c conda-forge -c bioconda
-    fi
-  CONDA_START="conda activate $DIR/conda/snakemake_env"
-  fi
-   CONDA_END="conda deactivate"
+# Env setup
+conda_source_config_var=$(grep 'conda_source:' ${CONFIGFILE} | cut -d' ' -f2 | sed -e 's/"//g')
+if [[ -n  ${conda_source_config_var} ]]; then
+  CONDA_SOURCE="${conda_source_config_var}"
 else
-   CONDA_START=""
-   CONDA_END=""
+  CONDA_SOURCE="${DIR}/conda"
 fi
-
 
 # Get info on Prokka and Mantis envs
 prokka_env_config_var=$(grep 'prokka_env:' ${CONFIGFILE} | cut -d' ' -f2 | sed -e 's/"//g')
@@ -133,6 +112,7 @@ if [[ -n  ${prokka_env_config_var} ]]; then
   fi
   echo "Using existing Prokka env: ${prokka_env_name}"
 fi
+
 # Same for mantis
 mantis_env_config_var=$(grep 'mantis_env:' ${CONFIGFILE} | cut -d' ' -f2 | sed -e 's/"//g')
 if [[ -n  ${mantis_env_config_var} ]]; then
@@ -148,20 +128,23 @@ if [[ -n  ${mantis_env_config_var} ]]; then
   mantis_env=${mantis_env_name}
   echo "Using existing Mantis env: ${mantis_env}"
 else
-    for i in ${DIR}/conda/*.yaml; do
-      env_name=$(head -n 1 ${i} | cut -d' ' -f2)
-      if [[ ${env_name} == 'mantis' ]]; then
-        mantis_env=${i%.yaml}
-      fi
-    done
+  if [[ -d ${CONDA_SOURCE} ]]; then
+      for i in ${CONDA_SOURCE}/*.yaml; do
+        env_name=$(head -n 1 ${i} | cut -d' ' -f2)
+        if [[ ${env_name} == 'mantis' ]]; then
+          mantis_env=${i%.yaml}
+        fi
+      done
+      mantis_set=true
+  else
+    mantis_set=false
+  fi
 fi
+
 # Set conda source path to target path or existing Prokka/Mantis source path if exists
-conda_source_config_var=$(grep 'conda_source:' ${CONFIGFILE} | cut -d' ' -f2 | sed -e 's/"//g')
 if [[ -n  ${conda_source_config_var} ]]; then
-  # Set conda source
-  CONDA_SOURCE=${conda_source_config_var}
   # Find path to mantis env
-  if [[  ${conda_source_config_var}} != ${mantis_env_path} ]]; then
+  if [[  ${conda_source_config_var}} != ${mantis_env_path}  && -n ${mantis_env_path} ]]; then
     for i in ${CONDA_SOURCE}/*.yaml; do
       env_name=$(grep -l 'mantis' ${i})
       if [[ -n ${env_name} ]]; then
@@ -183,6 +166,34 @@ else
 fi
 echo "Will use conda source path: ${CONDA_SOURCE}"
 
+# Check Snakemake and crate env, if needed
+if [ "$SNAKEMAKE_VIA_CONDA" = true ]; then
+  snakemake_env_config_var=$(grep 'snakemake_env:' ${CONFIGFILE} | cut -d' ' -f2 | sed -e 's/"//g')
+  echo ${snakemake_env_config_var}
+  if [[ ${snakemake_env_config_var} == "in_path" ]]; then
+    CONDA_START=""
+  elif [[ -n  ${snakemake_env_config_var} ]]; then
+    snakemake_env=${snakemake_env_config_var}
+    echo "Using existing Snakemake env: ${snakemake_env}"
+    CONDA_START="conda activate ${snakemake_env}"
+  else
+    if [[ ! -x "${CONDA_SOURCE}/snakemake_env/bin/snakemake" ]]; then
+      mkdir -p conda
+      if ! [ -x "$(command -v mamba)" ]; then
+        env_manager="conda"
+      else
+        env_manager="mamba"
+      fi
+      echo "Creating snakemake environment"
+      ${env_manager} create --prefix ${CONDA_SOURCE}/snakemake_env snakemake=6.9.1 mamba unzip python=3.7 -c conda-forge -c bioconda
+    fi
+  CONDA_START="conda activate ${CONDA_SOURCE}/snakemake_env"
+  fi
+   CONDA_END="conda deactivate"
+else
+   CONDA_START=""
+   CONDA_END=""
+fi
 
 START_TIME=`date +%s`
 NAMEHASH=`echo $START_TIME| cksum | awk '{print $1}'`
@@ -220,6 +231,14 @@ elif [ "$INITIAL" = true ]; then
     fi
 
     echo "Setting up Mantis with the CheckM databases"
+    if [[ ! ${mantis_set} ]]; then
+      for i in ${CONDA_SOURCE}/*.yaml; do
+        env_name=$(head -n 1 ${i} | cut -d' ' -f2)
+        if [[ ${env_name} == 'mantis' ]]; then
+          mantis_env=${i%.yaml}
+        fi
+      done
+    fi
     conda activate ${mantis_env}
     # Make sure a compiler for cython is available
     if ! [ -x "$(command -v gcc)" ]; then
@@ -293,6 +312,7 @@ elif [ "$FRONTEND" = true ]; then
     fi
 elif [ "$LAPTOP" = true ]; then
     echo "Running workflow in current session - don't use this setting except with small datasets and databases."
+    echo ${CONDA_SOURCE}
     JNAME=${JNAME//./_}
     if [ -z "$THREADS" ]; then
         THREADS=1
