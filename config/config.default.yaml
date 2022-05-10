@@ -22,8 +22,8 @@ raws:
 sample: "test"
 # Path to desired output dir binny should create and store results in.
 outputdir: "path/to/output/dir"
-# Path to put binny dbs in.
-db_path: "path/to/database/dir"
+# Absolute path to put binny dbs in. If left empty they will be put into 'database' in the binny main dir.
+db_path: "/mnt/irisgpfs/users/ohickl/local_tools/binny/database"
 # If you want to use existing environments containing the environments for Snakemake, Prokka
 # and/or Mantis you can either input the absolute paths to yaml files or env names here.
 # Otherwise, leave empty and binny will take care of the installations.
@@ -31,6 +31,7 @@ db_path: "path/to/database/dir"
 snakemake_env: ""
 prokka_env: ""
 mantis_env: ""
+# Set path for conda envs to be installed to. By default, they will be put in `conda` in the binny dir.
 conda_source: ""
 # Input a list, e.g. '2,3,4'.
 kmers: '2,3,4'
@@ -39,18 +40,18 @@ kmers: '2,3,4'
 # might results in leaving out a large proportion of the assembly (if the max_cont_length cutoffs are set high as well).
 NX_value: 95
 # Minimum and maximum contig length. Caps value from NX filtering.
-min_cont_length_cutoff: 500
-max_cont_length_cutoff: 1000
+min_cont_length_cutoff: 1500  # 500
+max_cont_length_cutoff: 1500  # 1000
 # Minimum and maximum length of contigs containing CheckM markers. Caps value from NX filtering (initial value is NX_value / 2).
-min_cont_length_cutoff_marker: 250
-max_cont_length_cutoff_marker: 400
+min_cont_length_cutoff_marker: 1500  # 250
+max_cont_length_cutoff_marker: 1500  # 400
 # Maximum number of contigs binny uses. If the number of available
 # contigs after minimum size filtering exceeds this, binny will
 # increase the minimum size threshold until the maximum is reached.
 # Prevents use of excessive amounts of memory on large assemblies.
 # Default should ensure adequate performance, adjust e.g. according
 # to available memory.
-max_n_contigs: 3.5e5
+max_n_contigs: 10e6  # 3.5e5
 # Distance metric for opentSNE and HDBSCAN.
 distance_metric: 'manhattan'
 embedding:
@@ -72,7 +73,7 @@ clustering:
 bin_quality:
   # Minimum value binny will lower completeness to while running.
   min_completeness: 70
-  # Completness threshold binny wilt begin with.
+  # Completeness threshold binny wilt begin with.
   start_completeness: 90
   # Minimum purity for bins to be selected.
   purity: 90

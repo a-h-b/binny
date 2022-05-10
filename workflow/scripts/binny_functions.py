@@ -5,8 +5,6 @@ Created on Wed Feb 22 10:50:35 2021
 """
 import itertools
 import logging
-import os
-import sys
 from pathlib import Path
 from timeit import default_timer as timer
 import re
@@ -24,10 +22,6 @@ from openTSNE import initialization
 from skbio.stats.composition import clr, multiplicative_replacement
 from sklearn.decomposition import PCA
 from sklearn.neighbors import KNeighborsClassifier
-
-bin_dir = '/'.join(os.path.dirname(__file__).split('/')[:-1])
-sys.path.append('{0}/bin/Multicore-opt-SNE'.format(bin_dir))
-
 
 def unify_multi_model_genes(gene, markers='essential'):
     # Dict to unify genes with multiple models

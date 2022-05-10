@@ -117,9 +117,14 @@ SAMPLE = config['sample']
 if SAMPLE == "":
     SAMPLE = "_".join(OUTPUTDIR.split("/")[-2:])
 SAMPLE = re.sub("_+","_",re.sub("[;|.-]","_",SAMPLE))
-DBPATH = os.path.expandvars(config['db_path'])
-if not os.path.isabs(DBPATH):
-    DBPATH = os.path.join(os.getcwd(), DBPATH)
+
+
+if not config['db_path']:
+    DBPATH = srcdir('database')
+else:
+    DBPATH = os.path.expandvars(config['db_path'])
+    if not os.path.isabs(DBPATH):
+        DBPATH = os.path.join(os.getcwd(), DBPATH)
 if not os.path.exists(DBPATH):
     print("Setting up marker database")
     os.makedirs(DBPATH)
