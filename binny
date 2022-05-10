@@ -169,7 +169,6 @@ echo "Will use conda source path: ${CONDA_SOURCE}"
 # Check Snakemake and crate env, if needed
 if [ "$SNAKEMAKE_VIA_CONDA" = true ]; then
   snakemake_env_config_var=$(grep 'snakemake_env:' ${CONFIGFILE} | cut -d' ' -f2 | sed -e 's/"//g')
-  echo ${snakemake_env_config_var}
   if [[ ${snakemake_env_config_var} == "in_path" ]]; then
     CONDA_START=""
   elif [[ -n  ${snakemake_env_config_var} ]]; then
@@ -221,13 +220,10 @@ elif [ "$INITIAL" = true ]; then
     eval $CONDA_START
     snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --verbose --cores 1 -s $DIR/Snakefile --conda-create-envs-only --use-conda \
               --conda-prefix ${CONDA_SOURCE} --local-cores 1 --configfile $CONFIGFILE
-    DB_PATH=`grep "db_path:" $CONFIGFILE | cut -f 2 -d " "`
-    temp="${DB_PATH%\"}"
-    DB_PATH="${temp#\"}"
 
-    if [[ ! "$DB_PATH" = /* ]]
-      then
-      DB_PATH=${DIR}/$DB_PATH
+    DB_PATH=$(grep "db_path:" $CONFIGFILE | cut -f 2 -d " ")
+    if [[ -n  ${DB_PATH} ]]; then
+      DB_PATH="${DIR}/database"
     fi
 
     echo "Setting up Mantis with the CheckM databases"
@@ -246,8 +242,8 @@ elif [ "$INITIAL" = true ]; then
       $CONDA_PREFIX/etc/conda/activate.d/activate-binutils_linux-64.sh
       $CONDA_PREFIX/etc/conda/activate.d/activate-gcc_linux-64.sh
     fi
-    hmmpress ${DB_PATH}/hmms/checkm_tf/checkm_filtered_tf.hmm && \
-    hmmpress ${DB_PATH}/hmms/checkm_pf/checkm_filtered_pf.hmm && \
+    hmmpress -f ${DB_PATH}/hmms/checkm_tf/checkm_filtered_tf.hmm && \
+    hmmpress -f ${DB_PATH}/hmms/checkm_pf/checkm_filtered_pf.hmm && \
     sed -e "s|__PATH_TO_DB__|${DIR}|g" ${DIR}/config/binny_mantis_template.cfg > ${DIR}/config/binny_mantis.cfg && \
     mantis setup -mc ${DIR}/config/binny_mantis.cfg --chunk_size 1200 --no_taxonomy && \
     mantis check -mc ${DIR}/config/binny_mantis.cfg --no_taxonomy && \
