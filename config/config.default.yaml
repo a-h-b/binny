@@ -40,18 +40,18 @@ kmers: '2,3,4'
 # might results in leaving out a large proportion of the assembly (if the max_cont_length cutoffs are set high as well).
 NX_value: 95
 # Minimum and maximum contig length. Caps value from NX filtering.
-min_cont_length_cutoff: 1500  # 500
-max_cont_length_cutoff: 1500  # 1000
+min_cont_length_cutoff: 500  # 500
+max_cont_length_cutoff: 1000  # 1000
 # Minimum and maximum length of contigs containing CheckM markers. Caps value from NX filtering (initial value is NX_value / 2).
-min_cont_length_cutoff_marker: 1500  # 250
-max_cont_length_cutoff_marker: 1500  # 400
+min_cont_length_cutoff_marker: 250  # 250
+max_cont_length_cutoff_marker: 400  # 400
 # Maximum number of contigs binny uses. If the number of available
 # contigs after minimum size filtering exceeds this, binny will
 # increase the minimum size threshold until the maximum is reached.
 # Prevents use of excessive amounts of memory on large assemblies.
 # Default should ensure adequate performance, adjust e.g. according
 # to available memory.
-max_n_contigs: 10e6  # 3.5e5
+max_n_contigs: 3.5e5  # 3.5e5
 # Distance metric for opentSNE and HDBSCAN.
 distance_metric: 'manhattan'
 embedding:
