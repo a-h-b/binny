@@ -23,6 +23,7 @@ from skbio.stats.composition import clr, multiplicative_replacement
 from sklearn.decomposition import PCA
 from sklearn.neighbors import KNeighborsClassifier
 
+
 def unify_multi_model_genes(gene, markers='essential'):
     # Dict to unify genes with multiple models
     if markers == 'essential':

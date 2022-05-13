@@ -25,6 +25,7 @@ min_purity = float(snakemake.params['purity'])
 min_completeness = float(snakemake.params['min_completeness'])
 starting_completeness = float(snakemake.params['start_completeness'])
 kmers = snakemake.params['kmers']
+mask_disruptive_sequences = eval(snakemake.params['mask_disruptive_sequences'])
 nx_val = int(snakemake.params['nx_val'])
 min_contig_length = int(snakemake.params['min_cutoff'])
 max_contig_length = int(snakemake.params['max_cutoff'])
@@ -107,7 +108,11 @@ logging.info('{0} contigs match length threshold of {1}bp or contain marker gene
              ' have a size of at least {2}bp'.format(len(contig_list), min_contig_length, min_contig_length_marker))
 
 contig_rrna_crispr_region_dict = gff2low_comp_feature_dict(annot_file)
-mask_rep_featrues(contig_rrna_crispr_region_dict, contig_list)  # Disabled for v016
+if mask_disruptive_sequences:
+    logging.info('Masking potentially disruptive sequences from k-mer counting.')
+    mask_rep_featrues(contig_rrna_crispr_region_dict, contig_list)
+else:
+    logging.info('Not masking potentially disruptive sequences from k-mer counting.')
 
 # Get length normalized k-mer frequencies.
 kmer_sizes = [int(kmer) for kmer in kmers.split(',')]

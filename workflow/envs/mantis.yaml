@@ -4,4 +4,4 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - mantis_pfa=1.5.4
+  - mantis_pfa=1.4.7
