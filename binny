@@ -129,15 +129,19 @@ if [[ -n  ${mantis_env_config_var} ]]; then
   echo "Using existing Mantis env: ${mantis_env}"
 else
   if [[ -d ${CONDA_SOURCE} ]]; then
-      shopt -s nullglob
-      for i in ${CONDA_SOURCE}/*.yaml; do
-        env_name=$(head -n 1 ${i} | cut -d' ' -f2)
-        if [[ ${env_name} == 'mantis' ]]; then
-          mantis_env=${i%.yaml}
-          mantis_set='true'
-        fi
-      done
-      shopt -u nullglob
+      shopt -s failglob
+      env_yamls=$(ls ${CONDA_SOURCE}/*.yaml)
+      if [[ ${env_yamls} ]]; then
+        for i in ${CONDA_SOURCE}/*.yaml; do
+          env_name=$(head -n 1 ${i} | cut -d' ' -f2)
+          if [[ ${env_name} == 'mantis' ]]; then
+            mantis_env=${i%.yaml}
+            echo "Loading mantis env from: ${mantis_env}"
+            mantis_set='true'
+          fi
+        done
+      fi
+      shopt -u failglob
   else
     mantis_set=''
   fi
@@ -234,6 +238,7 @@ elif [ "$INITIAL" = true ]; then
         env_name=$(head -n 1 ${i} | cut -d' ' -f2)
         if [[ ${env_name} == 'mantis' ]]; then
           mantis_env=${i%.yaml}
+          echo "Loading mantis env from: ${mantis_env}"
         fi
       done
     fi
