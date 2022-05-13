@@ -129,15 +129,17 @@ if [[ -n  ${mantis_env_config_var} ]]; then
   echo "Using existing Mantis env: ${mantis_env}"
 else
   if [[ -d ${CONDA_SOURCE} ]]; then
+      shopt -s nullglob
       for i in ${CONDA_SOURCE}/*.yaml; do
         env_name=$(head -n 1 ${i} | cut -d' ' -f2)
         if [[ ${env_name} == 'mantis' ]]; then
           mantis_env=${i%.yaml}
+          mantis_set='true'
         fi
       done
-      mantis_set=true
+      shopt -u nullglob
   else
-    mantis_set=false
+    mantis_set=''
   fi
 fi
 
@@ -184,7 +186,7 @@ if [ "$SNAKEMAKE_VIA_CONDA" = true ]; then
         env_manager="mamba"
       fi
       echo "Creating snakemake environment"
-      ${env_manager} create --prefix ${CONDA_SOURCE}/snakemake_env snakemake=6.9.1 mamba unzip python=3.7 -c conda-forge -c bioconda
+      ${env_manager} create --prefix ${CONDA_SOURCE}/snakemake_env snakemake=6.9.1 mamba unzip python=3.7 -c conda-forge -c bioconda --yes
     fi
   CONDA_START="conda activate ${CONDA_SOURCE}/snakemake_env"
   fi
