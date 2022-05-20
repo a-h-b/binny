@@ -316,12 +316,12 @@ rule annotate:
         # getThreads(20)
         workflow.cores
     resources:
-        runtime = "120:00:00",
+        runtime = "48:00:00",
         mem = MEMCORE
     log:
         os.path.join(OUTPUTDIR, "logs/analysis_annotate.log")
     benchmark:
-        os.path.join(OUTPUTDIR, "logs/analysis_annotate_benchmark.")
+        os.path.join(OUTPUTDIR, "logs/analysis_annotate_benchmark.txt")
     conda:
         PROKKA_ENV if PROKKA_ENV else os.path.join(ENVDIR, "prokka.yaml")
     message:

@@ -286,13 +286,14 @@ elif [ "$CLUSTER" = true ]; then
     else
       msg_suffix=""
       if [ "$REPORT" = true ]; then
-        run_cmd="eval \"${SUBMIT_COMMAND}$NNAME $DIR/runscripts/runBinny_withReport.sh $CONFIGFILE $VARCONFIG $JNAME $THREADS\""
+        run_cmd="${SUBMIT_COMMAND}$NNAME $DIR/runscripts/runBinny_withReport.sh $CONFIGFILE $VARCONFIG $JNAME $THREADS"
       else
-        run_cmd="eval \"${SUBMIT_COMMAND}$NNAME $DIR/runscripts/runBinny_withoutReport.sh $CONFIGFILE $VARCONFIG $JNAME $THREADS\""
+        run_cmd="${SUBMIT_COMMAND}$NNAME $DIR/runscripts/runBinny_withoutReport.sh $CONFIGFILE $VARCONFIG $JNAME $THREADS"
       fi
     fi
 
     echo "Submitting workflow to cluster${msg_suffix}."
+    echo $run_cmd
     $run_cmd
 elif [ "$FRONTEND" = true ]; then
     echo "Running workflow on frontend - don't use this setting except with small datasets and with no more than one run at a time."
