@@ -11,11 +11,50 @@ import pandas as pd
 import yaml
 
 
+# default executable for snakmake
+shell.executable("bash")
+
+
+#functions
 def open_output(filename):
     return open(OUTPUTDIR + '/' + filename, 'w+')
 
-# default executable for snakmake
-shell.executable("bash")
+def getThreads(max):
+    if hasattr(workflow, 'cores'):
+        realThreads = max if max <= workflow.cores else workflow.cores
+    elif hasattr(workflow, 'nodes'):
+        realThreads = max if max <= workflow.nodes else workflow.nodes
+    else:
+        realThreads = max
+    return realThreads
+
+def prepare_input_files(inputs, outputs):
+    """
+    Prepare file names from input into snakemake pipeline.
+    """
+    if len(inputs) != len(outputs):
+        raise OSError("//Inputs and outputs are not of the same length: %s <> %s" % (', '.join(inputs), ', '.join(outputs)))
+    for infilename, outfilename in zip(inputs, outputs):
+        _, fname1 = os.path.split(infilename)
+        _process_file(fname1, infilename, outfilename)
+
+def _process_file(fname, inp, outfilename):
+    """
+    Write the input to the output. Handle raw, zip, or bzip input files.
+    """
+    print(inp, '=>', outfilename)
+    # ungunzip
+    if os.path.splitext(fname)[-1] in ['.gz', '.gzip']:
+        with open(outfilename, 'wb') as whandle, gzip.open(inp, 'rb') as rhandle:
+            shutil.copyfileobj(rhandle, whandle)
+    # unbzip2
+    elif os.path.splitext(fname)[-1] in ['.bz2', '.bzip2']:
+        shell("bzip2 -dc {i} > {o}".format(i=inp, o=outfilename))
+    # copy
+    else:
+        shutil.copy(inp, outfilename)
+
+
 
 # default configuration file
 configfile:
@@ -25,7 +64,7 @@ configfile:
 SRCDIR = srcdir("workflow/scripts")
 BINDIR = srcdir("workflow/bin")
 ENVDIR = srcdir("workflow/envs")
-CONDA_DIR = srcdir("conda")
+CONDA_DIR = config['conda_source']
 
 if SRCDIR not in sys.path:
     sys.path.append(SRCDIR)
@@ -48,7 +87,7 @@ if os.path.isabs(os.path.expandvars(config['raws']['assembly'])):
 else:
     CONTIGS = os.path.join(os.getcwd(), os.path.expandvars(config['raws']['assembly']))
 
-# Added depth file par to us instead of alignment
+# Added depth file par to use instead of alignment
 if config['raws']['contig_depth']:
     if os.path.isabs(os.path.expandvars(config['raws']['contig_depth'])):
         CONTIG_DEPTH = os.path.expandvars(config['raws']['contig_depth'])
@@ -98,27 +137,21 @@ else:
 
 # hardware parameters
 MEMCORE = str(config['mem']['normal_mem_per_core_gb']) + "G"
-if config['mem']['big_mem_avail']:
+if config['mem']['big_mem_avail'] > 0:
     BIGMEMCORE = str(config['mem']['big_mem_per_core_gb']) + "G"
+    BIGMEMS = config['mem']['big_mem_avail']
 else:
     BIGMEMCORE = False
+    
 
-def getThreads(max):
-    if workflow.cores:
-        realThreads = max if max <= workflow.cores else workflow.cores
-    elif workflow.nodes:
-        realThreads = max if max <= workflow.nodes else workflow.nodes
-    else:
-        realThreads = max
-    return realThreads
-
-
+#clean up sample name
 SAMPLE = config['sample']
 if SAMPLE == "":
     SAMPLE = "_".join(OUTPUTDIR.split("/")[-2:])
 SAMPLE = re.sub("_+","_",re.sub("[;|.-]","_",SAMPLE))
 
 
+#set up DBs, if necessary
 if not config['db_path']:
     DBPATH = srcdir('database')
 else:
@@ -153,35 +186,19 @@ if not os.path.isabs(TMPDIR):
 if not os.path.exists(TMPDIR):
     os.makedirs(TMPDIR)
 
-# # set working directory and dump output
-# workdir:
-#     OUTPUTDIR
+# dump config
+yaml.add_representer(OrderedDict, lambda dumper, data: dumper.represent_mapping('tag:yaml.org,2002:map', data.items()))
+yaml.add_representer(tuple, lambda dumper, data: dumper.represent_sequence('tag:yaml.org,2002:seq', data))
+yaml.dump(config, open_output('binny.config.yaml'), allow_unicode=True, default_flow_style=False)
 
-def prepare_input_files(inputs, outputs):
-    """
-    Prepare file names from input into snakemake pipeline.
-    """
-    if len(inputs) != len(outputs):
-        raise OSError("//Inputs and outputs are not of the same length: %s <> %s" % (', '.join(inputs), ', '.join(outputs)))
-    for infilename, outfilename in zip(inputs, outputs):
-        _, fname1 = os.path.split(infilename)
-        _process_file(fname1, infilename, outfilename)
+workdir:
+    OUTPUTDIR
 
-def _process_file(fname, inp, outfilename):
-    """
-    Write the input to the output. Handle raw, zip, or bzip input files.
-    """
-    print(inp, '=>', outfilename)
-    # ungunzip
-    if os.path.splitext(fname)[-1] in ['.gz', '.gzip']:
-        with open(outfilename, 'wb') as whandle, gzip.open(inp, 'rb') as rhandle:
-            shutil.copyfileobj(rhandle, whandle)
-    # unbzip2
-    elif os.path.splitext(fname)[-1] in ['.bz2', '.bzip2']:
-        shell("bzip2 -dc {i} > {o}".format(i=inp, o=outfilename))
-    # copy
-    else:
-        shutil.copy(inp, outfilename)
+onsuccess:
+    shell("mkdir -p job.errs.outs &>> logs/cleanup.log; ( mv binny*stdout job.errs.outs || touch job.errs.outs ) &>> logs/cleanup.log") 
+
+
+# Snakemake workflow
 
 localrules: prepare_input_data, ALL
 
@@ -190,10 +207,6 @@ rule ALL:
     input:
         os.path.join(OUTPUTDIR, 'binny.done')
 
-
-yaml.add_representer(OrderedDict, lambda dumper, data: dumper.represent_mapping('tag:yaml.org,2002:map', data.items()))
-yaml.add_representer(tuple, lambda dumper, data: dumper.represent_sequence('tag:yaml.org,2002:seq', data))
-yaml.dump(config, open_output('binny.config.yaml'), allow_unicode=True, default_flow_style=False)
 
 rule prepare_input_data:
     input:
@@ -204,11 +217,10 @@ rule prepare_input_data:
         os.path.join(OUTPUTDIR, "intermediary/assembly.contig_depth.txt") if CONTIG_DEPTH
         else [os.path.join(OUTPUTDIR, "intermediary/reads_{0}_sorted.bam".format(sample_id_map_dict[mappings_id]))
               for mappings_id in mappings_ids]
-    threads:
-        1
-    resources:
-        runtime = "4:00:00",
-        mem = MEMCORE
+    threads: 1 
+#    resources:
+#        runtime = "4:00:00",
+#        mem = MEMCORE
     message:
         "Preparing input."
     run:
@@ -219,8 +231,8 @@ rule format_assembly:
         os.path.join(OUTPUTDIR, "intermediary/assembly.fa")
     output:
         os.path.join(OUTPUTDIR, "intermediary/assembly.formatted.fa")
-    threads:
-        workflow.cores
+    threads: 
+        getThreads(1)
     resources:
         runtime = "2:00:00",
         mem = MEMCORE
@@ -244,7 +256,7 @@ if not CONTIG_DEPTH:
             runtime = "4:00:00",
             mem = BIGMEMCORE if BIGMEMCORE else MEMCORE
         threads:
-            max(1, int(workflow.cores / len(mappings_ids))) if mappings_ids else 1
+            1
         conda:
             os.path.join(ENVDIR, "mapping.yaml")
         log:
@@ -254,6 +266,7 @@ if not CONTIG_DEPTH:
         shell:
             """
             echo "Running BEDTools for average depth in each position" >> {log}
+            export TMPDIR={TMPDIR}
             TMP_DEPTH=$(mktemp --tmpdir={TMPDIR} "depth_file_XXXXXXXXXXXXXXXX.txt")
             genomeCoverageBed -ibam {input.mapping} | grep -v "genome" > $TMP_DEPTH
             echo "Depth calculation done" >> {log}
@@ -294,6 +307,7 @@ if not CONTIG_DEPTH:
                 first_file=false
               else
                 # echo "File $COUNTER"
+                export TMPDIR={TMPDIR}
                 TMP_DEPTH=$(mktemp --tmpdir={TMPDIR} "tmp_XXXXXXXXXXX.tsv")
                 paste {output} <( cut -f 2 $file) > $TMP_DEPTH \
                       && mv $TMP_DEPTH {output}
@@ -313,8 +327,7 @@ rule annotate:
     params:
         int_dir=os.path.join(OUTPUTDIR, "intermediary")
     threads:
-        # getThreads(20)
-        workflow.cores
+        getThreads(24)
     resources:
         runtime = "48:00:00",
         mem = MEMCORE
@@ -330,6 +343,7 @@ rule annotate:
         """
         export PERL5LIB=$CONDA_PREFIX/lib/site_perl/5.26.2
         export LC_ALL=en_US.utf-8
+        export TMPDIR={TMPDIR}
 	    {BINDIR}/prokkaP --dbdir $CONDA_PREFIX/db --force --outdir {params.int_dir} --tmpdir {TMPDIR} --prefix prokka \
 	                     --noanno --cpus {threads} --metagenome {input.assembly} >> {log} 2>&1
         
@@ -359,7 +373,7 @@ rule mantis_checkm_marker_sets:
     conda:
         MANTIS_ENV if MANTIS_ENV else os.path.join(ENVDIR, "mantis.yaml")
     threads:
-        workflow.cores
+        getThreads(80)
     log:
         os.path.join(OUTPUTDIR, "logs/analysis_checkm_markers.log")
     benchmark:
@@ -415,8 +429,7 @@ rule binny:
         runtime = "12:00:00",
         mem = BIGMEMCORE if BIGMEMCORE else MEMCORE
     threads:
-        # getThreads(2) if BIGMEMCORE else getThreads(20)
-        workflow.cores
+        getThreads(BIGMEMS) if BIGMEMCORE else getThreads(80)
     conda:
         os.path.join(ENVDIR, "binny_linux.yaml")
     log:

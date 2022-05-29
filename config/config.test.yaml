@@ -1,11 +1,12 @@
 mem:
   # If your HPC resource has a high memory capacity node you can set this to
-  # TRUE and specify the amount of memory per core (e.g. if a node has 260 gb of
+  # the number of high-memory cores you want to use  (set to 0 otherwise)
+  # and specify the amount of memory per core (e.g. if a node has 260 gb of
   # RAM and 10 cores it would be 26).
-  big_mem_avail: FALSE
+  big_mem_avail: 0
   big_mem_per_core_gb: 26
   # Memory per core of your computing resource.
-  normal_mem_per_core_gb: 2
+  normal_mem_per_core_gb: 8
 # Path to a temporary directory to write to.
 tmp_dir: tmp
 raws:

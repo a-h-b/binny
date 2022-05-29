@@ -19,8 +19,8 @@ usage() {
     echo "       -i if set, only the conda environments will be installed, if they don't exist" 1>&2
     echo "       -u if set, the working directory will be unlocked (only necessary for crash/kill recovery)" 1>&2
     echo "       -l if set, the main snakemake thread and indivdual rules are run in the current terminal session" 1>&2
-    echo "       -x if set, binny will use tmux" 1>&2
-    echo "       -f if set, the main snakemake thread and indivdual rules are run in a tmux session" 1>&2
+    echo "       -x if -c is set, binny will use tmux for snakemake and submit to the cluster, if -l is set, snakemake and rules are run in tmux" 1>&2
+    echo "       -f if set, the main snakemake thread and indivdual rules are run in a tmux session (= -l and -x)" 1>&2
     echo "       -t <max_threads> maximum number of cpus to use for all rules at a time. Defaults to $MAX_THREADS for -c, and to 1 for -l and -f. No effect on -r, -d or -u only." 1>&2
 
 }
@@ -47,7 +47,7 @@ do
         x)
             TMUX=true;;
         f)
-            [ -n "$TMUX" ] && FRONTEND=true || echo "-f requires -x." && exit 1;;
+            FRONTEND=true;;
         t)
             THREADS=$OPTARG;;
         h)
@@ -79,7 +79,7 @@ else
 fi
 
 
-#if the file cannot be found
+#if the config file cannot be found
 if [[ !  -e "$1" ]]; then
    echo "Configfile "$1" was not found."
    echo "Provide full path."
@@ -87,23 +87,22 @@ if [[ !  -e "$1" ]]; then
 fi
 
 # Env setup
-conda_source_config_var=$(grep 'conda_source:' ${CONFIGFILE} | cut -d' ' -f2 | sed -e 's/"//g')
-if [[ -n  ${conda_source_config_var} ]]; then
+conda_source_config_var=$(grep 'conda_source:' ${CONFIGFILE} | grep '^#' -v | cut -d':' -f2 | tr -d '[:space:]' | sed -e 's/"//g')
+if [[ -n ${conda_source_config_var} ]]; then
   CONDA_SOURCE="${conda_source_config_var}"
 else
   CONDA_SOURCE="${DIR}/conda"
 fi
 
 # Get info on Prokka and Mantis envs
-prokka_env_config_var=$(grep 'prokka_env:' ${CONFIGFILE} | cut -d' ' -f2 | sed -e 's/"//g')
+prokka_env_config_var=$(grep 'prokka_env:' ${CONFIGFILE} | grep '^#' -v | cut -d':' -f2 | tr -d '[:space:]' | sed -e 's/"//g')
 if [[ -n  ${prokka_env_config_var} ]]; then
   # Get env folder path without extension, if input is yaml/yml else get whole string
-  prokka_env_path=$(python -c "print(\"${prokka_env_config_var}\".replace('.yaml', '').replace('.yml', ''))"\
-                              "if \"${prokka_env_config_var}\".split('.')[-1] in ['yaml', 'yml'] else print(\"${prokka_env_config_var}\")")
+  prokka_env_path=${prokka_env_config_var%.@(yaml|yml|YAML|YML)}
   # If env is from yaml/yml add parent dir to envs_dirs to trick snakemake into not rebuilding the env and accepting it as named env
   if [[ ${prokka_env_config_var} != ${prokka_env_path} ]]; then
-    prokka_env_name=$(python -c "print(\"${prokka_env_path}\".split('/')[-1])")
-    prokka_env_parent=$(python -c "print(\"${prokka_env_path}\".replace(\"${prokka_env_name}\", ''))")
+    prokka_env_name=$(basename ${prokka_env_path})
+    prokka_env_parent=$(dirname ${prokka_env_path})
     conda config --append envs_dirs ${prokka_env_parent}
 #    # Hack to prevent source file not found error?
 #    ln -s ${prokka_env_path} ${DIR}/${prokka_env_name}
@@ -114,14 +113,13 @@ if [[ -n  ${prokka_env_config_var} ]]; then
 fi
 
 # Same for mantis
-mantis_env_config_var=$(grep 'mantis_env:' ${CONFIGFILE} | cut -d' ' -f2 | sed -e 's/"//g')
+mantis_env_config_var=$(grep 'mantis_env:' ${CONFIGFILE} | grep '^#' -v | cut -d':' -f2 | tr -d '[:space:]' | sed -e 's/"//g')
 if [[ -n  ${mantis_env_config_var} ]]; then
-  mantis_env_path=$(python -c "print(\"${mantis_env_config_var}\".replace('.yaml', '').replace('.yml', ''))"\
-                              "if \"${mantis_env_config_var}\".split('.')[-1] in ['yaml', 'yml'] else print(\"${mantis_env_config_var}\")")
+  mantis_env_path=${mantis_env_config_var%.@(yaml|yml|YAML|YML)}
   # If env is from yaml/yml add parent dir to envs_dirs to trick snakemake into not rebuilding the env and accepting it as named env
   if [[ ${mantis_env_config_var} != ${mantis_env_path} ]]; then
-    mantis_env_name=$(python -c "print(\"${mantis_env_path}\".split('/')[-1])")
-    mantis_env_parent=$(python -c "print(\"${mantis_env_path}\".replace(\"${mantis_env_name}\", ''))")
+    mantis_env_name=$(basename ${mantis_env_path})
+    mantis_env_parent=$(dirname ${mantis_env_path})
   else
     mantis_env_name=${mantis_env_path}
   fi
@@ -141,9 +139,10 @@ else
           fi
         done
       fi
-      shopt -u failglob
   else
-    mantis_set=''
+      shopt -u failglob
+#  else
+#    mantis_set=''
   fi
 fi
 
@@ -169,13 +168,15 @@ elif [[ -n  ${prokka_env_parent} ]]; then
   CONDA_SOURCE=${prokka_env_parent}
 else
   CONDA_SOURCE="${DIR}/conda"
+  mkdir -p $CONDA_SOURCE
 fi
 echo "Will use conda source path: ${CONDA_SOURCE}"
 
-# Check Snakemake and crate env, if needed
+# Check Snakemake and create env, if needed
 if [ "$SNAKEMAKE_VIA_CONDA" = true ]; then
-  snakemake_env_config_var=$(grep 'snakemake_env:' ${CONFIGFILE} | cut -d' ' -f2 | sed -e 's/"//g')
+  snakemake_env_config_var=$(grep 'snakemake_env:' ${CONFIGFILE} | grep '^#' -v | cut -d':' -f2 | tr -d '[:space:]' | sed -e 's/"//g')
   if [[ ${snakemake_env_config_var} == "in_path" ]]; then
+    echo "Will use snakemake from PATH."
     CONDA_START=""
   elif [[ -n  ${snakemake_env_config_var} ]]; then
     snakemake_env=${snakemake_env_config_var}
@@ -183,7 +184,7 @@ if [ "$SNAKEMAKE_VIA_CONDA" = true ]; then
     CONDA_START="conda activate ${snakemake_env}"
   else
     if [[ ! -x "${CONDA_SOURCE}/snakemake_env/bin/snakemake" ]]; then
-      mkdir -p conda
+      mkdir -p ${CONDA_SOURCE}
       if ! [ -x "$(command -v mamba)" ]; then
         env_manager="conda"
       else
@@ -192,12 +193,14 @@ if [ "$SNAKEMAKE_VIA_CONDA" = true ]; then
       echo "Creating snakemake environment"
       ${env_manager} create --prefix ${CONDA_SOURCE}/snakemake_env snakemake=6.9.1 mamba unzip python=3.7 -c conda-forge -c bioconda --yes
     fi
-  CONDA_START="conda activate ${CONDA_SOURCE}/snakemake_env"
+    CONDA_START="conda activate ${CONDA_SOURCE}/snakemake_env"
   fi
    CONDA_END="conda deactivate"
+   CONDA_END_t="conda deactivate;"
 else
    CONDA_START=""
    CONDA_END=""
+   CONDA_END_t=""
 fi
 
 START_TIME=`date +%s`
@@ -211,7 +214,9 @@ fi
 if [ "$UNLOCK" = true ]; then
     echo "Unlocking working directory."
     eval $LOADING_MODULES
+#    echo $CONDA_START
     eval $CONDA_START
+ #   snakemake --version
     snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores 1 -s $DIR/Snakefile --unlock --configfile $CONFIGFILE
     eval $CONDA_END
 elif [ "$DRYRUN" = true ]; then
@@ -221,14 +226,14 @@ elif [ "$DRYRUN" = true ]; then
     snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores 1 -s $DIR/Snakefile --dryrun --config sessionName=$JNAME --configfile $CONFIGFILE
     eval $CONDA_END
 elif [ "$INITIAL" = true ]; then
-    mkdir -p conda
+    #mkdir -p conda
     eval $LOADING_MODULES
     eval $CONDA_START
     snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --verbose --cores 1 -s $DIR/Snakefile --conda-create-envs-only --use-conda \
               --conda-prefix ${CONDA_SOURCE} --local-cores 1 --configfile $CONFIGFILE
 
-    DB_PATH=$(grep "db_path:" $CONFIGFILE | cut -f 2 -d " ")
-    if [[ -n  ${DB_PATH} ]]; then
+    DB_PATH=$(grep "db_path:" $CONFIGFILE | grep '^#' -v | cut -d':' -f2 | tr -d '[:space:]' | sed -e 's/"//g')
+    if [[ -z  ${DB_PATH} ]]; then
       DB_PATH="${DIR}/database"
     fi
 
@@ -266,37 +271,39 @@ elif [ "$CLUSTER" = true ]; then
     fi
 
     if [ "$TMUX" = true ]; then
-      msg_suffix=" - snakemake stays on the frontend, via tmux"
+      echo "Submitting workflow to cluster - snakemake stays on the frontend, via tmux"
+      tmux new -s $JNAME -d
+      tmux send-keys -t $JNAME "$LOADING_MODULES >> $JNAME.stdout 2>> $JNAME.stderr" C-m
+      tmux send-keys -t $JNAME "$CONDA_START >> $JNAME.stdout 2>> $JNAME.stderr" C-m
       if [ "$REPORT" = true ]; then
-        run_cmd="tmux send-keys -t $JNAME \"snakemake --cores $THREADS -s $DIR/Snakefile --keep-going --local-cores 1
-                 --cluster-config $DIR/config/$SCHEDULER.config.yaml --cluster \"{cluster.call} \
-                 {cluster.runtime}{resources.runtime} {cluster.mem_per_cpu}{resources.mem} {cluster.nodes} {cluster.qos} \
-                 {cluster.threads}{threads} {cluster.partition}\" --configfile $CONFIGFILE --config sessionName=$JNAME \
-                 --use-conda --conda-prefix $DIR/conda >> $JNAME.stdout 2>> $JNAME.stderr; snakemake --cores 1 \
-                 -s $DIR/Snakefile --configfile $CONFIGFILE --use-conda --conda-prefix $DIR/conda --report report.html >>\
-                  $JNAME.stdout 2>> $JNAME.stderr; $CONDA_END_t tmux kill-session\" C-m"
+        tmux send-keys -t $JNAME "snakemake --cores $THREADS --jobs $THREADS -s $DIR/Snakefile --keep-going --local-cores 1 \
+                 --cluster-config $DIR/config/$SCHEDULER.config.yaml \
+                 --cluster \"{cluster.call} {cluster.runtime}{resources.runtime} {cluster.mem_per_cpu}{resources.mem} \
+                  {cluster.nodes} {cluster.qos} {cluster.threads}{threads} {cluster.partition} {cluster.stdout}\" \
+                 --configfile $CONFIGFILE --config sessionName=$JNAME \
+                 --use-conda --conda-prefix $CONDA_SOURCE >> $JNAME.stdout 2>> $JNAME.stderr; \
+                 snakemake --cores 1 \
+                  -s $DIR/Snakefile --configfile $CONFIGFILE --use-conda --conda-prefix $CONDA_SOURCE --report report.html >>\
+                   $JNAME.stdout 2>> $JNAME.stderr; $CONDA_END_t tmux kill-session" C-m
       else
-        run_cmd="tmux send-keys -t $JNAME \"snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS --jobs $THREADS \
+        tmux send-keys -t $JNAME "snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS --jobs $THREADS \
                  -s $DIR/Snakefile --keep-going --local-cores 1 --cluster-config $DIR/config/$SCHEDULER.config.yaml \
                  --cluster \"{cluster.call} {cluster.runtime}{resources.runtime} {cluster.mem_per_cpu}{resources.mem} \
                  {cluster.threads}{threads} {cluster.nodes} {cluster.qos} {cluster.partition} {cluster.stdout}\" \
-                 --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda >> \
-                 $JNAME.stdout 2>> $JNAME.stderr; $CONDA_END_t tmux kill-session\" C-m"
+                 --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $CONDA_SOURCE >> \
+                 $JNAME.stdout 2>> $JNAME.stderr; $CONDA_END_t tmux kill-session" C-m
       fi
     else
-      msg_suffix=""
       if [ "$REPORT" = true ]; then
-        run_cmd="${SUBMIT_COMMAND}$NNAME $DIR/runscripts/runBinny_withReport.sh $CONFIGFILE $VARCONFIG $JNAME $THREADS"
+        run_cmd="${SUBMIT_COMMAND}$NNAME $DIR/runscripts/runBinny_withReport.sh $CONFIGFILE $VARCONFIG $JNAME $THREADS ${CONDA_START##* } $CONDA_SOURCE"
       else
-        run_cmd="${SUBMIT_COMMAND}$NNAME $DIR/runscripts/runBinny_withoutReport.sh $CONFIGFILE $VARCONFIG $JNAME $THREADS"
+        run_cmd="${SUBMIT_COMMAND}$NNAME $DIR/runscripts/runBinny_withoutReport.sh $CONFIGFILE $VARCONFIG $JNAME $THREADS ${CONDA_START##* } $CONDA_SOURCE"
       fi
+      echo "Submitting workflow to cluster."
+      eval $run_cmd
     fi
-
-    echo "Submitting workflow to cluster${msg_suffix}."
-    echo $run_cmd
-    $run_cmd
-elif [ "$FRONTEND" = true ]; then
-    echo "Running workflow on frontend - don't use this setting except with small datasets and with no more than one run at a time."
+elif [[ "$FRONTEND" = true || ("$LAPTOP" = true && "$TMUX" = true) ]] ; then
+    echo "Running workflow on frontend using tmux - don't use this setting except with small datasets and with no more than one run at a time."
     if [ -z "$THREADS" ]; then
         THREADS=1
     fi
@@ -304,14 +311,14 @@ elif [ "$FRONTEND" = true ]; then
     tmux send-keys -t $JNAME "$LOADING_MODULES >> $JNAME.stdout 2>> $JNAME.stderr" C-m
     tmux send-keys -t $JNAME "$CONDA_START >> $JNAME.stdout 2>> $JNAME.stderr" C-m
     if [ "$REPORT" = true ]; then
-        tmux send-keys -t $JNAME "snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS -s $DIR/Snakefile --keep-going \
-                                  --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda >> \
+        tmux send-keys -t $JNAME "snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS --jobs $THREADS -s $DIR/Snakefile --keep-going \
+                                  --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $CONDA_SOURCE >> \
                                   $JNAME.stdout 2>> $JNAME.stderr; snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores 1 \
-                                  -s $DIR/Snakefile --configfile $CONFIGFILE --use-conda --conda-prefix $DIR/conda \
+                                  -s $DIR/Snakefile --configfile $CONFIGFILE --use-conda --conda-prefix $CONDA_SOURCE \
                                   --report report.html >> $JNAME.stdout 2>> $JNAME.stderr; $CONDA_END_t tmux kill-session" C-m
     else
-        tmux send-keys -t $JNAME "snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS -s $DIR/Snakefile --keep-going \
-                                  --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $DIR/conda >> \
+        tmux send-keys -t $JNAME "snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS --jobs $THREADS -s $DIR/Snakefile --keep-going \
+                                  --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix $CONDA_SOURCE >> \
                                   $JNAME.stdout 2>> $JNAME.stderr; $CONDA_END_t tmux kill-session" C-m
     fi
 elif [ "$LAPTOP" = true ]; then
@@ -332,11 +339,21 @@ elif [ "$LAPTOP" = true ]; then
         eval $CONDA_END
     fi
 elif [ "$REPORT" = true ]; then
-    echo "Writing report."
-    eval $LOADING_MODULES
-    eval $CONDA_START
-    snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores 1 -s $DIR/Snakefile --report report.html --configfile $CONFIGFILE --use-conda --conda-prefix ${CONDA_SOURCE}
-    eval $CONDA_END
+    if [ "$TMUX" = true ]; then
+       echo "Preparing report on frontend using tmux."
+       tmux new -s $JNAME -d
+       tmux send-keys -t $JNAME "$LOADING_MODULES >> $JNAME.stdout 2>> $JNAME.stderr" C-m
+       tmux send-keys -t $JNAME "$CONDA_START >> $JNAME.stdout 2>> $JNAME.stderr" C-m
+       tmux send-keys -t $JNAME "snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores 1 \
+                                  -s $DIR/Snakefile --configfile $CONFIGFILE --use-conda --conda-prefix $CONDA_SOURCE \
+                                  --report report.html >> $JNAME.stdout 2>> $JNAME.stderr; $CONDA_END_t tmux kill-session" C-m
+    else
+       echo "Writing report."
+       eval $LOADING_MODULES
+       eval $CONDA_START
+       snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores 1 -s $DIR/Snakefile --report report.html --configfile $CONFIGFILE --use-conda --conda-prefix ${CONDA_SOURCE}
+       eval $CONDA_END
+    fi
 else
-    echo "Nothing was done, please give -u, -d, -r, -c, -f, -i, or -l to start anything."
+    echo "Nothing was done, please give -u, -d, -r, -c, -f, -i, -x, or -l to start anything."
 fi
