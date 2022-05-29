@@ -1,0 +1,7 @@
+name: fasta_processing
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - seqkit=2.1.0
