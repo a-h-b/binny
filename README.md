@@ -39,7 +39,7 @@ sed -i -e "s|prokka_env: \"\"|prokka_env: \"${my_prokka_env}\"|g" \
 ./binny -i config/config.init.yaml 
 ```
 
-3) Test run
+4) Test run
 ```
 ./binny -l -n "TESTRUN" -r config/config.test.yaml
 ```
