@@ -23,8 +23,8 @@ my_conda_path="absolute/path/to/conda/dir" #adjust path here
 sed -i -e "s|conda_source: \"\"|conda_source: \"${my_conda_path}\"|g" config/config.*.yaml
 ```
 
-b) Optional: If you already have environments for Snakemake, Prokka and/or Mantis, you can add them to the config file and binny will use them, e.g.:
-(for Snakemake, if you have it already installed in your PATH set the param to `"in_path"`. By default, a new Snakemake env will be created in the binny dir)
+b) Optional: If you already have environments for Snakemake (newer than 6.9.1), Prokka and/or Mantis, you can add them to the config file and binny will use them, e.g.:
+(for Snakemake, if you have it already installed in your PATH set the param to `"in_path"`). By default, a new Snakemake env will be created in the binny directory.
 ```
 my_prokka_env="absolute/path/to/prokka/env.yaml" or "my_named_prokka_env" #choose path/env here
 my_mantis_env="absolute/path/to/mantis/env.yml" or "my_named_mantis_env" #choose path/env here
@@ -92,7 +92,7 @@ If you use the tmux flag, you can see the tmux process running by typing `tmux l
 Depending on your dataset and settings and your cluster's scheduler, the workflow will take a few minutes to hours to finish. 
 
 ### Running snakemake manually
-Once metagenomic data and the config file are present, the workflow can be started from the binny directory by the snakemake command:
+Once metagenomic data and the config file are present, the workflow can be started from the binny directory by the snakemake command. Binny expects snakemake 6.9.1 or newer.
 ```
 snakemake -s Snakefile --configfile /PATH/TO/YOUR/CONFIGFILE --use-conda
 ```
