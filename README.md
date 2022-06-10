@@ -17,10 +17,10 @@ cd binny
 2) Optional configuration 
 You can set the following fields in the config file `config/config.init.yaml`, or adjust the paths mentioned below. Or you can keep the default settings: By default, all dependencies will be put into `conda` in the `binny` directory.
 
-a) Optional: Change config file with path for conda environments.
+a) Optional: Change path to conda environments in config file.
 ```
-my_conda_path="absolute/path/to/conda/dir" #adjust path here
-sed -i -e "s|conda_source: \"\"|conda_source: \"${my_conda_path}\"|g" config/config.*.yaml
+my_conda_env_path="absolute/path/to/conda/env/dir" #adjust path here
+sed -i -e "s|conda_source: \"\"|conda_source: \"${my_conda_env_path}\"|g" config/config.*.yaml
 ```
 
 b) Optional: If you already have environments for Snakemake (newer than 6.9.1), Prokka and/or Mantis, you can add them to the config file and binny will use them, e.g.:
