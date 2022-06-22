@@ -87,7 +87,7 @@ if [[ !  -e "$1" ]]; then
 fi
 
 # Load modules
-eval $
+eval $LOADING_MODULES
 
 # Env setup
 conda_source_config_var=$(grep 'conda_source:' ${CONFIGFILE} | grep '^#' -v | cut -d':' -f2 | tr -d '[:space:]' | sed -e 's/"//g')
