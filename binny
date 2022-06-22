@@ -86,6 +86,9 @@ if [[ !  -e "$1" ]]; then
    exit 1
 fi
 
+# Load modules
+eval $LOADING_MODULES
+
 # Env setup
 conda_source_config_var=$(grep 'conda_source:' ${CONFIGFILE} | grep '^#' -v | cut -d':' -f2 | tr -d '[:space:]' | sed -e 's/"//g')
 if [[ -n ${conda_source_config_var} ]]; then
@@ -213,21 +216,15 @@ fi
 
 if [ "$UNLOCK" = true ]; then
     echo "Unlocking working directory."
-    eval $LOADING_MODULES
-#    echo $CONDA_START
     eval $CONDA_START
- #   snakemake --version
     snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores 1 -s $DIR/Snakefile --unlock --configfile $CONFIGFILE
     eval $CONDA_END
 elif [ "$DRYRUN" = true ]; then
     echo "Dryrun."
-    eval $LOADING_MODULES
     eval $CONDA_START
     snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores 1 -s $DIR/Snakefile --dryrun --config sessionName=$JNAME --configfile $CONFIGFILE
     eval $CONDA_END
 elif [ "$INITIAL" = true ]; then
-    #mkdir -p conda
-    eval $LOADING_MODULES
     eval $CONDA_START
     snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --verbose --cores 1 -s $DIR/Snakefile --conda-create-envs-only --use-conda \
               --conda-prefix ${CONDA_SOURCE} --local-cores 1 --configfile $CONFIGFILE
@@ -328,7 +325,6 @@ elif [ "$LAPTOP" = true ]; then
     if [ -z "$THREADS" ]; then
         THREADS=1
     fi
-    eval $LOADING_MODULES
     eval $CONDA_START
     if [ "$REPORT" = true ]; then
         snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores $THREADS -s $DIR/Snakefile --keep-going --configfile $CONFIGFILE --config sessionName=$JNAME --use-conda --conda-prefix ${CONDA_SOURCE}
@@ -349,7 +345,6 @@ elif [ "$REPORT" = true ]; then
                                   --report report.html >> $JNAME.stdout 2>> $JNAME.stderr; $CONDA_END_t tmux kill-session" C-m
     else
        echo "Writing report."
-       eval $LOADING_MODULES
        eval $CONDA_START
        snakemake $SNAKEMAKE_EXTRA_ARGUMENTS --cores 1 -s $DIR/Snakefile --report report.html --configfile $CONFIGFILE --use-conda --conda-prefix ${CONDA_SOURCE}
        eval $CONDA_END
