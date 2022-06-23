@@ -134,7 +134,9 @@ else
           env_name=$(head -n 1 ${i} | cut -d' ' -f2)
           if [[ ${env_name} == 'mantis' ]]; then
             mantis_env=${i%.yaml}
-            echo "Loading mantis env from: ${mantis_env}"
+            if [[ -n  ${mantis_env_config_var} ]]; then
+              echo "Loading mantis env from: ${mantis_env}"
+            fi
             mantis_set='true'
           fi
         done
