@@ -1,7 +1,7 @@
 name: mantis
 channels:
-  - bioconda
   - conda-forge
+  - bioconda
   - defaults
 dependencies:
   - mantis_pfa=1.4.7
