@@ -1,7 +1,7 @@
 name: mapping
 channels:
-  - bioconda
   - conda-forge
+  - bioconda
   - defaults
 dependencies:
   - bcftools=1.9
