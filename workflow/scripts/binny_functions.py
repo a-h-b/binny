@@ -855,10 +855,6 @@ def downcast_pd_df(df):
 
 def get_initial_clusters(contig_df, cluster_alg, threads, include_depth, hdbscan_epsilon, hdbscan_min_samples,
                          dist_metric, marker_sets_graph, tigrfam2pfam_data_dict):
-
-    print("get_initial_clusters, contig_df['contig']:", len(contig_df['contig'].to_list()))
-    print("get_initial_clusters, contig_df['contig']:", len(set(contig_df['contig'].to_list())))
-
     if len(contig_df['contig'].to_list()) != len(set(contig_df['contig'].to_list())):
         raise Exception
 
