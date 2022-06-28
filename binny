@@ -89,6 +89,9 @@ fi
 # Load modules
 eval $LOADING_MODULES
 
+# Ensure conda functionality, even without prior user conda setup.
+. "$(conda info --base)/etc/profile.d/conda.sh"
+
 # Env setup
 conda_source_config_var=$(grep 'conda_source:' ${CONFIGFILE} | grep '^#' -v | cut -d':' -f2 | tr -d '[:space:]' | sed -e 's/"//g')
 if [[ -n ${conda_source_config_var} ]]; then
