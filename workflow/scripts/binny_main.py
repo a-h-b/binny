@@ -26,6 +26,7 @@ min_completeness = float(snakemake.params['min_completeness'])
 starting_completeness = float(snakemake.params['start_completeness'])
 kmers = snakemake.params['kmers']
 mask_disruptive_sequences = eval(snakemake.params['mask_disruptive_sequences'])
+extract_scmags = eval(snakemake.params['extract_scmags'])
 nx_val = int(snakemake.params['nx_val'])
 min_contig_length = int(snakemake.params['min_cutoff'])
 max_contig_length = int(snakemake.params['max_cutoff'])
@@ -82,12 +83,15 @@ taxon_marker_sets = load_checkm_markers(taxon_marker_set_file)
 
 # Look for complete genomes on single contigs
 all_good_bins = {}
-logging.info('Looking for single contig bins.')
-single_contig_bins = get_single_contig_bins(annot_df, all_good_bins, n_dim, taxon_marker_sets, tigrfam2pfam_data,
-                                            threads)
-logging.info('Found {0} single contig bins.'.format(len(single_contig_bins)))
+if extract_scmags:
+    logging.info('Looking for single contig bins.')
+    single_contig_bins = get_single_contig_bins(annot_df, all_good_bins, n_dim, taxon_marker_sets, tigrfam2pfam_data,
+                                                threads)
+    logging.info('Found {0} single contig bins.'.format(len(single_contig_bins)))
+else:
+    single_contig_bins = []
 
-logging.info('Getting assembly dict without scMAG.'.format(len(single_contig_bins)))
+# logging.info('Getting assembly dict without scMAG.'.format(len(single_contig_bins)))
 # assembly_dict_wo_scmags = {key: val for key, val in assembly_dict.items() if key in
 #                            set(assembly_dict.keys()).difference(set(single_contig_bins))}
 

@@ -412,6 +412,7 @@ rule binny:
         purity=config["bin_quality"]["purity"],
         kmers=config["kmers"],
         mask_disruptive_sequences=config["mask_disruptive_sequences"],
+        extract_scmags=config["extract_scMAGs"],
         min_cutoff=config["min_cont_length_cutoff"],
         max_cutoff=config["max_cont_length_cutoff"],
         min_cutoff_marker=config["min_cont_length_cutoff_marker"],
