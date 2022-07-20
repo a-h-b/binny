@@ -36,7 +36,7 @@ kmers: '2,3,4'
 # Mask potentially disruptive contig regions (e.g. rRNA and CRISPR elements) from k-mer counting
 mask_disruptive_sequences: 'True'
 # Extract single contig MAGs of at least 90% purity and 92.5% completeness
-extract_scmags: 'True'
+extract_scmags: 'False'
 # Binny prefilters assemblies based on N<X> value to try and take as much information as possible into account,
 # while minimizing the amount of noise. Be aware that, depending on the assembly quality, low values as the N<X>
 # might results in leaving out a large proportion of the assembly (if the max_cont_length cutoffs are set high as well).

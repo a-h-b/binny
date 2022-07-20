@@ -231,6 +231,8 @@ rule format_assembly:
         os.path.join(OUTPUTDIR, "intermediary/assembly.fa")
     output:
         os.path.join(OUTPUTDIR, "intermediary/assembly.formatted.fa")
+    params:
+        min_length=int(config["min_cont_length_cutoff_marker"]) - 1
     threads: 
         getThreads(1)
     resources:
@@ -241,7 +243,11 @@ rule format_assembly:
     conda:
        os.path.join(ENVDIR, "fasta_processing.yaml")
     shell:
-       "seqkit seq {input} -o {output} -w 80"
+       """
+       seqkit seq {input} -o {output} -w 80 -m {params.min_length} \
+       && \
+       rm -f {input}
+       """
 
 # contig depth
 if not CONTIG_DEPTH:
