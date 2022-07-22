@@ -297,11 +297,12 @@ def sort_cluster_dict_data_by_depth(cluster_dict):
     return sorted_dict
 
 
-def gather_cluster_data(cluster, cluster_dict, marker_sets_graph, tigrfam2pfam_data_dict):
+def gather_cluster_data(cluster, cluster_dict, marker_sets_graph, tigrfam2pfam_data_dict, max_marker_lineage_depth_lvl=4):
     cluster_essential_genes = [gene for genes in cluster_dict.get(cluster, {}).get('essential')
                                for gene in genes.split(',') if not gene == 'non_essential']
     if cluster_essential_genes:
-        marker_set = choose_checkm_marker_set(cluster_essential_genes, marker_sets_graph, tigrfam2pfam_data_dict, max_depth_lvl=4)
+        marker_set = choose_checkm_marker_set(cluster_essential_genes, marker_sets_graph, tigrfam2pfam_data_dict,
+                                              max_depth_lvl=max_marker_lineage_depth_lvl)
         taxon, cluster_completeness, cluster_purity = marker_set[0], round(marker_set[1], 3), round(marker_set[2], 3)
     else:
         cluster_purity = 0
@@ -368,7 +369,7 @@ def hdbscan_sub_clusters(cluster_contig_df, cluster, pk, threads_for_dbscan, dep
 
 def get_sub_clusters(cluster_dicts, threads_for_dbscan, marker_sets_graph, tigrfam2pfam_data_dict, purity_threshold=0.95,
                      completeness_threshold=0.9, pk=None, cluster_mode=None, include_depth=True, hdbscan_epsilon=0.25,
-                     hdbscan_min_samples=2, dist_metric='manhattan'):
+                     hdbscan_min_samples=2, dist_metric='manhattan', max_marker_lineage_depth_lvl=4):
     outputs = []
 
     for cluster_dict in cluster_dicts:
@@ -378,7 +379,8 @@ def get_sub_clusters(cluster_dicts, threads_for_dbscan, marker_sets_graph, tigrf
         # All data needed stored in list with following order:
         # Indices for clust_dat 0-1 are always:
         # contigs and depth, then n dimensions, -4 to -1 are always essential, purity, completeness, selected taxon
-        clust_dat = gather_cluster_data(cluster, cluster_dict, marker_sets_graph, tigrfam2pfam_data_dict)
+        clust_dat = gather_cluster_data(cluster, cluster_dict, marker_sets_graph, tigrfam2pfam_data_dict,
+                                        max_marker_lineage_depth_lvl)
         clust_pur = float(clust_dat[-3])
         clust_comp = float(clust_dat[-2])
         clust_taxon = clust_dat[-1]
@@ -469,7 +471,8 @@ def get_sub_clusters(cluster_dicts, threads_for_dbscan, marker_sets_graph, tigrf
 
 def divide_clusters_by_depth(ds_clstr_dict, threads, marker_sets_graph, tigrfam2pfam_data_dict, min_purity=90,
                              min_completeness=50, pk=None, cluster_mode=None, include_depth=False, max_tries=15,
-                             hdbscan_epsilon=0.25, hdbscan_min_samples=2, dist_metric='manhattan'):
+                             hdbscan_epsilon=0.25, hdbscan_min_samples=2, dist_metric='manhattan',
+                             max_marker_lineage_depth_lvl=4):
 
     min_purity = min_purity / 100
     min_completeness = min_completeness / 100
@@ -507,7 +510,8 @@ def divide_clusters_by_depth(ds_clstr_dict, threads, marker_sets_graph, tigrfam2
                                            include_depth=include_depth,
                                            hdbscan_epsilon=hdbscan_epsilon,
                                            hdbscan_min_samples=hdbscan_min_samples,
-                                           dist_metric=dist_metric)
+                                           dist_metric=dist_metric,
+                                           max_marker_lineage_depth_lvl=max_marker_lineage_depth_lvl)
                  for cluster_dict_list in chunks_to_process)
 
             for outputs in sub_clstr_res:
@@ -854,7 +858,7 @@ def downcast_pd_df(df):
 
 
 def get_initial_clusters(contig_df, cluster_alg, threads, include_depth, hdbscan_epsilon, hdbscan_min_samples,
-                         dist_metric, marker_sets_graph, tigrfam2pfam_data_dict):
+                         dist_metric, marker_sets_graph, tigrfam2pfam_data_dict, max_marker_lineage_depth_lvl=4):
     if len(contig_df['contig'].to_list()) != len(set(contig_df['contig'].to_list())):
         raise Exception
 
@@ -894,6 +898,7 @@ def get_initial_clusters(contig_df, cluster_alg, threads, include_depth, hdbscan
             if n_markers > 20000:
                 cluster_essential_genes = [gene for genes in clust_dict.get(cluster, {}).get('essential')
                                            for gene in genes.split(',') if not gene == 'non_essential']
+                # Only check domain level to be faster
                 marker_set = choose_checkm_marker_set(cluster_essential_genes, marker_sets_graph,
                                                       tigrfam2pfam_data_dict, max_depth_lvl=0)
                 taxon, comp, pur = marker_set[0], marker_set[1], marker_set[2]
@@ -937,7 +942,7 @@ def get_initial_clusters(contig_df, cluster_alg, threads, include_depth, hdbscan
 def binny_iterate(contig_data_df, threads, marker_sets_graph, tigrfam2pfam_data_dict, min_purity, min_completeness,
                   max_iterations=4, embedding_iteration=1, max_tries=2, include_depth_initial=False,
                   include_depth_main=True, hdbscan_epsilon=0.25, hdbscan_min_samples_range=(2, 3, 4, 5),
-                  dist_metric='manhattan', contigs2clusters_out_path='intermediary'):
+                  dist_metric='manhattan', contigs2clusters_out_path='intermediary', max_marker_lineage_depth_lvl=4):
     leftovers_df = contig_data_df.copy()
 
     n_iterations = 1
@@ -945,14 +950,6 @@ def binny_iterate(contig_data_df, threads, marker_sets_graph, tigrfam2pfam_data_
     all_binned = False
 
     hdbs_min_samp_ind = 0
-    # if embedding_iteration == 1:
-    #     logging.info('Running first round with minimum purity of 95% and extended number of iterations.')
-    #     hdbscan_min_samples_range = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 50]
-    #     max_iterations = len(hdbscan_min_samples_range)
-    #     min_purity = 95
-
-    # if embedding_iteration % 2 != 0 and embedding_iteration > 1:
-    #     hdbscan_min_samples_range = hdbscan_min_samples_range[::-1]
 
     good_bins_per_round_list = []
 
@@ -980,7 +977,8 @@ def binny_iterate(contig_data_df, threads, marker_sets_graph, tigrfam2pfam_data_
                                                                   include_depth=include_depth_main, max_tries=max_tries,
                                                                   hdbscan_epsilon=hdbscan_epsilon,
                                                                   hdbscan_min_samples=hdbscan_min_samples,
-                                                                  dist_metric=dist_metric)
+                                                                  dist_metric=dist_metric,
+                                                                  max_marker_lineage_depth_lvl=max_marker_lineage_depth_lvl)
 
 
         new_clust_dict = {'I{0}R{1}.'.format(embedding_iteration, n_iterations) + k: v for k, v in
@@ -1040,7 +1038,7 @@ def binny_iterate(contig_data_df, threads, marker_sets_graph, tigrfam2pfam_data_
 
 
 def get_single_contig_bins(essential_gene_df, good_bins_dict, n_dims, marker_sets_graph, tigrfam2pfam_data_dict,
-                           threads=1):
+                           threads=1, max_marker_lineage_depth_lvl=4):
     essential_gene_lol = essential_gene_df.values.tolist()
     cluster_list = [[i[0], i[1].split(',')] for i in essential_gene_lol if len(set(i[1].split(','))) >= 40]
     cluster_list.sort(key=lambda i: i[1], reverse=True)
@@ -1055,7 +1053,7 @@ def get_single_contig_bins(essential_gene_df, good_bins_dict, n_dims, marker_set
         single_contig_bin_dict_list = Parallel(n_jobs=threads) \
             (delayed(asses_contig_completeness_purity)
              (contig_data, n_dims, marker_sets_graph,
-              tigrfam2pfam_data_dict)
+              tigrfam2pfam_data_dict, max_marker_lineage_depth_lvl=max_marker_lineage_depth_lvl)
              for contig_data in chunks_to_process)
 
     for bin_dict_sub_list in single_contig_bin_dict_list:
@@ -1066,11 +1064,13 @@ def get_single_contig_bins(essential_gene_df, good_bins_dict, n_dims, marker_set
     return list(good_bins_dict.keys())
 
 
-def asses_contig_completeness_purity(essential_gene_lol, n_dims, marker_sets_graph, tigrfam2pfam_data_dict):
+def asses_contig_completeness_purity(essential_gene_lol, n_dims, marker_sets_graph, tigrfam2pfam_data_dict,
+                                     max_marker_lineage_depth_lvl=4):
     single_contig_bins = []
     for contig_data in essential_gene_lol:
         all_ess = contig_data[1]
-        marker_set = choose_checkm_marker_set(all_ess, marker_sets_graph, tigrfam2pfam_data_dict, max_depth_lvl=4)
+        marker_set = choose_checkm_marker_set(all_ess, marker_sets_graph, tigrfam2pfam_data_dict,
+                                              max_depth_lvl=max_marker_lineage_depth_lvl)
         taxon, comp, pur = marker_set[0], marker_set[1], marker_set[2]
         if pur > 0.90 and comp > 0.925:
             bin_dict = {contig_data[0]: {'depth1': np.array([None]), 'contigs': np.array([contig_data[0]]),
@@ -1233,7 +1233,7 @@ def compare_marker_set_stats(marker_set, current_best_marker_set, completeness_v
     return current_best_marker_set
 
 
-def choose_checkm_marker_set(marker_list, marker_sets_graph, tigrfam2pfam_data_dict, max_depth_lvl=6):
+def choose_checkm_marker_set(marker_list, marker_sets_graph, tigrfam2pfam_data_dict, max_depth_lvl=4):
     nodes = [n for n, d in marker_sets_graph.in_degree() if d == 0]
     current_node = nodes[0]
     previous_nodes = None
@@ -1408,7 +1408,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
                         tigrfam2pfam_data, main_contig_data_dict, assembly_dict, max_contig_threshold=3.0e5,
                         internal_min_marker_cont_size=0, include_depth_initial=False, max_embedding_tries=50,
                         include_depth_main=True, hdbscan_epsilon_range=(0.250, 0.125), hdbscan_min_samples_range=(0, 2, 4, 6, 8),
-                        dist_metric='euclidean', contigs2clusters_out_path='intermediary'):
+                        dist_metric='euclidean', contigs2clusters_out_path='intermediary', max_marker_lineage_depth_lvl=4):
     np.random.seed(0)
     embedding_tries = 1
     internal_completeness = starting_completeness
@@ -1418,6 +1418,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
     perp_1 = 10
     perp_2 = 100
     initial_internal_min_marker_cont_size = internal_min_marker_cont_size
+
     while embedding_tries <= max_embedding_tries:
         if embedding_tries == 1:
             internal_min_marker_cont_size = check_sustainable_contig_number(x_contigs, internal_min_marker_cont_size,
@@ -1441,7 +1442,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
             while ((max_contig_threshold < len(round_x_contigs) or len(round_x_contigs) < 5)
                    and internal_min_marker_cont_size > 0):
                 if len(round_x_contigs) < 5:
-                    logging.info('Less than 5 contigs to bin. Deacreasing min length threshold.')
+                    logging.info('Less than 5 contigs to bin. Decreasing min length threshold.')
                     internal_min_marker_cont_size -= 125
                     if internal_min_marker_cont_size < 0:
                         internal_min_marker_cont_size = 0
@@ -1473,7 +1474,6 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         # Clr transform
         x_scaled = clr(round_x)
         x_scaled = np.concatenate([round_x_depth, x_scaled], axis=1)
-        # x_scaled = np.concatenate([round_x_depth, round_x], axis=1)
 
         # Manifold learning and dimension reduction.
         logging.info('Running manifold learning and dimensionality-reduction.')
@@ -1498,10 +1498,6 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         logging.debug(f'PCA stats: Dimensions: {n_comp}; Amount of variation explained: {var_exp}%.')
         x_pca = transformer.transform(x_scaled)
 
-        # perp = perp_range[tsne_perp_ind]
-        # tsne_perp_ind += 1
-        # if tsne_perp_ind == len(perp_range):
-        #     tsne_perp_ind = 0
         if embedding_tries > 1:
             if perp_1 < 20:
                 perp_1 += 2
@@ -1606,28 +1602,48 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         # Find bins
         good_bins, final_init_clust_dict, all_binned, median_bins_per_round = binny_iterate(contig_data_df, threads,
             taxon_marker_sets, tigrfam2pfam_data, min_purity, internal_completeness, len(hdbscan_min_samples_range),
-            embedding_iteration=embedding_tries, max_tries=2, include_depth_initial=include_depth_initial,
+            embedding_iteration=embedding_tries, max_tries=4, include_depth_initial=include_depth_initial,
             include_depth_main=include_depth_main, hdbscan_epsilon=hdbscan_epsilon,
             hdbscan_min_samples_range=hdbscan_min_samples_range, dist_metric=dist_metric,
-            contigs2clusters_out_path=contigs2clusters_out_path)
+            contigs2clusters_out_path=contigs2clusters_out_path,
+            max_marker_lineage_depth_lvl=max_marker_lineage_depth_lvl)
 
         logging.info('Good bins this embedding iteration: {0}.'.format(len(good_bins.keys())))
 
-        if median_bins_per_round < 1 and internal_completeness > min_completeness and final_try_counter == 0 \
+        # if median_bins_per_round < 1 and internal_completeness > min_completeness and final_try_counter == 0 \
+        #    and not all_binned:
+        #     internal_completeness -= 10
+        #     if internal_completeness < 90 and min_purity < 90:
+        #         min_purity = 90
+        #     logging.info(f'Median of good bins per round < 1. Minimum completeness lowered to {internal_completeness}.')
+        # elif (median_bins_per_round < 1 and final_try_counter <= 5 and not all_binned \
+        #         and not internal_min_marker_cont_size > prev_round_internal_min_marker_cont_size) \
+        #         and not (internal_min_marker_cont_size <= initial_internal_min_marker_cont_size and final_try_counter > 0):
+        #     if final_try_counter == 0:
+        #         max_contig_threshold *= 1.25
+        #     internal_min_marker_cont_size = 2500 - 500 * final_try_counter
+        #     final_try_counter += 1
+        #     logging.info(f'Running with contigs >= {internal_min_marker_cont_size}bp, minimum completeness {internal_completeness}.')
+        # elif len(list(good_bins.keys())) < 2 and not all_binned \
+        #         or internal_min_marker_cont_size < initial_internal_min_marker_cont_size:
+        #     logging.info('Reached min completeness and min contig size. Exiting embedding iteration')
+        #     break
+
+        # Experimental 'start with high cont thresh and go down' approach
+        if median_bins_per_round < 1 and internal_completeness > min_completeness and internal_min_marker_cont_size > 750 \
            and not all_binned:
+            internal_min_marker_cont_size -= 750
+            if internal_min_marker_cont_size < 750:
+                internal_min_marker_cont_size = 750
+            logging.info(f'Median of good bins per round < 1. Minimum contig size lowered to {internal_min_marker_cont_size}.')
+        elif (median_bins_per_round < 1 and internal_min_marker_cont_size <= 750 and not all_binned \
+                and not internal_min_marker_cont_size > prev_round_internal_min_marker_cont_size)\
+                and internal_completeness > min_completeness:
             internal_completeness -= 10
-            if internal_completeness < 90 and min_purity < 90:
-                min_purity = 90
-            logging.info(f'Median of good bins per round < 1. Minimum completeness lowered to {internal_completeness}.')
-        elif (median_bins_per_round < 1 and final_try_counter <= 4 and not all_binned \
-                and not internal_min_marker_cont_size > prev_round_internal_min_marker_cont_size) \
-                and not internal_min_marker_cont_size <= initial_internal_min_marker_cont_size:
-            if final_try_counter == 0:
-                max_contig_threshold *= 1.25
-            internal_min_marker_cont_size = 2000 - 500 * final_try_counter
-            final_try_counter += 1
+            internal_min_marker_cont_size = initial_internal_min_marker_cont_size
             logging.info(f'Running with contigs >= {internal_min_marker_cont_size}bp, minimum completeness {internal_completeness}.')
-        elif len(list(good_bins.keys())) < 2 and not all_binned or internal_min_marker_cont_size > initial_internal_min_marker_cont_size:
+        elif len(list(good_bins.keys())) < 2 and not all_binned \
+                or internal_min_marker_cont_size < initial_internal_min_marker_cont_size:
             logging.info('Reached min completeness and min contig size. Exiting embedding iteration')
             break
 

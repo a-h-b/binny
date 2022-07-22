@@ -33,6 +33,7 @@ max_contig_length = int(snakemake.params['max_cutoff'])
 min_contig_length_marker = int(snakemake.params['min_cutoff_marker'])
 max_contig_length_marker = int(snakemake.params['max_cutoff_marker'])
 max_contig_threshold = float(snakemake.params['max_n_contigs'])
+max_marker_lineage_depth_lvl = int(snakemake.params['max_marker_lineage_depth_lvl'])
 max_embedding_tries = int(snakemake.params['max_embedding_tries'])
 include_depth_initial = eval(snakemake.params['include_depth_initial'])
 include_depth_main = eval(snakemake.params['include_depth_main'])
@@ -86,7 +87,7 @@ all_good_bins = {}
 if extract_scmags:
     logging.info('Looking for single contig bins.')
     single_contig_bins = get_single_contig_bins(annot_df, all_good_bins, n_dim, taxon_marker_sets, tigrfam2pfam_data,
-                                                threads)
+                                                threads, max_marker_lineage_depth_lvl=max_marker_lineage_depth_lvl)
     logging.info('Found {0} single contig bins.'.format(len(single_contig_bins)))
 else:
     single_contig_bins = []
@@ -144,8 +145,8 @@ all_good_bins, contig_data_df_org, min_purity = iterative_embedding(x_contigs, d
                                                         include_depth_initial, max_embedding_tries,
                                                         include_depth_main, hdbscan_epsilon_range,
                                                         hdbscan_min_samples_range, dist_metric,
-                                                        contigs2clusters_out_path=os.path.join(binny_out,
-                                                                                               'intermediary'))
+                                                        contigs2clusters_out_path=os.path.join(binny_out, 'intermediary'),
+                                                        max_marker_lineage_depth_lvl=max_marker_lineage_depth_lvl)
 
 all_contigs = []
 for bin in all_good_bins:

@@ -42,11 +42,11 @@ extract_scmags: 'False'
 # might results in leaving out a large proportion of the assembly (if the max_cont_length cutoffs are set high as well).
 NX_value: 95
 # Minimum and maximum contig length. Caps value from NX filtering.
-min_cont_length_cutoff: 500
-max_cont_length_cutoff: 1000
+min_cont_length_cutoff: 1000 # 500
+max_cont_length_cutoff: 1000 # 1000
 # Minimum and maximum length of contigs containing CheckM markers. Caps value from NX filtering (initial value is NX_value / 2).
-min_cont_length_cutoff_marker: 250
-max_cont_length_cutoff_marker: 400
+min_cont_length_cutoff_marker: 1000 # 250
+max_cont_length_cutoff_marker: 1000 # 400
 # Maximum number of contigs binny uses. If the number of available
 # contigs after minimum size filtering exceeds this, binny will
 # increase the minimum size threshold until the maximum is reached.
@@ -54,6 +54,9 @@ max_cont_length_cutoff_marker: 400
 # Default should ensure adequate performance, adjust e.g. according
 # to available memory.
 max_n_contigs: 3.5e5
+# Maximum marker set lineage depth to check bin quality with:
+# 0: 'domain', 1: 'phylum', 2: 'class', 3: 'order', 4: 'family', 5: 'genus', 6: 'species'
+max_marker_lineage_depth_lvl: 0
 # Distance metric for opentSNE and HDBSCAN.
 distance_metric: 'manhattan'
 embedding:

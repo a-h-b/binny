@@ -425,6 +425,7 @@ rule binny:
         max_cutoff_marker=config["max_cont_length_cutoff_marker"],
         nx_val=config["NX_value"],
         max_n_contigs=config["max_n_contigs"],
+        max_marker_lineage_depth_lvl=config["max_marker_lineage_depth_lvl"],
         distance_metric=config["distance_metric"],
         max_embedding_tries=config["embedding"]["max_iterations"],
         include_depth_initial=config["clustering"]["include_depth_initial"],
