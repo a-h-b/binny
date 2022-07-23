@@ -104,13 +104,15 @@ min_contig_length = min(max(nx, min_contig_length), max_contig_length)
 min_contig_length_marker = min(max(int(nx / 3), min_contig_length_marker), max_contig_length_marker)
 
 # Load assembly and mask rRNAs and CRISPR arrays
-contig_list = [[contig] + [seq] for contig, seq in assembly_dict.items() if (len(seq) >= min_contig_length
-                                                                             or (annot_dict.get(contig)
-                                                                             and len(seq) >= min_contig_length_marker))
-                                                                            and contig not in single_contig_bins]
+# contig_list = [[contig] + [seq] for contig, seq in assembly_dict.items() if (len(seq) >= min_contig_length
+#                                                                              or (annot_dict.get(contig)
+#                                                                              and len(seq) >= min_contig_length_marker))
+#                                                                             and contig not in single_contig_bins]
+contig_list = [[contig] + [seq] for contig, seq in assembly_dict.items() if contig not in single_contig_bins
+                                                                            and len(seq) >= 750]
 
-logging.info('{0} contigs match length threshold of {1}bp or contain marker genes and'
-             ' have a size of at least {2}bp'.format(len(contig_list), min_contig_length, min_contig_length_marker))
+# logging.info('{0} contigs match length threshold of {1}bp or contain marker genes and'
+#              ' have a size of at least {2}bp'.format(len(contig_list), min_contig_length, min_contig_length_marker))
 
 contig_rrna_crispr_region_dict = gff2low_comp_feature_dict(annot_file)
 if mask_disruptive_sequences:

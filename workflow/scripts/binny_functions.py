@@ -1479,8 +1479,8 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         logging.info('Running manifold learning and dimensionality-reduction.')
         n_pca_tries = 0
 
-        if len(round_x_contigs) > 30:
-            n_comp = 30
+        if len(round_x_contigs) > 50:
+            n_comp = 50
         else:
             n_comp = len(round_x_contigs) - 1
 
@@ -1523,7 +1523,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         init = initialization.pca(x_pca, random_state=0, verbose=0)
         embedding = TSNEEmbedding(init, affinities_multiscale_mixture, negative_gradient_method="fft", n_jobs=threads,
                                   random_state=0, verbose=0)
-        opt_cycle_iter = 250
+        opt_cycle_iter = 125
         ee_iter = 0
 
         # Early exagg
@@ -1534,7 +1534,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         ee_iter += opt_cycle_iter
         logging.info('EE iteration {0} - KLD: {1}'.format(ee_iter, round(KLD_prev, 4)))
 
-        while 2000 >= ee_iter <= 750 or KLD_DIFF > KLD * 0.01:  # or KLDRC < maxKLDRC:
+        while 2000 >= ee_iter <= 125 or KLD_DIFF > KLD * 0.01:  # or KLDRC < maxKLDRC:
             embedding.optimize(n_iter=opt_cycle_iter, exaggeration=early_exagg, inplace=True, learning_rate=learning_rate,
                                momentum=0.5, n_jobs=threads, verbose=0)
             KLD = embedding.kl_divergence
@@ -1546,13 +1546,13 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
             logging.info('EE iteration {0} - KLD: {1}, KLDRC: {2}%'.format(ee_iter, round(KLD, 4), round(KLDRC, 2)))
 
         # Main cycle
-        opt_cycle_iter = 250
+        opt_cycle_iter = 125
         main_iter = 0
 
         learning_rate = max(200, min(64e3, int(len(x_pca) * 0.1)))
         logging.info(f'Main iteration learning rate: {learning_rate}')
 
-        while 10000 >= main_iter <= 1000 or KLD_DIFF > KLD * 0.01:
+        while 10000 >= main_iter <= 250 or KLD_DIFF > KLD * 0.01:
             embedding.optimize(n_iter=opt_cycle_iter, exaggeration=1, inplace=True, learning_rate=learning_rate,
                                momentum=0.8, n_jobs=threads, verbose=0)
             KLD = embedding.kl_divergence
@@ -1602,7 +1602,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         # Find bins
         good_bins, final_init_clust_dict, all_binned, median_bins_per_round = binny_iterate(contig_data_df, threads,
             taxon_marker_sets, tigrfam2pfam_data, min_purity, internal_completeness, len(hdbscan_min_samples_range),
-            embedding_iteration=embedding_tries, max_tries=4, include_depth_initial=include_depth_initial,
+            embedding_iteration=embedding_tries, max_tries=2, include_depth_initial=include_depth_initial,
             include_depth_main=include_depth_main, hdbscan_epsilon=hdbscan_epsilon,
             hdbscan_min_samples_range=hdbscan_min_samples_range, dist_metric=dist_metric,
             contigs2clusters_out_path=contigs2clusters_out_path,
@@ -1630,20 +1630,25 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         #     break
 
         # Experimental 'start with high cont thresh and go down' approach
-        if median_bins_per_round < 1 and internal_completeness > min_completeness and internal_min_marker_cont_size > 750 \
+
+        min_cont_size_val = max(750, check_sustainable_contig_number(x_contigs, 750, assembly_dict, max_contig_threshold))
+        logging.info(f'min_cont_size_val: {min_cont_size_val}.')
+
+        if median_bins_per_round < 1 and internal_completeness >= min_completeness and internal_min_marker_cont_size > min_cont_size_val \
            and not all_binned:
             internal_min_marker_cont_size -= 750
-            if internal_min_marker_cont_size < 750:
-                internal_min_marker_cont_size = 750
+            if internal_min_marker_cont_size < min_cont_size_val:
+                internal_min_marker_cont_size = min_cont_size_val
             logging.info(f'Median of good bins per round < 1. Minimum contig size lowered to {internal_min_marker_cont_size}.')
-        elif (median_bins_per_round < 1 and internal_min_marker_cont_size <= 750 and not all_binned \
+        elif (median_bins_per_round < 1 and internal_min_marker_cont_size <= min_cont_size_val and not all_binned \
                 and not internal_min_marker_cont_size > prev_round_internal_min_marker_cont_size)\
                 and internal_completeness > min_completeness:
             internal_completeness -= 10
+            if internal_completeness < 90:
+                min_purity = 90
             internal_min_marker_cont_size = initial_internal_min_marker_cont_size
             logging.info(f'Running with contigs >= {internal_min_marker_cont_size}bp, minimum completeness {internal_completeness}.')
-        elif len(list(good_bins.keys())) < 2 and not all_binned \
-                or internal_min_marker_cont_size < initial_internal_min_marker_cont_size:
+        elif len(list(good_bins.keys())) < 2 and not all_binned:
             logging.info('Reached min completeness and min contig size. Exiting embedding iteration')
             break
 

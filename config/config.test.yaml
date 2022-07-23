@@ -32,31 +32,31 @@ mantis_env: ""
 # Set path for conda envs to be installed to. By default, they will be put in `conda` in the binny dir.
 conda_source: ""
 # Input a list, e.g. '2,3,4'.
-kmers: '2,3,4'
+kmers: '2,3,4,5' # '2,3,4'
 # Mask potentially disruptive contig regions (e.g. rRNA and CRISPR elements) from k-mer counting
-mask_disruptive_sequences: 'True'
+mask_disruptive_sequences: 'False' # 'True'
 # Extract single contig MAGs of at least 90% purity and 92.5% completeness
-extract_scmags: 'False'
+extract_scmags: 'True'
 # Binny prefilters assemblies based on N<X> value to try and take as much information as possible into account,
 # while minimizing the amount of noise. Be aware that, depending on the assembly quality, low values as the N<X>
 # might results in leaving out a large proportion of the assembly (if the max_cont_length cutoffs are set high as well).
 NX_value: 95
 # Minimum and maximum contig length. Caps value from NX filtering.
-min_cont_length_cutoff: 1000 # 500
-max_cont_length_cutoff: 1000 # 1000
+min_cont_length_cutoff: 2000 # 500
+max_cont_length_cutoff: 2500 # 1000
 # Minimum and maximum length of contigs containing CheckM markers. Caps value from NX filtering (initial value is NX_value / 2).
-min_cont_length_cutoff_marker: 1000 # 250
-max_cont_length_cutoff_marker: 1000 # 400
+min_cont_length_cutoff_marker: 2000 # 250
+max_cont_length_cutoff_marker: 2500 # 400
 # Maximum number of contigs binny uses. If the number of available
 # contigs after minimum size filtering exceeds this, binny will
 # increase the minimum size threshold until the maximum is reached.
 # Prevents use of excessive amounts of memory on large assemblies.
 # Default should ensure adequate performance, adjust e.g. according
 # to available memory.
-max_n_contigs: 3.5e5
+max_n_contigs: 5.0e5
 # Maximum marker set lineage depth to check bin quality with:
 # 0: 'domain', 1: 'phylum', 2: 'class', 3: 'order', 4: 'family', 5: 'genus', 6: 'species'
-max_marker_lineage_depth_lvl: 0
+max_marker_lineage_depth_lvl: 1
 # Distance metric for opentSNE and HDBSCAN.
 distance_metric: 'manhattan'
 embedding:
@@ -66,20 +66,20 @@ clustering:
   # Increasing the HDBSCAN cluster selection epsilon beyond 0.5
   # is not advised as it might massively increase run time, but it might
   # help recover fragmented genomes that would be missed with lower settings.
-  hdbscan_epsilon_range: '0.500,0.000'
+  hdbscan_epsilon_range: '0.250,0.000'
   # Adapted from the HDBSCAN manual: 'Measure of how conservative the
   # clustering should be. With larger values, more points will be declared
   # as noise, and clusters will be restricted to progressively more dense areas.'.
-  hdbscan_min_samples_range: '1,2,4,6,8'
+  hdbscan_min_samples_range: '1,5,10' # '1,2,4,6,8'
   # Use depth as additional dimension during the initial clustering.
   include_depth_initial: 'False'
   # Use depth as additional dimension during the main clusterings.
-  include_depth_main: 'True'
+  include_depth_main: 'False' # 'True'
 bin_quality:
   # Minimum value binny will lower completeness to while running.
-  min_completeness: 70
+  min_completeness: 72.5
   # Completness threshold binny wilt begin with.
-  start_completeness: 90
+  start_completeness: 92.5
   # Minimum purity for bins to be selected.
-  purity: 90
+  purity: 95
 write_contig_data: 'True'
