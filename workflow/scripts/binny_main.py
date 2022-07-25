@@ -182,7 +182,7 @@ if write_contig_data:
     logging.info('Writing contig data to file.')
     compression_opts = dict(method='gzip')
     contig_data_df.to_csv(os.path.join(binny_out, 'contig_data.tsv.gz'), header=True, index=True, index_label='contig',
-                          chunksize=100000, compression=compression_opts, sep='\t')
+                          chunksize=250000, compression=compression_opts, sep='\t')
 
 os.mknod(os.path.join(binny_out, "binny.done"))
 
