@@ -34,7 +34,7 @@ mantis_env: ""
 # Set path for conda envs to be installed to. By default, they will be put in `conda` in the binny dir.
 conda_source: ""
 # Input a list, e.g. '2,3,4'.
-kmers: '2,3,4,5'
+kmers: '2,3,4'
 # Mask potentially disruptive contig regions (e.g. rRNA and CRISPR elements) from k-mer counting
 mask_disruptive_sequences: 'True'
 # Extract single contig MAGs of at least 90% purity and 92.5% completeness
