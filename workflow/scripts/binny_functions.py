@@ -1615,7 +1615,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
 
         if median_bins_per_round < 1 and internal_completeness >= min_completeness and internal_min_marker_cont_size > min_cont_size_val \
            and not all_binned:
-            internal_min_marker_cont_size -= 750
+            internal_min_marker_cont_size -= 500
             if internal_min_marker_cont_size < min_cont_size_val:
                 internal_min_marker_cont_size = min_cont_size_val
             logging.info(f'Median of good bins per round < 1. Minimum contig size lowered to {internal_min_marker_cont_size}.')
