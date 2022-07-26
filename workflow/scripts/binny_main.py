@@ -27,6 +27,7 @@ starting_completeness = float(snakemake.params['start_completeness'])
 kmers = snakemake.params['kmers']
 mask_disruptive_sequences = eval(snakemake.params['mask_disruptive_sequences'])
 extract_scmags = eval(snakemake.params['extract_scmags'])
+coassembly_mode = snakemake.params['coassembly_mode']
 nx_val = int(snakemake.params['nx_val'])
 min_contig_length = int(snakemake.params['min_cutoff'])
 max_contig_length = int(snakemake.params['max_cutoff'])
@@ -109,7 +110,7 @@ min_contig_length_marker = min(max(int(nx / 3), min_contig_length_marker), max_c
 #                                                                              and len(seq) >= min_contig_length_marker))
 #                                                                             and contig not in single_contig_bins]
 contig_list = [[contig] + [seq] for contig, seq in assembly_dict.items() if contig not in single_contig_bins
-                                                                            and len(seq) >= 750]
+                                                                            and len(seq) >= 500]
 
 # logging.info('{0} contigs match length threshold of {1}bp or contain marker genes and'
 #              ' have a size of at least {2}bp'.format(len(contig_list), min_contig_length, min_contig_length_marker))
@@ -138,6 +139,11 @@ main_contig_data_dict = {cont: seq for cont, seq in zip(x_contigs, x)}
 # Load depth data
 depth_dict = load_depth_dict(mg_depth_file)
 
+if coassembly_mode == 'on' or (coassembly_mode == 'auto' and list(depth_dict.values())[0].shape[0] > 1):
+    logging.info('list(depth_dict.values())[0].shape[0]:', list(depth_dict.values())[0].shape[0])
+    min_contig_length_marker = 500
+    logging.info('Using coassembly mode.')
+
 # Run iterative dimension reduction, manifold learning, cluster detection and assessment.
 all_good_bins, contig_data_df_org, min_purity = iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completeness,
                                                         min_purity, min_completeness, threads, n_dim, annot_file,
@@ -148,7 +154,8 @@ all_good_bins, contig_data_df_org, min_purity = iterative_embedding(x_contigs, d
                                                         include_depth_main, hdbscan_epsilon_range,
                                                         hdbscan_min_samples_range, dist_metric,
                                                         contigs2clusters_out_path=os.path.join(binny_out, 'intermediary'),
-                                                        max_marker_lineage_depth_lvl=max_marker_lineage_depth_lvl)
+                                                        max_marker_lineage_depth_lvl=max_marker_lineage_depth_lvl,
+                                                        coassembly_mode=coassembly_mode)
 
 all_contigs = []
 for bin in all_good_bins:
