@@ -1612,7 +1612,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
 
         logging.info('Good bins this embedding iteration: {0}.'.format(len(good_bins.keys())))
 
-        logging.info('round_x_depth.shape[0]:', round_x_depth.shape[0])
+        logging.info('round_x_depth.shape[0]:', round_x_depth.shape[0], 'round_x_depth.shape[0] > 1:', round_x_depth.shape[0] > 1)
 
         if coassembly_mode == 'on' or (coassembly_mode == 'auto' and round_x_depth.shape[0] > 1):
             if median_bins_per_round < 1 and internal_completeness > min_completeness and final_try_counter == 0 \
