@@ -139,9 +139,9 @@ main_contig_data_dict = {cont: seq for cont, seq in zip(x_contigs, x)}
 # Load depth data
 depth_dict = load_depth_dict(mg_depth_file)
 n_depth_samples = list(depth_dict.values())[0].shape[0]
+logging.debug(f'list(depth_dict.values())[0].shape[0]: {n_depth_samples}')
 
 if coassembly_mode == 'on' or (coassembly_mode == 'auto' and n_depth_samples > 1):
-    logging.info('list(depth_dict.values())[0].shape[0]:', n_depth_samples)
     min_contig_length_marker = 500
     if n_depth_samples >= 3:
         include_depth_main = True
