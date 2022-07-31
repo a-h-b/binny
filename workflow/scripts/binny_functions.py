@@ -1479,15 +1479,15 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         logging.info('Running manifold learning and dimensionality-reduction.')
         n_pca_tries = 0
 
-        if len(round_x_contigs) > 30:
-            n_comp = 30
+        if len(round_x_contigs) > 40:
+            n_comp = 40
         else:
             n_comp = len(round_x_contigs) - 1
 
         pca = PCA(n_components=n_comp, random_state=0)
         transformer = pca.fit(x_scaled)
         sum_var_exp = sum(pca.explained_variance_ratio_)
-        while sum_var_exp <= 0.75 and n_pca_tries <= 100 and len(pca.explained_variance_ratio_) <= 70 \
+        while sum_var_exp <= 0.75 and n_pca_tries <= 100 and len(pca.explained_variance_ratio_) <= 60 \
                 and not len(round_x_contigs) <= n_comp:
             pca = PCA(n_components=n_comp, random_state=0)
             transformer = pca.fit(x_scaled)
