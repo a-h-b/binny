@@ -244,7 +244,7 @@ rule format_assembly:
        os.path.join(ENVDIR, "fasta_processing.yaml")
     shell:
        """
-       seqkit seq {input} -o {output} -w 80 -m 749 \
+       seqkit seq {input} -o {output} -w 80 -m 499 \
        && \
        rm -f {input}
        """
