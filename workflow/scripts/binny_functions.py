@@ -399,6 +399,9 @@ def get_sub_clusters(cluster_dicts, threads_for_dbscan, marker_sets_graph, tigrf
                 cluster_pur_thresh = 0.95
 
         if clust_taxon in ['Bacteria', 'Archaea']:
+            if cluster_pur_thresh < 0.95:
+                cluster_pur_thresh = 0.95
+
             if 0.850 < clust_comp <= 0.900:
                 if cluster_pur_thresh < 0.925:
                     cluster_pur_thresh = 0.925
@@ -1270,11 +1273,6 @@ def choose_checkm_marker_set(marker_list, marker_sets_graph, tigrfam2pfam_data_d
             node_marker_set_completeness = node_stats[0]
             node_marker_set_purity = node_stats[1]
 
-            # # Minimize use of Kingdom level sets, which are most error prone
-            # if node in ['Bacteria', 'Archaea']:
-                # node_marker_set_completeness -= 0.05
-                # node_marker_set_purity -= 0.05
-
             node_marker_set_completeness_score = round(node_marker_set_completeness
                                                        * node_n_marker_sets / node_n_markers * 100, 3)
 
@@ -1620,7 +1618,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
                     and not all_binned:
                 internal_completeness -= 10
                 if internal_completeness < 90:
-                    min_purity = 90
+                    min_purity = 92.5
                 logging.info(
                     f'Median of good bins per round < 1. Minimum completeness lowered to {internal_completeness}.')
             elif median_bins_per_round < 1 and final_try_counter <= 4 and not all_binned \
@@ -1650,7 +1648,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
                     and internal_completeness > min_completeness:
                 internal_completeness -= 10
                 if internal_completeness < 90:
-                    min_purity = 90
+                    min_purity = 92.5
                 internal_min_marker_cont_size = initial_internal_min_marker_cont_size
                 logging.info(f'Running with contigs >= {internal_min_marker_cont_size}bp,'
                              f' minimum completeness {internal_completeness}.')
