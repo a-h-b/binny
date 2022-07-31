@@ -48,11 +48,11 @@ coassembly_mode: 'auto'
 # might results in leaving out a large proportion of the assembly (if the max_cont_length cutoffs are set high as well).
 NX_value: 90
 # Minimum and maximum contig length. Caps value from NX filtering.
-min_cont_length_cutoff: 2500  # 500
-max_cont_length_cutoff: 2500  # 1000
+min_cont_length_cutoff: 2000  # 500
+max_cont_length_cutoff: 2000  # 1000
 # Minimum and maximum length of contigs containing CheckM markers. Caps value from NX filtering (initial value is NX_value / 2).
-min_cont_length_cutoff_marker: 2500  # 250
-max_cont_length_cutoff_marker: 2500  # 400
+min_cont_length_cutoff_marker: 2000  # 250
+max_cont_length_cutoff_marker: 2000  # 400
 # Maximum number of contigs binny uses. If the number of available
 # contigs after minimum size filtering exceeds this, binny will
 # increase the minimum size threshold until the maximum is reached.
