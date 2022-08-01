@@ -1514,7 +1514,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
 
         learning_rate = max(2, int(len(x_pca) / early_exagg))  # learning_rate_factor
         logging.debug(f'tSNE learning rate: {learning_rate}, early_exagg: {early_exagg},'
-                     f' perplexies: {perplexities}, pk_factor: {pk_factor}')
+                      f' perplexies: {perplexities}, pk_factor: {pk_factor}')
 
         logging.info(f'Initializing embedding.')
 
@@ -1611,14 +1611,16 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         logging.info('Good bins this embedding iteration: {0}.'.format(len(good_bins.keys())))
 
         logging.debug(f'round_x_depth.shape: {round_x_depth.shape}. round_x_depth.shape[1]: {round_x_depth.shape[1]}.'
-                     f' Is round_x_depth.shape[1] > 1 ?: {round_x_depth.shape[1] > 1}')
+                      f' Is round_x_depth.shape[1] > 1 ?: {round_x_depth.shape[1] > 1}')
 
         if coassembly_mode == 'on' or (coassembly_mode == 'auto' and round_x_depth.shape[1] > 1):
             if median_bins_per_round < 1 and internal_completeness > min_completeness and final_try_counter == 0 \
                     and not all_binned:
                 internal_completeness -= 10
-                if internal_completeness < 90:
+                if 80 < internal_completeness < 90:
                     min_purity = 92.5
+                elif internal_completeness < 80:
+                    min_purity = 87.5
                 logging.info(
                     f'Median of good bins per round < 1. Minimum completeness lowered to {internal_completeness}.')
             elif median_bins_per_round < 1 and final_try_counter <= 4 and not all_binned \
@@ -1635,23 +1637,28 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
             min_cont_size_val = max(500, check_sustainable_contig_number(x_contigs, 500, assembly_dict,
                                                                          max_contig_threshold))
 
-        if median_bins_per_round < 1 and internal_completeness >= min_completeness and internal_min_marker_cont_size > min_cont_size_val \
-           and not all_binned:
-            internal_min_marker_cont_size -= 750
-            if internal_min_marker_cont_size < min_cont_size_val:
-                internal_min_marker_cont_size = min_cont_size_val
-            logging.info(f'Median of good bins per round < 1. Minimum contig size lowered to {internal_min_marker_cont_size}.')
-        elif (median_bins_per_round < 1 and internal_min_marker_cont_size <= min_cont_size_val and not all_binned \
-                and not internal_min_marker_cont_size > prev_round_internal_min_marker_cont_size)\
-                and internal_completeness > min_completeness:
-            internal_completeness -= 10
-            if internal_completeness < 90:
-                min_purity = 92.5
-            internal_min_marker_cont_size = initial_internal_min_marker_cont_size
-            logging.info(f'Running with contigs >= {internal_min_marker_cont_size}bp, minimum completeness {internal_completeness}.')
-        elif len(list(good_bins.keys())) < 2 and not all_binned:
-            logging.info('Reached min completeness and min contig size. Exiting embedding iteration')
-            break
+            if median_bins_per_round < 1 and internal_completeness >= min_completeness \
+               and internal_min_marker_cont_size > min_cont_size_val \
+               and not all_binned:
+                internal_min_marker_cont_size -= 750
+                if internal_min_marker_cont_size < min_cont_size_val:
+                    internal_min_marker_cont_size = min_cont_size_val
+                logging.info(f'Median of good bins per round < 1. Minimum contig size'
+                             f' lowered to {internal_min_marker_cont_size}.')
+            elif (median_bins_per_round < 1 and internal_min_marker_cont_size <= min_cont_size_val and not all_binned
+                    and not internal_min_marker_cont_size > prev_round_internal_min_marker_cont_size)\
+                    and internal_completeness > min_completeness:
+                internal_completeness -= 10
+                if 80 < internal_completeness < 90:
+                    min_purity = 92.5
+                elif internal_completeness < 80:
+                    min_purity = 87.5
+                internal_min_marker_cont_size = initial_internal_min_marker_cont_size
+                logging.info(f'Running with contigs >= {internal_min_marker_cont_size}bp,'
+                             f' minimum completeness {internal_completeness}.')
+            elif len(list(good_bins.keys())) < 2 and not all_binned:
+                logging.info('Reached min completeness and min contig size. Exiting embedding iteration')
+                break
 
         prev_round_internal_min_marker_cont_size = internal_min_marker_cont_size
 
