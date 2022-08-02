@@ -391,12 +391,12 @@ def get_sub_clusters(cluster_dicts, threads_for_dbscan, marker_sets_graph, tigrf
 
         cluster_pur_thresh = purity_threshold
 
-        if 0.700 < clust_comp <= 0.800:
-            if cluster_pur_thresh < 0.925:
-                cluster_pur_thresh = 0.925
-        elif clust_comp <= 0.700:
-            if cluster_pur_thresh < 0.95:
-                cluster_pur_thresh = 0.95
+        # if 0.700 < clust_comp <= 0.800:
+        #     if cluster_pur_thresh < 0.925:
+        #         cluster_pur_thresh = 0.925
+        # elif clust_comp <= 0.700:
+        #     if cluster_pur_thresh < 0.95:
+        #         cluster_pur_thresh = 0.95
 
         if clust_taxon in ['Bacteria', 'Archaea']:
             if cluster_pur_thresh < 0.95:
@@ -1419,6 +1419,8 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
 
     initial_internal_min_marker_cont_size = internal_min_marker_cont_size
 
+    hdbscan_sub_clust_max_tries = 1
+
     while embedding_tries <= max_embedding_tries:
         if embedding_tries == 1:
             internal_min_marker_cont_size = check_sustainable_contig_number(x_contigs, internal_min_marker_cont_size,
@@ -1602,10 +1604,10 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
         # Find bins
         good_bins, final_init_clust_dict, all_binned, median_bins_per_round = binny_iterate(contig_data_df, threads,
             taxon_marker_sets, tigrfam2pfam_data, min_purity, internal_completeness, len(hdbscan_min_samples_range),
-            embedding_iteration=embedding_tries, max_tries=1, include_depth_initial=include_depth_initial,
-            include_depth_main=include_depth_main, hdbscan_epsilon=hdbscan_epsilon,
-            hdbscan_min_samples_range=hdbscan_min_samples_range, dist_metric=dist_metric,
-            contigs2clusters_out_path=contigs2clusters_out_path,
+            embedding_iteration=embedding_tries, max_tries=hdbscan_sub_clust_max_tries,
+            include_depth_initial=include_depth_initial, include_depth_main=include_depth_main,
+            hdbscan_epsilon=hdbscan_epsilon, hdbscan_min_samples_range=hdbscan_min_samples_range,
+            dist_metric=dist_metric, contigs2clusters_out_path=contigs2clusters_out_path,
             max_marker_lineage_depth_lvl=max_marker_lineage_depth_lvl)
 
         logging.info('Good bins this embedding iteration: {0}.'.format(len(good_bins.keys())))
@@ -1621,6 +1623,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
                     min_purity = 92.5
                 elif internal_completeness < 80:
                     min_purity = 87.5
+                    hdbscan_sub_clust_max_tries = 2
                 logging.info(
                     f'Median of good bins per round < 1. Minimum completeness lowered to {internal_completeness}.')
             elif median_bins_per_round < 1 and final_try_counter <= 4 and not all_binned \
@@ -1653,6 +1656,7 @@ def iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completen
                     min_purity = 92.5
                 elif internal_completeness < 80:
                     min_purity = 87.5
+                    hdbscan_sub_clust_max_tries = 2
                 internal_min_marker_cont_size = initial_internal_min_marker_cont_size
                 logging.info(f'Running with contigs >= {internal_min_marker_cont_size}bp,'
                              f' minimum completeness {internal_completeness}.')
