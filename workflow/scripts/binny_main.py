@@ -26,12 +26,15 @@ min_completeness = float(snakemake.params['min_completeness'])
 starting_completeness = float(snakemake.params['start_completeness'])
 kmers = snakemake.params['kmers']
 mask_disruptive_sequences = eval(snakemake.params['mask_disruptive_sequences'])
+extract_scmags = eval(snakemake.params['extract_scmags'])
+coassembly_mode = snakemake.params['coassembly_mode']
 nx_val = int(snakemake.params['nx_val'])
 min_contig_length = int(snakemake.params['min_cutoff'])
 max_contig_length = int(snakemake.params['max_cutoff'])
 min_contig_length_marker = int(snakemake.params['min_cutoff_marker'])
 max_contig_length_marker = int(snakemake.params['max_cutoff_marker'])
 max_contig_threshold = float(snakemake.params['max_n_contigs'])
+max_marker_lineage_depth_lvl = int(snakemake.params['max_marker_lineage_depth_lvl'])
 max_embedding_tries = int(snakemake.params['max_embedding_tries'])
 include_depth_initial = eval(snakemake.params['include_depth_initial'])
 include_depth_main = eval(snakemake.params['include_depth_main'])
@@ -82,12 +85,15 @@ taxon_marker_sets = load_checkm_markers(taxon_marker_set_file)
 
 # Look for complete genomes on single contigs
 all_good_bins = {}
-logging.info('Looking for single contig bins.')
-single_contig_bins = get_single_contig_bins(annot_df, all_good_bins, n_dim, taxon_marker_sets, tigrfam2pfam_data,
-                                            threads)
-logging.info('Found {0} single contig bins.'.format(len(single_contig_bins)))
+if extract_scmags:
+    logging.info('Looking for single contig bins.')
+    single_contig_bins = get_single_contig_bins(annot_df, all_good_bins, n_dim, taxon_marker_sets, tigrfam2pfam_data,
+                                                threads, max_marker_lineage_depth_lvl=max_marker_lineage_depth_lvl)
+    logging.info('Found {0} single contig bins.'.format(len(single_contig_bins)))
+else:
+    single_contig_bins = []
 
-logging.info('Getting assembly dict without scMAG.'.format(len(single_contig_bins)))
+# logging.info('Getting assembly dict without scMAG.'.format(len(single_contig_bins)))
 # assembly_dict_wo_scmags = {key: val for key, val in assembly_dict.items() if key in
 #                            set(assembly_dict.keys()).difference(set(single_contig_bins))}
 
@@ -99,13 +105,15 @@ min_contig_length = min(max(nx, min_contig_length), max_contig_length)
 min_contig_length_marker = min(max(int(nx / 3), min_contig_length_marker), max_contig_length_marker)
 
 # Load assembly and mask rRNAs and CRISPR arrays
-contig_list = [[contig] + [seq] for contig, seq in assembly_dict.items() if (len(seq) >= min_contig_length
-                                                                             or (annot_dict.get(contig)
-                                                                             and len(seq) >= min_contig_length_marker))
-                                                                            and contig not in single_contig_bins]
+# contig_list = [[contig] + [seq] for contig, seq in assembly_dict.items() if (len(seq) >= min_contig_length
+#                                                                              or (annot_dict.get(contig)
+#                                                                              and len(seq) >= min_contig_length_marker))
+#                                                                             and contig not in single_contig_bins]
+contig_list = [[contig] + [seq] for contig, seq in assembly_dict.items() if contig not in single_contig_bins
+                                                                            and len(seq) >= 500]
 
-logging.info('{0} contigs match length threshold of {1}bp or contain marker genes and'
-             ' have a size of at least {2}bp'.format(len(contig_list), min_contig_length, min_contig_length_marker))
+# logging.info('{0} contigs match length threshold of {1}bp or contain marker genes and'
+#              ' have a size of at least {2}bp'.format(len(contig_list), min_contig_length, min_contig_length_marker))
 
 contig_rrna_crispr_region_dict = gff2low_comp_feature_dict(annot_file)
 if mask_disruptive_sequences:
@@ -130,6 +138,16 @@ main_contig_data_dict = {cont: seq for cont, seq in zip(x_contigs, x)}
 
 # Load depth data
 depth_dict = load_depth_dict(mg_depth_file)
+n_depth_samples = list(depth_dict.values())[0].shape[0]
+logging.debug(f'list(depth_dict.values())[0].shape[0]: {n_depth_samples}')
+
+if coassembly_mode == 'on' or (coassembly_mode == 'auto' and n_depth_samples > 1):
+    min_contig_length_marker = 500
+    if n_depth_samples >= 3:
+        include_depth_main = True
+    logging.info('Using coassembly mode.')
+else:
+    logging.info('Using single sample mode.')
 
 # Run iterative dimension reduction, manifold learning, cluster detection and assessment.
 all_good_bins, contig_data_df_org, min_purity = iterative_embedding(x_contigs, depth_dict, all_good_bins, starting_completeness,
@@ -140,8 +158,9 @@ all_good_bins, contig_data_df_org, min_purity = iterative_embedding(x_contigs, d
                                                         include_depth_initial, max_embedding_tries,
                                                         include_depth_main, hdbscan_epsilon_range,
                                                         hdbscan_min_samples_range, dist_metric,
-                                                        contigs2clusters_out_path=os.path.join(binny_out,
-                                                                                               'intermediary'))
+                                                        contigs2clusters_out_path=os.path.join(binny_out, 'intermediary'),
+                                                        max_marker_lineage_depth_lvl=max_marker_lineage_depth_lvl,
+                                                        coassembly_mode=coassembly_mode)
 
 all_contigs = []
 for bin in all_good_bins:
@@ -175,7 +194,7 @@ if write_contig_data:
     logging.info('Writing contig data to file.')
     compression_opts = dict(method='gzip')
     contig_data_df.to_csv(os.path.join(binny_out, 'contig_data.tsv.gz'), header=True, index=True, index_label='contig',
-                          chunksize=100000, compression=compression_opts, sep='\t')
+                          chunksize=250000, compression=compression_opts, sep='\t')
 
 os.mknod(os.path.join(binny_out, "binny.done"))
 

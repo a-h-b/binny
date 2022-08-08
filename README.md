@@ -109,3 +109,14 @@ If you want to share the conda installation with colleagues, use the `--conda-pr
 snakemake -j 50 -s Snakefile --cluster-config PATH/TO/SCHEDULER.config.yaml --cluster "{cluster.call} {cluster.runtime}{params.runtime} {cluster.mem_per_cpu}{resources.mem} {cluster.threads}{threads} {cluster.partition}" --use-conda --conda-prefix /PATH/TO/YOUR/COMMON/CONDA/DIRECTORY
 ```
 Depending on your dataset and settings, and your cluster's queue, the workflow will take a few minutes to days to finish.
+
+
+### CheckM databases
+
+The marker gene data file `checkm_data_2015_01_16.tar.gz` is downloaded from [here](https://data.ace.uq.edu.au/public/CheckM_databases), and the following files are processed:
+* taxon_marker_sets.tsv
+* tigrfam2pfam.tsv
+* checkm.hmm
+
+The processed marker gene file, `taxon_marker_sets_lineage_sorted.tsv`, can be found in the `database` directory by default and is generated using `remove_unused_checkm_hmm_profiles.py` found under
+`workflow/scripts`.

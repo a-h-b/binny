@@ -17,3 +17,10 @@ config/c2_t_oral_s17_config.yaml
 config/config.gomico.G64.yaml
 *gomico_G*_test*
 !.gitignore
+G64_max_900.fa
+contigs_4bins_max_999.fa
+metabat_test/
+report.html
+test/contigs_4bins_max_999.fa
+test_output2/
+tmp.bam

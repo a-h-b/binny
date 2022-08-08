@@ -231,6 +231,8 @@ rule format_assembly:
         os.path.join(OUTPUTDIR, "intermediary/assembly.fa")
     output:
         os.path.join(OUTPUTDIR, "intermediary/assembly.formatted.fa")
+    params:
+        min_length=int(config["min_cont_length_cutoff_marker"]) - 1
     threads: 
         getThreads(1)
     resources:
@@ -241,7 +243,11 @@ rule format_assembly:
     conda:
        os.path.join(ENVDIR, "fasta_processing.yaml")
     shell:
-       "seqkit seq {input} -o {output} -w 80"
+       """
+       seqkit seq {input} -o {output} -w 80 -m 499 \
+       && \
+       rm -f {input}
+       """
 
 # contig depth
 if not CONTIG_DEPTH:
@@ -412,12 +418,15 @@ rule binny:
         purity=config["bin_quality"]["purity"],
         kmers=config["kmers"],
         mask_disruptive_sequences=config["mask_disruptive_sequences"],
+        extract_scmags=config["extract_scmags"],
+        coassembly_mode=config["coassembly_mode"],
         min_cutoff=config["min_cont_length_cutoff"],
         max_cutoff=config["max_cont_length_cutoff"],
         min_cutoff_marker=config["min_cont_length_cutoff_marker"],
         max_cutoff_marker=config["max_cont_length_cutoff_marker"],
         nx_val=config["NX_value"],
         max_n_contigs=config["max_n_contigs"],
+        max_marker_lineage_depth_lvl=config["max_marker_lineage_depth_lvl"],
         distance_metric=config["distance_metric"],
         max_embedding_tries=config["embedding"]["max_iterations"],
         include_depth_initial=config["clustering"]["include_depth_initial"],
