@@ -38,6 +38,7 @@ sed -i -e "s|prokka_env: \"\"|prokka_env: \"${my_prokka_env}\"|g" \
 ```
 ./binny -i config/config.init.yaml 
 ```
+Binny uses the database of CheckM marker genes, which is downloaded and prepared at this point. See the [CheckM](#checkm-databases) section below, if you want to retrieve it manually.
 
 4) Test run
 ```
@@ -120,3 +121,12 @@ The marker gene data file `checkm_data_2015_01_16.tar.gz` is downloaded from [he
 
 The processed marker gene file, `taxon_marker_sets_lineage_sorted.tsv`, can be found in the `database` directory by default and is generated using `remove_unused_checkm_hmm_profiles.py` found under
 `workflow/scripts`.
+
+To set the files up manually, create the `database` directory and download `https://data.ace.uq.edu.au/public/CheckM_databases/checkm_data_2015_01_16.tar.gz` into it, before initializing binny, e.g.:
+```
+mkdir database
+cd database
+wget https://data.ace.uq.edu.au/public/CheckM_databases/checkm_data_2015_01_16.tar.gz
+cd ..
+./binny -i config/config.init.yaml 
+```
