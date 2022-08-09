@@ -158,10 +158,12 @@ else:
     DBPATH = os.path.expandvars(config['db_path'])
     if not os.path.isabs(DBPATH):
         DBPATH = os.path.join(os.getcwd(), DBPATH)
-if not os.path.exists(DBPATH):
+if not os.path.exists(os.path.join(DBPATH, "taxon_marker_sets_lineage_sorted.tsv")):
     print("Setting up marker database")
-    os.makedirs(DBPATH)
-    urllib.request.urlretrieve("https://data.ace.uq.edu.au/public/CheckM_databases/checkm_data_2015_01_16.tar.gz", os.path.join(DBPATH, "checkm_data_2015_01_16.tar.gz"))
+    if not os.path.exists(DBPATH):
+        os.makedirs(DBPATH)
+    if not os.path.exists(os.path.join(DBPATH, "checkm_data_2015_01_16.tar.gz")):	
+        urllib.request.urlretrieve("https://data.ace.uq.edu.au/public/CheckM_databases/checkm_data_2015_01_16.tar.gz", os.path.join(DBPATH, "checkm_data_2015_01_16.tar.gz"))
     checkm_tar = tarfile.open(os.path.join( DBPATH, "checkm_data_2015_01_16.tar.gz"))
     checkm_tar.extract("./taxon_marker_sets.tsv",DBPATH)
     checkm_tar.extract("./pfam/tigrfam2pfam.tsv",DBPATH)
