@@ -199,7 +199,7 @@ if [ "$SNAKEMAKE_VIA_CONDA" = true ]; then
         env_manager="mamba"
       fi
       echo "Creating snakemake environment"
-      ${env_manager} create --prefix ${CONDA_SOURCE}/snakemake_env snakemake=6.9.1 mamba>=0.22.1 unzip python=3.8 -c conda-forge -c bioconda --yes
+      ${env_manager} create --prefix ${CONDA_SOURCE}/snakemake_env snakemake=7.16.0 mamba>=0.22.1 unzip python=3.8 -c conda-forge -c bioconda --yes
     fi
     CONDA_START="conda activate ${CONDA_SOURCE}/snakemake_env"
   fi
